@@ -1,0 +1,41 @@
+<view class="heat {{compact ? 'heat--compact' : ''}}">
+  <!-- 月份刻度：与下方每一列一一对齐 -->
+  <view wx:if="{{showMonths}}" class="heat-months">
+    <view wx:for="{{monthSlots}}" wx:key="index" class="heat-month-cell">
+      <text wx:if="{{item}}">{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 主体：横向 N 列 × 纵向 7 行（周一到周日） -->
+  <view class="heat-body">
+    <!-- 星期刻度：7 个槽位与右侧 7 行一一对应，只标注 一/三/五/日 -->
+    <view wx:if="{{!compact}}" class="heat-weekdays">
+      <view wx:for="{{['一','','三','','五','','日']}}" wx:key="index" class="heat-weekday">{{item}}</view>
+    </view>
+
+    <view class="heat-grid">
+      <view wx:for="{{columns}}" wx:key="index" class="heat-col">
+        <view
+          wx:for="{{item}}"
+          wx:for-item="cell"
+          wx:key="date"
+          class="heat-cell {{cell.future ? 'heat-cell--future' : ''}}"
+          style="{{cell.future ? '' : 'background:' + (cell.level === 0 ? 'var(--heat-0)' : 'var(--heat-' + cell.level + ')')}}"
+          data-date="{{cell.date}}"
+          bindtap="onCellTap"
+        ></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 图例 -->
+  <view wx:if="{{showLegend && !compact}}" class="heat-legend">
+    <text class="heat-legend-text">少</text>
+    <view class="heat-legend-cell" style="background: var(--heat-0)"></view>
+    <view class="heat-legend-cell" style="background: var(--heat-1)"></view>
+    <view class="heat-legend-cell" style="background: var(--heat-2)"></view>
+    <view class="heat-legend-cell" style="background: var(--heat-3)"></view>
+    <view class="heat-legend-cell" style="background: var(--heat-4)"></view>
+    <text class="heat-legend-text">多</text>
+  </view>
+</view>

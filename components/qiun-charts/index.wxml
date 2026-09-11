@@ -1,0 +1,22 @@
+<!--
+  canvas 始终渲染：uCharts 需要在 ready 阶段就能查到节点。
+  无数据时用同高的浮层盖住，而不是销毁 canvas（销毁后节点查询会失败）。
+
+  hidden=true（上层有弹层）时整个 wrap display:none：canvas 是原生组件，
+  普通组件盖不住它，只能让它不存在。详见 index.js 里 hidden 的注释。
+-->
+<view class="chart-wrap {{hidden ? 'chart-wrap--hidden' : ''}}" style="height: {{height}}rpx;">
+  <canvas
+    type="2d"
+    id="{{canvasId}}"
+    class="chart-canvas"
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+  ></canvas>
+
+  <view wx:if="{{!hasData}}" class="chart-empty">
+    <view class="chart-empty-dot"></view>
+    <text class="chart-empty-text">该区间暂无打卡数据</text>
+  </view>
+</view>

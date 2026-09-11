@@ -1,0 +1,64 @@
+<view
+  wx:if="{{item}}"
+  class="hc card press"
+  bindtap="onTapCard"
+  bindlongpress="onLongPress"
+>
+  <!-- 顶部：图标 / 名称 / 今日状态 -->
+  <view class="hc-head">
+    <view class="hc-icon" style="background: {{item.habit.color}}22; border-color: {{item.habit.color}}44;">
+      {{item.habit.icon}}
+    </view>
+
+    <view class="hc-title-wrap">
+      <view class="hc-name ellipsis">{{item.habit.name}}</view>
+      <view class="hc-meta">
+        <view wx:if="{{item.streak > 0}}" class="hc-streak">
+          <view class="ic ic-fire-active hc-fire"></view>
+          <text>{{item.streak}} 天</text>
+        </view>
+        <text wx:else class="hc-meta-idle">还没有连续记录</text>
+      </view>
+    </view>
+
+    <view class="hc-today {{item.done ? 'hc-today--done' : ''}}" style="{{item.done ? 'background:' + item.habit.color + '22;color:' + item.habit.color : ''}}">
+      <text wx:if="{{item.done}}" class="hc-today-text">{{item.todayText}}{{item.habit.unit}}</text>
+      <text wx:else class="hc-today-text">未打卡</text>
+      <text class="hc-today-label">今日{{item.todayCount > 0 ? ' · ' + item.todayCount + ' 次' : ''}}</text>
+    </view>
+  </view>
+
+  <!-- 目标进度（设了目标才显示） -->
+  <view wx:if="{{item.habit.target > 0}}" class="hc-progress">
+    <view class="hc-progress-bar">
+      <view
+        class="hc-progress-fill"
+        style="width: {{item.progress}}%; background: {{item.habit.color}};"
+      ></view>
+    </view>
+    <text class="hc-progress-text">{{item.progress}}%</text>
+  </view>
+
+  <!-- 近 N 周热力概览 -->
+  <view wx:if="{{showHeat}}" class="hc-heat">
+    <heatmap
+      dayMap="{{item.dayMap}}"
+      weeks="{{weeks}}"
+      target="{{item.habit.target}}"
+      compact="{{true}}"
+      showMonths="{{false}}"
+      showLegend="{{false}}"
+    />
+  </view>
+
+  <!-- 底部操作 -->
+  <view class="hc-foot">
+    <text class="hc-foot-hint">累计 {{item.totalText}}{{item.habit.unit}} · 共 {{item.totalCount}} 次</text>
+    <view
+      class="hc-btn"
+      style="background: {{item.habit.color}};"
+      data-id="{{item.habit.id}}"
+      catchtap="onCheckin"
+    >打卡</view>
+  </view>
+</view>

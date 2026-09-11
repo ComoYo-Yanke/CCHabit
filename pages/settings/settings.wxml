@@ -1,0 +1,198 @@
+<!-- page-meta 必须是页面第一个节点；作用见 pages/habit-detail 顶部注释 -->
+<page-meta page-style="{{showImport ? 'overflow: hidden;' : ''}}"></page-meta>
+
+<view class="page">
+  <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
+    <view class="hero-title">我的</view>
+    <view class="hero-date">数据只保存在这台手机上</view>
+  </view>
+
+  <!-- ============ 数据概览 ============ -->
+  <view class="section">
+    <view class="tiles-row">
+      <view class="tile">
+        <view class="tile-value">{{habitCount}}</view>
+        <view class="tile-label">习惯</view>
+      </view>
+      <view class="tile">
+        <view class="tile-value">{{recordCount}}</view>
+        <view class="tile-label">打卡记录</view>
+      </view>
+      <view class="tile">
+        <view class="tile-value">{{usedDays}}</view>
+        <view class="tile-label">使用天数</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 存储管理 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">存储管理</text>
+      <text class="section-sub">{{usageText}}</text>
+    </view>
+
+    <view class="card">
+      <view class="usage-bar">
+        <view
+          class="usage-fill usage-fill--{{usage.level}}"
+          style="width: {{usage.percent}}%;"
+        ></view>
+      </view>
+      <view class="row-between usage-meta">
+        <text class="f-22 t-3">已使用 {{usage.percent}}%</text>
+        <text class="f-22 {{usage.level === 'danger' ? 't-danger' : usage.level === 'warn' ? 't-warn' : 't-3'}}">
+          {{usage.level === 'danger' ? '空间紧张，建议清理' : usage.level === 'warn' ? '已用较多，注意备份' : '空间充足'}}
+        </text>
+      </view>
+
+      <view class="op-list">
+        <view class="op press" bindtap="onExport">
+          <view class="op-icon ic ic-spark-active"></view>
+          <view class="flex-1">
+            <view class="op-title">导出备份</view>
+            <view class="op-desc">全部数据转成 JSON 复制到剪贴板</view>
+          </view>
+          <view class="ic ic-right-idle op-arrow"></view>
+        </view>
+
+        <view class="op press" bindtap="onOpenImport">
+          <view class="op-icon ic ic-edit-active"></view>
+          <view class="flex-1">
+            <view class="op-title">导入数据</view>
+            <view class="op-desc">粘贴备份内容，覆盖当前数据</view>
+          </view>
+          <view class="ic ic-right-idle op-arrow"></view>
+        </view>
+
+        <view class="op press" bindtap="onClearAll">
+          <view class="op-icon ic ic-trash-active"></view>
+          <view class="flex-1">
+            <view class="op-title t-danger">清空全部数据</view>
+            <view class="op-desc">删除所有习惯与打卡记录</view>
+          </view>
+          <view class="ic ic-right-idle op-arrow"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 习惯管理 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">习惯管理</text>
+      <text class="section-sub">关闭后不计入统计</text>
+    </view>
+
+    <view wx:if="{{!habits.length}}" class="card">
+      <view class="empty" style="padding: 44rpx 0;">
+        <view class="empty-desc">还没有习惯，去首页创建一个吧</view>
+      </view>
+    </view>
+
+    <view wx:else class="card" style="padding: 8rpx 28rpx;">
+      <view wx:for="{{habits}}" wx:key="id" class="mg-item">
+        <view class="mg-main press" data-id="{{item.id}}" bindtap="onHabitTap">
+          <view class="mg-icon" style="background: {{item.color}}22; border-color: {{item.color}}44;">
+            {{item.icon}}
+          </view>
+          <view class="flex-1">
+            <view class="mg-name ellipsis {{item.enabled ? '' : 'mg-name--off'}}">{{item.name}}</view>
+            <view class="mg-desc">{{item.count}} 条记录</view>
+          </view>
+        </view>
+        <switch
+          checked="{{item.enabled}}"
+          color="{{item.color}}"
+          data-id="{{item.id}}"
+          bindchange="onToggleHabit"
+        />
+      </view>
+    </view>
+
+    <view class="btn btn--ghost mg-add" bindtap="onAddHabit">新建习惯</view>
+  </view>
+
+  <!-- ============ 偏好设置 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">偏好设置</text>
+    </view>
+    <view class="card" style="padding: 8rpx 28rpx;">
+      <view class="sw-item">
+        <view class="flex-1">
+          <view class="sw-title">打卡震动反馈</view>
+          <view class="sw-desc">打卡成功时轻微震动</view>
+        </view>
+        <switch
+          checked="{{settings.haptic}}"
+          color="#5B8CFF"
+          data-field="haptic"
+          bindchange="onToggleSetting"
+        />
+      </view>
+      <view class="sw-item sw-item--last">
+        <view class="flex-1">
+          <view class="sw-title">删除前二次确认</view>
+          <view class="sw-desc">删除习惯时弹出确认提示</view>
+        </view>
+        <switch
+          checked="{{settings.confirmDelete}}"
+          color="#5B8CFF"
+          data-field="confirmDelete"
+          bindchange="onToggleSetting"
+        />
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 关于 ============ -->
+  <view class="section">
+    <view class="card press" bindtap="onAbout">
+      <view class="row-between">
+        <text class="f-28">关于习惯打卡</text>
+        <view class="row">
+          <text class="f-24 t-3">v{{version}}</text>
+          <view class="ic ic-right-idle op-arrow"></view>
+        </view>
+      </view>
+      <view class="about-desc">
+        纯本地小程序：不联网、无账号、不上云。所有打卡数据都存放在你手机的微信小程序存储空间里。
+      </view>
+    </view>
+  </view>
+
+  <view class="list-bottom-gap"></view>
+</view>
+
+<!-- ============ 导入弹层 ============ -->
+<view class="mask {{showImport ? 'mask--on' : ''}}" catchtouchmove="noop" bindtap="onCloseImport">
+  <view class="sheet" catchtap="noop">
+    <view class="sheet-head">
+      <text class="sheet-title">导入数据</text>
+      <view class="sheet-close press" bindtap="onCloseImport">
+        <view class="ic ic-close-idle"></view>
+      </view>
+    </view>
+
+    <view class="sheet-body">
+      <view class="field">
+        <view class="field-label">把之前「导出备份」得到的内容粘贴到这里</view>
+        <textarea
+          class="import-area"
+          value="{{importText}}"
+          placeholder='{"app":"TapHabit", "habits":[...]}'
+          placeholder-class="ph"
+          maxlength="-1"
+          bindinput="onImportInput"
+        />
+      </view>
+    </view>
+
+    <view class="sheet-foot">
+      <view class="btn btn--ghost sheet-del" bindtap="onCloseImport">取消</view>
+      <view class="btn btn--primary flex-1" bindtap="onImportConfirm">确认导入</view>
+    </view>
+    <view class="sheet-safe"></view>
+  </view>
+</view>

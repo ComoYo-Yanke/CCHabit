@@ -1,0 +1,160 @@
+.hero {
+  padding: 0 28rpx 8rpx;
+  background: linear-gradient(180deg, #161C2B 0%, rgba(14, 16, 20, 0) 100%);
+}
+
+.hero-title {
+  font-size: 46rpx;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.hero-date {
+  font-size: 26rpx;
+  color: var(--text-3);
+  margin-top: 10rpx;
+}
+
+/* 区间导航 */
+.range-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26rpx;
+}
+
+.nav-round {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-round-icon {
+  width: 34rpx;
+  height: 34rpx;
+}
+
+.nav-round--off {
+  opacity: 0.3;
+}
+
+.range-label-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  padding: 4rpx 20rpx;
+}
+
+.range-label {
+  font-size: 28rpx;
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.range-back {
+  font-size: 20rpx;
+  color: var(--accent);
+}
+
+/* 指标块 */
+.tiles-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.tiles-row--mt {
+  margin-top: 16rpx;
+}
+
+.tiles-row .tile {
+  padding: 26rpx 22rpx;
+}
+
+/* 图表 */
+.chart-card {
+  padding: 16rpx 4rpx 8rpx;
+}
+
+/* 排行榜 */
+.rank {
+  margin-bottom: 18rpx;
+}
+
+.rank-head {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.rank-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--r-md);
+  border: 1rpx solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  flex-shrink: 0;
+}
+
+.rank-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rank-sub {
+  font-size: 22rpx;
+  color: var(--text-3);
+  margin-top: 6rpx;
+}
+
+.rank-num {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+
+.rank-num-main {
+  font-size: 42rpx;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-num-unit {
+  font-size: 21rpx;
+  color: var(--text-3);
+}
+
+.rank-bar {
+  height: 10rpx;
+  border-radius: 5rpx;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin-top: 22rpx;
+}
+
+.rank-bar-fill {
+  height: 100%;
+  border-radius: 5rpx;
+  transition: width 0.35s ease;
+}
+
+.rank-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14rpx;
+}
+
+.list-bottom-gap {
+  height: 40rpx;
+}

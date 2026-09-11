@@ -1,0 +1,10 @@
+{
+  "usingComponents": {
+    "qiun-charts": "../../components/qiun-charts/index",
+    "empty-state": "../../components/empty-state/index"
+  },
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light",
+  "backgroundColorTop": "#0E1014"
+}

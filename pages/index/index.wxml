@@ -1,0 +1,122 @@
+<!--
+  page-meta 必须是页面第一个节点。
+  遮罩上的 catchtouchmove 只拦触摸事件；开发者工具里鼠标滚轮走 wheel 事件，
+  它会直接滚到背后的主屏。这里在弹层打开期间关掉页面根节点的滚动，
+  从源头掐断，滚轮和触摸都滚不动。详见 pages/habit-detail 顶部同样的注释。
+-->
+<page-meta page-style="{{(showEditor || showCheckin) ? 'overflow: hidden;' : ''}}"></page-meta>
+
+<view class="page">
+  <!-- ============ 顶部问候 ============ -->
+  <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
+    <view class="hero-date">{{dateLabel}}</view>
+    <view class="hero-title">{{greeting}}</view>
+  </view>
+
+  <!-- ============ 今日概览 ============ -->
+  <view class="section">
+    <view class="overview card">
+      <view class="row-between">
+        <view>
+          <view class="ov-label">今日完成</view>
+          <view class="ov-num">
+            <text class="ov-num-main">{{todayDone}}</text>
+            <text class="ov-num-total">/ {{todayTotal}}</text>
+          </view>
+        </view>
+        <view class="ov-streak">
+          <view class="ic ic-fire-active ov-fire"></view>
+          <view>
+            <view class="ov-streak-num">{{maxStreak}}</view>
+            <view class="ov-streak-label">最长连续</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="ov-bar">
+        <view class="ov-bar-fill" style="width: {{todayPercent}}%;"></view>
+      </view>
+
+      <view class="row-between ov-foot">
+        <text class="f-22 t-3">完成度 {{todayPercent}}%</text>
+        <text wx:if="{{hasHabits && todayDone < todayTotal}}" class="ov-go" bindtap="onOpenOverviewCheckin">去打卡 ›</text>
+        <text wx:elif="{{hasHabits}}" class="ov-go-done">今日全部完成 🎉</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 空状态 ============ -->
+  <block wx:if="{{!hasHabits}}">
+    <empty-state
+      icon="🌱"
+      title="还没有习惯"
+      desc="创建第一个打卡项，比如「背单词 50 个」或「喝水 2000 毫升」，每天点一下就完成记录。"
+      action="创建习惯"
+      subAction="载入示例数据"
+      bind:action="onAddHabit"
+      bind:subaction="onSeedDemo"
+    />
+  </block>
+
+  <!-- ============ 合并热力总览 ============ -->
+  <block wx:if="{{hasHabits}}">
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">打卡总览</text>
+        <text class="section-sub">近 {{overviewWeeks}} 周</text>
+      </view>
+      <view class="card">
+        <heatmap
+          dayMap="{{overviewMap}}"
+          weeks="{{overviewWeeks}}"
+          showMonths="{{true}}"
+          showLegend="{{true}}"
+        />
+      </view>
+    </view>
+
+    <!-- ============ 习惯列表 ============ -->
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">我的习惯</text>
+        <text class="section-sub">长按卡片可编辑</text>
+      </view>
+
+      <habit-card
+        wx:for="{{items}}"
+        wx:key="habit.id"
+        item="{{item}}"
+        weeks="{{12}}"
+        showHeat="{{true}}"
+        bind:tapcard="onCardTap"
+        bind:checkin="onCardCheckin"
+        bind:longpress="onCardLongPress"
+      />
+    </view>
+  </block>
+
+  <view class="list-bottom-gap"></view>
+</view>
+
+<!-- ============ 悬浮新建按钮 ============ -->
+<view class="fab" bindtap="onAddHabit">
+  <!-- 必须用白色加号：ic-plus-active 是蓝色描边，和按钮底色一样，会完全看不见 -->
+  <view class="ic ic-plus-white fab-icon"></view>
+</view>
+
+<!-- ============ 弹层 ============ -->
+<habit-editor
+  show="{{showEditor}}"
+  habit="{{editingHabit}}"
+  bind:close="onCloseEditor"
+  bind:submit="onSubmitHabit"
+  bind:delete="onDeleteHabit"
+/>
+
+<checkin-sheet
+  show="{{showCheckin}}"
+  habit="{{checkinHabit}}"
+  date="{{checkinDate}}"
+  bind:close="onCloseCheckin"
+  bind:change="onCheckinChange"
+/>

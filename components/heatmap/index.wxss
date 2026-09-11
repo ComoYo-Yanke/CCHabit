@@ -1,0 +1,116 @@
+.heat {
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ---- 月份刻度 ---- */
+.heat-months {
+  display: flex;
+  margin-left: 34rpx; /* 与 heat-grid 对齐（左侧星期列宽） */
+  margin-bottom: 8rpx;
+}
+
+.heat-weekdays + .heat-grid {
+  margin-left: 0;
+}
+
+.heat-month-cell {
+  flex: 1;
+  min-width: 0;
+  font-size: 20rpx;
+  color: var(--text-3);
+  line-height: 1;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+/* ---- 主体 ---- */
+.heat-body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.heat-weekdays {
+  display: flex;
+  flex-direction: column;
+  width: 34rpx;
+  flex-shrink: 0;
+}
+
+/* 高度必须与 .heat-cell 的 height + 行间距严格相等，否则刻度会串行 */
+.heat-weekday {
+  height: 26rpx;
+  margin-bottom: 6rpx;
+  font-size: 18rpx;
+  color: var(--text-3);
+  line-height: 26rpx;
+}
+
+.heat-grid {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 6rpx;
+}
+
+.heat-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 6rpx;
+}
+
+.heat-cell {
+  width: 100%;
+  height: 26rpx;
+  border-radius: 7rpx;
+  background: var(--heat-0);
+  transition: background-color 0.2s ease;
+}
+
+/* 未来日期：只占位不显色 */
+.heat-cell--future {
+  background: transparent;
+}
+
+/* ---- 紧凑模式（习惯卡片内） ---- */
+.heat--compact .heat-months,
+.heat--compact .heat-weekdays {
+  display: none;
+}
+
+.heat--compact .heat-grid,
+.heat--compact .heat-col {
+  gap: 5rpx;
+}
+
+.heat--compact .heat-cell {
+  height: 20rpx;
+  border-radius: 5rpx;
+}
+
+.heat--compact .heat-body {
+  padding-left: 0;
+}
+
+/* ---- 图例 ---- */
+.heat-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8rpx;
+  margin-top: 18rpx;
+}
+
+.heat-legend-text {
+  font-size: 20rpx;
+  color: var(--text-3);
+  margin: 0 4rpx;
+}
+
+.heat-legend-cell {
+  width: 22rpx;
+  height: 22rpx;
+  border-radius: 6rpx;
+}

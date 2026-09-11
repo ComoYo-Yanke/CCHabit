@@ -1,0 +1,16 @@
+<!-- 自定义底部导航栏 -->
+<view class="tabbar">
+  <view class="tabbar-inner">
+    <view
+      wx:for="{{list}}"
+      wx:key="pagePath"
+      class="tab {{selected === index ? 'tab--on' : ''}}"
+      data-index="{{index}}"
+      bindtap="onTap"
+    >
+      <view class="tab-icon ic ic-{{item.icon}}-{{selected === index ? 'active' : 'idle'}}"></view>
+      <view class="tab-text">{{item.text}}</view>
+    </view>
+  </view>
+  <view class="tabbar-safe"></view>
+</view>

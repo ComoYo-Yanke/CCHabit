@@ -1,0 +1,527 @@
+/* app.wxss —— 全局样式：深色暗黑主题设计变量 + 通用类 */
+
+@import "styles/icons.wxss";
+
+/* ============ 设计变量（暗黑模式调色板） ============ */
+page {
+  /* 背景层级：page < surface < surface-2 < surface-3 */
+  --bg: #0E1014;
+  --surface: #171B24;
+  --surface-2: #1E232E;
+  --surface-3: #262C38;
+  --border: #262C38;
+  --border-soft: #1F242F;
+
+  /* 文字层级 */
+  --text: #EDF1F7;
+  --text-2: #98A2B3;
+  --text-3: #667085;
+
+  /* 主题色 */
+  --accent: #5B8CFF;
+  --accent-soft: rgba(91, 140, 255, 0.16);
+  --success: #37D0A0;
+  --success-soft: rgba(55, 208, 160, 0.16);
+  --warn: #FFB020;
+  --warn-soft: rgba(255, 176, 32, 0.16);
+  --danger: #FF5C5C;
+  --danger-soft: rgba(255, 92, 92, 0.16);
+
+  /* 热力图色阶（未打卡 → 高频） */
+  --heat-0: #21262F;
+  --heat-1: #2B4A7A;
+  --heat-2: #3A6FB8;
+  --heat-3: #4F8CE0;
+  --heat-4: #7FB2FF;
+
+  /* 圆角与间距 */
+  --r-sm: 12rpx;
+  --r-md: 20rpx;
+  --r-lg: 28rpx;
+  --r-xl: 36rpx;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, scroll-view, button, input, textarea {
+  box-sizing: border-box;
+}
+
+/* ============ 布局骨架 ============ */
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  /* 底部预留自定义 tabBar 高度。
+     先写不带 env() 的兜底值：env() 参与 calc 若解析失败整条声明会被丢弃，
+     那样底部内容就会被 tabBar 压住。第二行生效时以后者为准。 */
+  padding-bottom: 150rpx;
+  padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
+}
+
+.page--no-tabbar {
+  padding-bottom: 40rpx;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.scroll-body {
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.row-between {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============ 卡片 ============ */
+.card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 28rpx;
+  border: 1rpx solid var(--border-soft);
+}
+
+.card + .card {
+  margin-top: 20rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section {
+  padding: 0 28rpx;
+  margin-top: 36rpx;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+  padding: 0 4rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-sub {
+  font-size: 24rpx;
+  color: var(--text-3);
+}
+
+/* ============ 文本 ============ */
+.t-2 { color: var(--text-2); }
+.t-3 { color: var(--text-3); }
+.t-accent { color: var(--accent); }
+.t-success { color: var(--success); }
+.t-danger { color: var(--danger); }
+.t-warn { color: var(--warn); }
+
+.f-22 { font-size: 22rpx; }
+.f-24 { font-size: 24rpx; }
+.f-26 { font-size: 26rpx; }
+.f-28 { font-size: 28rpx; }
+.f-32 { font-size: 32rpx; }
+.f-40 { font-size: 40rpx; }
+.f-56 { font-size: 56rpx; }
+
+.bold { font-weight: 600; }
+.mono-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ============ 按钮 ============ */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 92rpx;
+  border-radius: var(--r-md);
+  font-size: 30rpx;
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.btn--ghost {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn--danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.btn:active {
+  opacity: 0.75;
+}
+
+/* ============ 分段控制器 ============ */
+.segment {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: 6rpx;
+  gap: 6rpx;
+}
+
+.segment-item {
+  flex: 1;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: var(--text-2);
+  border-radius: 14rpx;
+  transition: all 0.18s ease;
+}
+
+.segment-item--on {
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ============ 统计数字块 ============ */
+.tile {
+  flex: 1;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: 24rpx 20rpx;
+}
+
+.tile-value {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-label {
+  font-size: 22rpx;
+  color: var(--text-3);
+  margin-top: 8rpx;
+}
+
+/* ============ 空状态 ============ */
+.empty {
+  padding: 90rpx 40rpx;
+  text-align: center;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  color: var(--text-2);
+  margin-bottom: 10rpx;
+}
+
+.empty-desc {
+  font-size: 24rpx;
+  color: var(--text-3);
+  line-height: 1.7;
+}
+
+/* ============ 通用动效 ============ */
+.press:active {
+  opacity: 0.7;
+}
+
+/* ============================================================
+   底部弹层（habit-editor / checkin-sheet 共用）
+   ============================================================ */
+.mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mask--on {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sheet {
+  background: var(--surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  border-top: 1rpx solid var(--border);
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  /* 内容再长也不许溢出：一旦溢出，超出 max-height 的部分会被裁掉，
+     连 .sheet-head（现在挂着确认按钮）都可能被挤出可视区 */
+  overflow: hidden;
+}
+
+.mask--on .sheet {
+  transform: translateY(-40px);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx 28rpx 16rpx;
+  flex-shrink: 0;
+  /* .sheet-acts 的定位基准 */
+  position: relative;
+}
+
+.sheet-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sheet-close {
+  width: 60rpx;
+  height: 60rpx;
+  margin-right: -8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * 头部右侧的悬浮操作区：绝对定位浮在「×」左边。
+ *
+ * 为什么不像 .sheet-foot 那样留在文档流里：底部按钮的可见性取决于
+ * 「主体有没有把空间让出来」——那是一整条 flex 链的博弈（见 .sheet-body 的注释，
+ * 这儿已经翻过三次车）。把确认按钮挪到头部，它就变成了 .sheet 的**固定开销之外**
+ * 的东西：头部本来就 flex-shrink: 0，按钮挂在它身上，主体再怎么长也顶不掉它。
+ * 「确认按钮不显示」这一类故障直接失去发生的物理条件，而不用再去证明 flex 算对了。
+ *
+ * top: 0; bottom: 0 而不是写死 top 值：让它和 .sheet-close 一样受父级
+ * align-items: center 摆布，垂直居中的结果天然一致。写死 top 的话，
+ * 两个弹层头部内容高度不同（habit-editor 76rpx / checkin-sheet 有副标题），
+ * 会各偏一点，且以后改 padding 还得跟着改。
+ *
+ * right: 96rpx = 头部 padding 28rpx + × 宽 60rpx + 间距 8rpx。
+ */
+.sheet-acts {
+  position: absolute;
+  right: 96rpx;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  /* 盖在标题上，长标题被截断而不是把按钮挤走 */
+  z-index: 2;
+}
+
+/* 头部里的胶囊按钮：比 .btn 矮一圈，免得把 .sheet-head 撑高 */
+.sheet-ok {
+  height: 60rpx;
+  padding: 0 26rpx;
+  border-radius: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  background: var(--accent);
+  color: #FFFFFF;
+  transition: opacity 0.15s ease;
+}
+
+.sheet-ok:active {
+  opacity: 0.75;
+}
+
+/* 次要操作（取消修改）：不抢主按钮的视觉重量 */
+.sheet-ok--ghost {
+  background: var(--surface-3);
+  color: var(--text-2);
+  padding: 0 22rpx;
+}
+
+.sheet-ok--danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  padding: 0 22rpx;
+}
+
+/*
+ * 标题的右侧避让：给 .sheet-acts 让出位置，否则长标题会从胶囊按钮底下穿过去。
+ *
+ * 注意避让做在**左侧那块内容**上（margin-right），不是 .sheet-head 的 padding-right：
+ * padding 会同时把右边的 × 一起推走，而 × 是靠 space-between 贴右的，
+ * 一推就和悬浮按钮错位。加在左侧子项的 margin 上，× 不动，只有标题被挤窄 ——
+ * 两个子项都有 .ellipsis（overflow: hidden）+ min-width: 0，挤窄即截断。
+ *
+ * 260rpx ≈ 「删除」(96rpx) + gap 12rpx + 「保存」(104rpx) + 余量。
+ */
+.sheet-head--acts > .sheet-title,
+.sheet-head--acts > .ci-habit {
+  margin-right: 260rpx;
+}
+
+/*
+ * 弹层主体：**一律用 view，靠 flex 收缩，不手算高度**。
+ *
+ * 这里踩过三次坑，三版做法都记录在案，别再走回头路：
+ *
+ * ① `scroll-view` + `flex: 1`（第一版）
+ *    scroll-view 在微信里**不参与 flex 收缩**，会被内容撑高。内容一旦超过
+ *    .sheet 的 max-height: 88vh，overflow:hidden 就把下面的 .sheet-foot
+ *    （当时的确认按钮）整块裁掉 —— 「表单都在，就是没有确认按钮」。
+ *
+ * ② 外面套一层 view 用 flex 收缩 + scroll-view 绝对定位（第二版）
+ *    那层 wrap 的 flex:1 在微信里塌成 0 高，scroll-view 跟着 0 高，
+ *    整个弹层只剩标题，内容全没了，比 ① 更糟。
+ *
+ * ③ `scroll-view` + `height: calc(78vh - 240rpx)`（第三版）
+ *    把一个弹层的可见性吊在**一条声明**上。calc() 里混用 vh 和 rpx，
+ *    正是各基础库解析行为不一致的地方；只要这条被丢掉，scroll-view 就退回
+ *    没有高度的状态，而它又不会收缩 —— 直接回到故障 ①。
+ *    量出来是好的（scripts/check-sheet.js 在浏览器里量过），真机上却复发，
+ *    因为「浏览器认得这条声明」和「微信认得这条声明」是两件事。
+ *
+ * 正解就是最朴素的那个：**主体是 .sheet 这个 flex column 的子项**，
+ * flex:1 + min-height:0（min-height:0 是关键，否则 min-height:auto 会让
+ * 它撑到内容高度、又收缩不了）。内容再长也是主体自己滚，不会把弹层撑爆。
+ *
+ * 第四版更进一步：确认按钮已经挪进 .sheet-head（见 .sheet-acts），不再待在
+ * 底部抢空间。这条 flex 让位现在守的是「内容多的时候主体别把弹层撑爆」，
+ * 而不是「按钮别被裁掉」—— 后者已经不可能发生了。
+ *
+ * 没有任何手算的高度，也就没有任何可以算错、可以被解析器丢掉的东西。
+ */
+.sheet-body {
+  padding: 0 28rpx;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* iOS 上让 overflow 滚动有惯性，手感接近 scroll-view */
+  -webkit-overflow-scrolling: touch;
+}
+
+.sheet-foot {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 28rpx 12rpx;
+  border-top: 1rpx solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.sheet-del {
+  width: 180rpx;
+  flex-shrink: 0;
+}
+
+.sheet-safe {
+  height: 0;
+  height: env(safe-area-inset-bottom);
+  flex-shrink: 0;
+}
+
+.sheet-gap {
+  height: 30rpx;
+}
+
+/* ============ 表单控件（弹层内共用） ============ */
+.field {
+  margin-bottom: 30rpx;
+}
+
+.field-row {
+  display: flex;
+  gap: 20rpx;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: var(--text-2);
+  margin-bottom: 14rpx;
+}
+
+.field-hint {
+  font-size: 22rpx;
+  color: var(--text-3);
+  margin-left: 10rpx;
+}
+
+.field-input {
+  height: 88rpx;
+  background: var(--surface-2);
+  border: 1rpx solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: var(--text);
+}
+
+.field-input--mt {
+  margin-top: 16rpx;
+}
+
+.field-input--error {
+  border-color: var(--danger);
+}
+
+.field-error {
+  font-size: 22rpx;
+  color: var(--danger);
+  margin-top: 10rpx;
+}
+
+.ph {
+  color: var(--text-3);
+  font-size: 26rpx;
+}

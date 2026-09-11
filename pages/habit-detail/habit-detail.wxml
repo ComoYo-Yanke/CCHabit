@@ -1,0 +1,267 @@
+<!--
+  page-meta 必须是页面第一个节点。
+  遮罩上的 catchtouchmove 只能拦住**触摸**事件；开发者工具里用鼠标滚轮时走的是
+  wheel 事件，catchtouchmove 完全不参与，滚动照样落到背后那一屏 ——
+  用户看到的正是「滑的是背景主屏」。这里在弹层打开期间把页面根节点的滚动关掉，
+  从源头上掐断，滚轮也好触摸也好都滚不动。
+-->
+<page-meta page-style="{{(showCheckin || showEditor) ? 'overflow: hidden;' : ''}}"></page-meta>
+
+<nav-bar title="{{habit.name}}" back="{{true}}" fixed="{{true}}" scrolled="{{scrolled}}">
+  <view slot="right" class="nav-action press" bindtap="onOpenEditor">
+    <view class="ic ic-edit-idle nav-action-icon"></view>
+  </view>
+</nav-bar>
+
+<view class="page page--no-tabbar" wx:if="{{habit}}">
+  <!-- ============ 头部信息 ============ -->
+  <view class="section">
+    <view class="card" style="background: linear-gradient(135deg, {{habit.color}}22 0%, #171B24 65%);">
+      <view class="hd-top">
+        <view class="hd-icon" style="background: {{habit.color}}26; border-color: {{habit.color}}55;">
+          {{habit.icon}}
+        </view>
+        <view class="flex-1">
+          <view class="hd-name ellipsis">{{habit.name}}</view>
+          <view class="hd-sub">
+            {{habit.unit ? '单位 ' + habit.unit + ' · ' : '纯计数'}}
+            {{habit.target > 0 ? '目标 ' + habit.target : '未设目标'}}
+          </view>
+        </view>
+      </view>
+
+      <view class="hd-stats">
+        <view class="hd-stat">
+          <view class="hd-stat-value mono-num">{{todayText}}</view>
+          <view class="hd-stat-label">今日{{habit.unit}}</view>
+        </view>
+        <view class="hd-divider"></view>
+        <view class="hd-stat">
+          <view class="hd-stat-value mono-num">{{totalText}}</view>
+          <view class="hd-stat-label">累计{{habit.unit}}</view>
+        </view>
+        <view class="hd-divider"></view>
+        <view class="hd-stat">
+          <view class="hd-stat-value mono-num t-warn">{{streak}}</view>
+          <view class="hd-stat-label">连续天数</view>
+        </view>
+      </view>
+
+      <view class="hd-actions">
+        <view class="btn btn--primary flex-1" style="background: {{habit.color}};" bindtap="onOpenCheckin">
+          立即打卡
+        </view>
+        <view class="btn btn--ghost hd-edit" bindtap="onOpenEditor">编辑</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 日历视图 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">打卡日历</text>
+      <text class="section-sub">点击日期可补打卡</text>
+    </view>
+    <view class="card">
+      <view class="cal-head">
+        <view class="cal-nav press" bindtap="onCalPrev">
+          <view class="ic ic-left-idle cal-nav-icon"></view>
+        </view>
+        <text class="cal-label">{{calLabel}}</text>
+        <view class="cal-nav {{calCanNext ? '' : 'cal-nav--off'}} press" bindtap="onCalNext">
+          <view class="ic ic-right-idle cal-nav-icon"></view>
+        </view>
+      </view>
+
+      <view class="cal-weekdays">
+        <view wx:for="{{['一','二','三','四','五','六','日']}}" wx:key="index" class="cal-weekday">{{item}}</view>
+      </view>
+
+      <view class="cal-grid">
+        <view
+          wx:for="{{calCells}}"
+          wx:key="key"
+          class="cal-cell {{item.empty ? 'cal-cell--empty' : ''}} {{item.isToday ? 'cal-cell--today' : ''}} {{item.isFuture ? 'cal-cell--future' : ''}}"
+          style="{{item.mark ? 'background:' + item.mark + '26;' : ''}}"
+          data-date="{{item.date}}"
+          data-future="{{item.isFuture}}"
+          bindtap="onCalDayTap"
+        >
+          <block wx:if="{{!item.empty}}">
+            <text class="cal-day" style="{{item.mark ? 'color:' + item.mark + ';font-weight:600;' : ''}}">{{item.day}}</text>
+            <view wx:if="{{item.done}}" class="cal-dot" style="background: {{item.mark}};"></view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 区间统计 ============ -->
+  <view class="section">
+    <view class="segment">
+      <view class="segment-item {{range === 'week' ? 'segment-item--on' : ''}}" data-range="week" bindtap="onSwitchRange">周</view>
+      <view class="segment-item {{range === 'month' ? 'segment-item--on' : ''}}" data-range="month" bindtap="onSwitchRange">月</view>
+      <view class="segment-item {{range === 'year' ? 'segment-item--on' : ''}}" data-range="year" bindtap="onSwitchRange">年</view>
+    </view>
+
+    <view class="range-nav">
+      <view class="cal-nav press" bindtap="onShiftRange" data-delta="{{-1}}">
+        <view class="ic ic-left-idle cal-nav-icon"></view>
+      </view>
+      <text class="range-label">{{rangeLabel}}</text>
+      <view class="cal-nav {{canNext ? '' : 'cal-nav--off'}} press" bindtap="onShiftRange" data-delta="{{1}}">
+        <view class="ic ic-right-idle cal-nav-icon"></view>
+      </view>
+    </view>
+
+    <view wx:if="{{summary}}" class="row range-tiles">
+      <view class="tile">
+        <view class="tile-value">{{summary.totalCount}}</view>
+        <view class="tile-label">打卡次数</view>
+      </view>
+      <view class="tile">
+        <view class="tile-value">{{summary.totalValueText}}</view>
+        <view class="tile-label">累计{{habit.unit}}</view>
+      </view>
+      <view class="tile">
+        <view class="tile-value">{{summary.activeDays}}</view>
+        <view class="tile-label">打卡天数</view>
+      </view>
+      <view class="tile">
+        <view class="tile-value t-warn">{{summary.streakInRange}}</view>
+        <view class="tile-label">最长连续</view>
+      </view>
+    </view>
+
+    <view wx:if="{{summary}}" class="card range-extra">
+      <view class="row-between">
+        <text class="f-24 t-3">日均（按打卡日）</text>
+        <text class="f-26 mono-num">{{summary.avgText}}{{habit.unit}}</text>
+      </view>
+      <view class="row-between range-extra-row">
+        <text class="f-24 t-3">完成率</text>
+        <text class="f-26 mono-num">{{summary.completionRate}}% · {{summary.activeDays}}/{{summary.totalDays}} 天</text>
+      </view>
+      <view wx:if="{{summary.maxDay.date}}" class="row-between range-extra-row">
+        <text class="f-24 t-3">单日最高</text>
+        <text class="f-26 mono-num">{{summary.maxDay.date}} · {{summary.maxDayText}}{{habit.unit}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 折线图：每日数值 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">{{range === 'year' ? '月度数值趋势' : '每日数值趋势'}}</text>
+      <text class="section-sub">点击图表查看具体数值</text>
+    </view>
+    <view class="card chart-card">
+      <qiun-charts
+        canvasId="lineChart"
+        type="line"
+        chartData="{{lineData}}"
+        opts="{{chartOpts}}"
+        height="{{420}}"
+        unit="{{habit.unit}}"
+        hidden="{{showCheckin || showEditor}}"
+      />
+    </view>
+  </view>
+
+  <!-- ============ 柱状图：打卡次数 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">打卡次数对比</text>
+      <text class="section-sub">{{range === 'week' ? '按天' : range === 'month' ? '按周' : '按月'}}</text>
+    </view>
+    <view class="card chart-card">
+      <qiun-charts
+        canvasId="barChart"
+        type="column"
+        chartData="{{barData}}"
+        opts="{{barOpts}}"
+        height="{{400}}"
+        unit=" 次"
+        hidden="{{showCheckin || showEditor}}"
+      />
+    </view>
+  </view>
+
+  <!-- ============ 热力点阵 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">完成情况</text>
+      <text class="section-sub">近 {{heatWeeks}} 周</text>
+    </view>
+    <view class="card">
+      <heatmap
+        dayMap="{{dayMap}}"
+        weeks="{{heatWeeks}}"
+        target="{{habit.target}}"
+        color="{{habit.color}}"
+        showMonths="{{true}}"
+        showLegend="{{true}}"
+        tappable="{{true}}"
+        bind:cellday="onHeatDayTap"
+      />
+    </view>
+  </view>
+
+  <!-- ============ 历史记录 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">历史记录</text>
+      <text class="section-sub">共 {{historyTotal}} 条</text>
+    </view>
+
+    <view wx:if="{{!historyTotal}}" class="card">
+      <view class="empty" style="padding: 50rpx 0;">
+        <view class="empty-desc">还没有打卡记录，点上面的「立即打卡」开始吧</view>
+      </view>
+    </view>
+
+    <block wx:else>
+      <view
+        wx:for="{{history}}"
+        wx:key="id"
+        class="hist press"
+        data-date="{{item.date}}"
+        bindtap="onHistoryTap"
+      >
+        <view class="hist-date">
+          <view class="hist-date-main">{{item.dateLabel}}</view>
+          <view class="hist-date-sub">{{item.time}} · {{item.weekday}}</view>
+        </view>
+        <view class="hist-value">
+          <text class="hist-value-num" style="color: {{habit.color}};">{{item.valueText}}</text>
+          <text class="hist-value-unit">{{item.unit}}</text>
+        </view>
+        <view wx:if="{{item.note}}" class="hist-note ellipsis">{{item.note}}</view>
+      </view>
+
+      <view wx:if="{{historyShown < historyTotal}}" class="load-more press" bindtap="onLoadMoreHistory">
+        加载更多（还有 {{historyTotal - historyShown}} 条）
+      </view>
+      <view wx:else class="list-end">— 已经到底啦 —</view>
+    </block>
+  </view>
+
+  <view class="list-bottom-gap"></view>
+</view>
+
+<!-- ============ 弹层 ============ -->
+<checkin-sheet
+  show="{{showCheckin}}"
+  habit="{{habit}}"
+  date="{{checkinDate}}"
+  bind:close="onCloseCheckin"
+  bind:change="onCheckinChange"
+/>
+
+<habit-editor
+  show="{{showEditor}}"
+  habit="{{habit}}"
+  bind:close="onCloseEditor"
+  bind:submit="onSubmitHabit"
+  bind:delete="onDeleteHabit"
+/>

@@ -1,0 +1,13 @@
+{
+  "usingComponents": {
+    "nav-bar": "../../components/nav-bar/index",
+    "heatmap": "../../components/heatmap/index",
+    "habit-editor": "../../components/habit-editor/index",
+    "checkin-sheet": "../../components/checkin-sheet/index",
+    "qiun-charts": "../../components/qiun-charts/index"
+  },
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light",
+  "backgroundColorTop": "#0E1014"
+}

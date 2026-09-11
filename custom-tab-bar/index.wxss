@@ -1,0 +1,60 @@
+/*
+ * 自定义 tabBar。
+ * 注意：自定义 tabBar 由框架独立挂载，不保证继承 page 上的 CSS 变量，
+ * 因此这里直接写死深色主题的色值，避免变量解析失败变成透明/黑色。
+ */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  background: #161A22;
+  border-top: 1rpx solid #1F242F;
+}
+
+.tabbar-inner {
+  display: flex;
+  align-items: center;
+  height: 106rpx;
+}
+
+.tabbar-safe {
+  /* 同上：env() 解析失败时退化为 0，至少不会把 tabBar 撑坏 */
+  height: 0;
+  height: env(safe-area-inset-bottom);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+}
+
+.tab-icon {
+  width: 46rpx;
+  height: 46rpx;
+  transition: transform 0.18s ease;
+}
+
+.tab-text {
+  font-size: 20rpx;
+  color: #6B7280;
+  transition: color 0.18s ease;
+}
+
+.tab--on .tab-text {
+  color: #5B8CFF;
+  font-weight: 600;
+}
+
+.tab--on .tab-icon {
+  transform: translateY(-2rpx);
+}
+
+.tab:active {
+  opacity: 0.6;
+}

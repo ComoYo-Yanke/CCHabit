@@ -1,0 +1,148 @@
+<view class="page">
+  <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
+    <view class="hero-title">统计</view>
+    <view class="hero-date">{{rangeLabel}}</view>
+  </view>
+
+  <!-- ============ 维度切换 ============ -->
+  <view class="section">
+    <view class="segment">
+      <view class="segment-item {{range === 'week' ? 'segment-item--on' : ''}}" data-range="week" bindtap="onSwitchRange">周</view>
+      <view class="segment-item {{range === 'month' ? 'segment-item--on' : ''}}" data-range="month" bindtap="onSwitchRange">月</view>
+      <view class="segment-item {{range === 'year' ? 'segment-item--on' : ''}}" data-range="year" bindtap="onSwitchRange">年</view>
+    </view>
+
+    <view class="range-nav">
+      <view class="nav-round press" bindtap="onShiftRange" data-delta="{{-1}}">
+        <view class="ic ic-left-idle nav-round-icon"></view>
+      </view>
+      <view class="range-label-wrap" bindtap="onBackToday">
+        <text class="range-label">{{rangeLabel}}</text>
+        <text class="range-back">回到今天</text>
+      </view>
+      <view class="nav-round {{canNext ? '' : 'nav-round--off'}} press" bindtap="onShiftRange" data-delta="{{1}}">
+        <view class="ic ic-right-idle nav-round-icon"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 空状态 ============ -->
+  <block wx:if="{{!hasHabits}}">
+    <empty-state
+      icon="📊"
+      title="还没有可统计的数据"
+      desc="先去首页创建一个打卡项，坚持几天后这里就会长出漂亮的图表。"
+      action="去创建习惯"
+      bind:action="onGoCreate"
+    />
+  </block>
+
+  <block wx:else>
+    <!-- ============ 汇总指标 ============ -->
+    <view class="section">
+      <view class="tiles-row">
+        <view class="tile">
+          <view class="tile-value">{{summary.totalCount}}</view>
+          <view class="tile-label">打卡总次数</view>
+        </view>
+        <view class="tile">
+          <view class="tile-value">{{summary.activeDays}}</view>
+          <view class="tile-label">打卡天数</view>
+        </view>
+      </view>
+      <view class="tiles-row tiles-row--mt">
+        <view class="tile">
+          <view class="tile-value">{{summary.completionRate}}%</view>
+          <view class="tile-label">完成率</view>
+        </view>
+        <view class="tile">
+          <view class="tile-value">{{summary.activeHabitCount}}/{{summary.habitCount}}</view>
+          <view class="tile-label">活跃习惯</view>
+        </view>
+        <view class="tile">
+          <view class="tile-value">{{summary.avgPerDayText}}</view>
+          <view class="tile-label">日均次数</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 趋势折线 ============ -->
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">{{range === 'year' ? '月度打卡趋势' : '每日打卡趋势'}}</text>
+        <text class="section-sub">全部习惯合计</text>
+      </view>
+      <view class="card chart-card">
+        <qiun-charts
+          canvasId="statsLine"
+          type="line"
+          chartData="{{lineData}}"
+          opts="{{lineOpts}}"
+          height="{{420}}"
+          unit=" 次"
+        />
+      </view>
+    </view>
+
+    <!-- ============ 习惯对比柱状 ============ -->
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">习惯对比</text>
+        <text class="section-sub">按打卡次数</text>
+      </view>
+      <view class="card chart-card">
+        <qiun-charts
+          canvasId="statsBar"
+          type="column"
+          chartData="{{barData}}"
+          opts="{{barOpts}}"
+          height="{{400}}"
+          unit=" 次"
+        />
+      </view>
+    </view>
+
+    <!-- ============ 排行榜 ============ -->
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">习惯排行</text>
+        <text class="section-sub">点击查看详情</text>
+      </view>
+
+      <view
+        wx:for="{{ranking}}"
+        wx:key="id"
+        class="rank card press"
+        data-id="{{item.id}}"
+        bindtap="onRankTap"
+      >
+        <view class="rank-head">
+          <view class="rank-icon" style="background: {{item.color}}22; border-color: {{item.color}}44;">
+            {{item.icon}}
+          </view>
+          <view class="flex-1">
+            <view class="rank-name ellipsis">{{item.name}}</view>
+            <view class="rank-sub">
+              连续 {{item.streak}} 天 · 最长 {{item.longest}} 天
+            </view>
+          </view>
+          <view class="rank-num">
+            <text class="rank-num-main" style="color: {{item.color}};">{{item.count}}</text>
+            <text class="rank-num-unit">次</text>
+          </view>
+        </view>
+
+        <view class="rank-bar">
+          <view class="rank-bar-fill" style="width: {{item.completionRate}}%; background: {{item.color}};"></view>
+        </view>
+
+        <view class="rank-foot">
+          <text class="f-22 t-3">{{item.activeDays}}/{{item.totalDays}} 天完成 · {{item.completionRate}}%</text>
+          <text class="f-22 t-3">累计 {{item.valueText}}{{item.unit}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view class="list-bottom-gap"></view>
+</view>

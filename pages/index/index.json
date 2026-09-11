@@ -1,0 +1,13 @@
+{
+  "usingComponents": {
+    "heatmap": "../../components/heatmap/index",
+    "habit-card": "../../components/habit-card/index",
+    "habit-editor": "../../components/habit-editor/index",
+    "checkin-sheet": "../../components/checkin-sheet/index",
+    "empty-state": "../../components/empty-state/index"
+  },
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light",
+  "backgroundColorTop": "#0E1014"
+}
