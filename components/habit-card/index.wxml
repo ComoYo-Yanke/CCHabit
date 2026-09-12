@@ -28,17 +28,6 @@
     </view>
   </view>
 
-  <!-- 目标进度（设了目标才显示） -->
-  <view wx:if="{{item.habit.target > 0}}" class="hc-progress">
-    <view class="hc-progress-bar">
-      <view
-        class="hc-progress-fill"
-        style="width: {{item.progress}}%; background: {{item.habit.color}};"
-      ></view>
-    </view>
-    <text class="hc-progress-text">{{item.progress}}%</text>
-  </view>
-
   <!-- 近 N 周热力概览 -->
   <view wx:if="{{showHeat}}" class="hc-heat">
     <heatmap

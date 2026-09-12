@@ -7,6 +7,12 @@
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
 
+/**
+ * 滚动模式下每列占的宽度（rpx）= 格子 26rpx + 列间距 6rpx。
+ * 与 components/heatmap/index.wxss 里 .heat--scroll 的列宽严格对应，改一处要改两处。
+ */
+const COL_W = 32
+
 Component({
   options: {
     styleIsolation: 'apply-shared'
@@ -30,17 +36,31 @@ Component({
     /** 是否显示底部图例 */
     showLegend: { type: Boolean, value: true },
     /** 是否可点击（触发 cellday 事件） */
-    tappable: { type: Boolean, value: false }
+    tappable: { type: Boolean, value: false },
+    /**
+     * 横向滚动模式（首页的打卡总览用）。
+     * 打开后每列改成固定宽度，整块网格可以比容器宽，向左拖就能一直看到更早的记录；
+     * 关闭时每列 flex:1 等分容器（习惯卡片里的迷你图就是这种）。
+     */
+    scroll: { type: Boolean, value: false }
   },
 
   data: {
     columns: [],
     monthSlots: [],
-    maxValue: 0
+    maxValue: 0,
+    /** 滚动模式下整块网格的宽度（rpx），写在 .heat-inner 上 */
+    gridWidth: 0,
+    /** scroll-view 的初始位置（px）：直接顶到最右，让今天先入眼 */
+    scrollLeft: 0
   },
 
   observers: {
     'dayMap, weeks, target, endDate': function () {
+      this.rebuild()
+    },
+    'scroll': function () {
+      // 切换模式会改变列宽的算法，整块重算一遍（并重新靠右）
       this.rebuild()
     }
   },
@@ -53,7 +73,7 @@ Component({
 
   methods: {
     rebuild() {
-      const { dayMap, weeks, target, endDate } = this.data
+      const { dayMap, weeks, target, endDate, scroll } = this.data
       const data = stats.heatmapData(dayMap || {}, endDate || dayjs.today(), weeks, target)
 
       // 把「第几列出现新月份」摊平成与列等长的数组，渲染时按列对齐
@@ -63,7 +83,22 @@ Component({
         if (m.index > 0 && m.index < weeks - 1) monthSlots[m.index] = m.label
       })
 
-      this.setData({ columns: data.columns, monthSlots, maxValue: data.maxValue })
+      const gridWidth = scroll ? weeks * COL_W : 0
+
+      this.setData({
+        columns: data.columns,
+        monthSlots,
+        maxValue: data.maxValue,
+        gridWidth,
+        // 初始位置直接给一个「比内容还宽」的值，scroll-view 会自己夹到最大滚动量，
+        // 效果就是稳稳停在最右（最新的一周）。值跟着 weeks 变，历史变长时也会重新贴右。
+        scrollLeft: scroll ? this.rpx2px(gridWidth) : 0
+      })
+    },
+
+    /** rpx -> px（scroll-left / scroll-into-view 这类属性只认 px） */
+    rpx2px(rpx) {
+      return Math.round((rpx / 750) * (wx.getWindowInfo().windowWidth || 375))
     },
 
     onCellTap(e) {

@@ -27,8 +27,35 @@ function walk(dir, out) {
 // WXML 表达式里的内置关键字/工具，不算数据引用
 const BUILTIN = new Set(['true', 'false', 'null', 'undefined', 'item', 'index', 'true', 'Math', 'JSON', 'String', 'Number', 'Boolean', 'Array', 'Object'])
 
+/*
+ * data 里可能有 `...pageFade.data` 这种展开：这些键在被 require 的模块里定义，
+ * 本文件里连名字都没出现过，只扫本文件会把它们全报成「找不到」。
+ * 所以把所有「被展开进本文件」的本地模块也并进搜索文本。
+ */
+function buildSearchable(js, jsPath) {
+  let out = js
+  const reqRe = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\(\s*['"]([^'"]+)['"]\s*\)/g
+  let m
+  while ((m = reqRe.exec(js))) {
+    const name = m[1]
+    const rel = m[2]
+    // 只关心真的被展开进来的（`...name`），普通调用不引入新的绑定名
+    if (!new RegExp('\\.\\.\\.\\s*' + name + '\\b').test(js)) continue
+    for (const cand of [rel, rel + '.js', path.join(rel, 'index.js')]) {
+      const target = path.resolve(path.dirname(jsPath), cand)
+      if (fs.existsSync(target) && fs.statSync(target).isFile()) {
+        out += '\n' + fs.readFileSync(target, 'utf8')
+        break
+      }
+    }
+  }
+  return out
+}
+
 walk('.').filter((f) => f.endsWith('.wxml')).forEach((wxml) => {
-  const js = fs.readFileSync(wxml.replace(/\.wxml$/, '.js'), 'utf8')
+  const jsPath = wxml.replace(/\.wxml$/, '.js')
+  const js = fs.readFileSync(jsPath, 'utf8')
+  const searchable = buildSearchable(js, jsPath)
   const src = fs.readFileSync(wxml, 'utf8')
 
   // 收集本文件内 wx:for-item / wx:for-index 别名
@@ -53,7 +80,7 @@ walk('.').filter((f) => f.endsWith('.wxml')).forEach((wxml) => {
     while ((m = re.exec(cleaned))) {
       const id = m[2]
       if (BUILTIN.has(id) || aliases.has(id)) continue
-      if (new RegExp('(^|[^A-Za-z0-9_$.])' + id + '\\b').test(js)) continue
+      if (new RegExp('(^|[^A-Za-z0-9_$.])' + id + '\\b').test(searchable)) continue
       bad.add(id)
     }
   })

@@ -107,43 +107,58 @@ appJson.tabBar.list.forEach((t) => {
   if (appJson.pages.indexOf(t.pagePath) < 0) report('tabBar 中的 ' + t.pagePath + ' 不在 pages 列表里')
 })
 
-console.log('== 6. wxss 里用到的 CSS 变量是否都在 app.wxss 定义 ==')
+console.log('== 6. wxss 里用到的 CSS 变量是否定义过 ==')
+/*
+ * 定义处有两个来源：
+ *   1. app.wxss 的全局调色板（page 选择器下那一坨）
+ *   2. **同一个文件内**自己声明的局部变量
+ * 第 2 类是完全合法的 CSS —— 自定义属性就是普通属性，跟着选择器层叠。
+ * heatmap 的 --heat-month-h 就是这种：定义在 .heat 上，给后代 .heat-weekdays 用。
+ * 早先只扫 app.wxss，会把这类局部变量误报成「未定义」。
+ */
 const appWxss = fs.readFileSync('app.wxss', 'utf8')
-const defined = new Set()
+const globalDefined = new Set()
 let vm
 const vre = /(--[a-z0-9-]+)\s*:/g
-while ((vm = vre.exec(appWxss))) defined.add(vm[1])
+while ((vm = vre.exec(appWxss))) globalDefined.add(vm[1])
 files.filter((f) => f.endsWith('.wxss')).forEach((f) => {
   const src = fs.readFileSync(f, 'utf8')
+  const localDefined = new Set(globalDefined)
+  let dm
+  const dre = /(--[a-z0-9-]+)\s*:/g
+  while ((dm = dre.exec(src))) localDefined.add(dm[1])
   let um
   const ure = /var\((--[a-z0-9-]+)/g
   const missing = new Set()
-  while ((um = ure.exec(src))) if (!defined.has(um[1])) missing.add(um[1])
+  while ((um = ure.exec(src))) if (!localDefined.has(um[1])) missing.add(um[1])
   missing.forEach((v) => report(f + ': 使用了未定义的变量 ' + v))
 })
 
-console.log('== 7. 弹层主体必须是 view + flex 收缩，不能是 scroll-view ==')
+console.log('== 7. 弹层主体必须是 scroll-view + flex 收缩 ==')
 /*
- * 这条规则踩着三个真实故障定下来，三版做法都试过了，别再走回头路：
+ * 这条规则翻过一次案，把两件事分清楚了再定下来，别再走回头路。
  *
- * 故障 A（scroll-view + flex:1）：scroll-view 在微信里不参与 flex 收缩，
- *   会被内容撑高，超过 .sheet 的 max-height: 88vh 后由 overflow:hidden 把
- *   .sheet-foot（确认按钮）整块裁掉 —— 表单都在，就是没有确认按钮。
+ * 【被推翻的旧结论】「确认按钮不见了」曾被归因到 scroll-view 上，结论是
+ *   「scroll-view 在微信里不参与 flex 收缩，会被内容撑高，把 .sheet-foot 裁掉」，
+ *   于是主体改成 view + overflow-y:auto。按钮确实回来了，但换出一个新毛病：
+ *   **真机上弹层滑不动，反而是背景那一屏在滚。**
  *
- * 故障 B（外套 view 用 flex 收缩 + scroll-view 绝对定位）：那层 wrap 的
- *   flex:1 在微信里会塌成 0 高，scroll-view 跟着 0 高 —— 整个弹层只剩标题，
- *   内容和按钮全没了，比故障 A 更糟。
+ * 【真正的病因】普通 view 的 overflow 滚动，是挂在 WebView 的 touchmove 上的；
+ *   而遮罩 .mask 为了挡住穿透绑了 catchtouchmove（见第 9 条），
+ *   这个 catch 正好把 touchmove 吃掉 —— 滚动手势还没轮到主体就已经没了。
+ *   开发者工具里用鼠标滚轮是 wheel 事件，不受影响，所以这个 bug 浏览器里看不见。
  *
- * 故障 C（scroll-view + height: calc(78vh - 240rpx)）：把一个弹层的可见性
- *   吊在一条声明上。calc() 里混用 vh 和 rpx 正是各基础库解析行为不一致的地方，
- *   这条一旦被丢掉就退回故障 A。浏览器量着是好的（check-sheet.js 量过），
- *   真机复发 —— 「浏览器认得这条声明」和「微信认得这条声明」是两件事。
+ * 【正解】主体用 scroll-view：它走**原生滚动**，手指按下的那一刻手势就被原生层
+ *   接管了，根本不会冒泡到遮罩的 catchtouchmove。同时补上当年缺的那句
+ *   min-height: 0 —— 那才是「被内容撑高」的真正原因：
+ *   flex 项目的 min-height 默认是 auto，不写 0 就压不下去，与是不是 scroll-view 无关。
  *
- * 正解：主体是 view，flex:1 + min-height:0，让位给 flex-shrink:0 的 .sheet-foot。
- * 没有手算高度，就没有能算错、能被解析器丢掉的东西。
+ * 现在「确认按钮被顶出可视区」没有发生的物理条件了：按钮在 .sheet-head 里
+ * （flex-shrink: 0，和主体是兄弟节点），主体怎么长都够不着它。
  *
- * 这几个 bug 在 Chromium 里都复现不出来（scroll-view 被当成普通元素，
- * 而且浏览器认得那条 calc），只能靠静态检查盯住。
+ * 手算高度仍然是错的（calc 里混用 vh/rpx，各基础库解析行为不一致，
+ * 那条声明一被丢掉整个弹层就塌），一并禁掉。
+ * 这几个 bug 在 Chromium 里都复现不出来，只能靠静态检查盯住。
  */
 const appWxssRaw = fs.readFileSync('app.wxss', 'utf8')
 {
@@ -155,25 +170,25 @@ const appWxssRaw = fs.readFileSync('app.wxss', 'utf8')
     const rule = m[1]
     // min-height:0 是关键：不写它 min-height 就是 auto，主体会被内容撑到满高、收缩不下去
     if (!/(?:^|[;{\s])min-height\s*:\s*0/.test(rule)) {
-      report('app.wxss: .sheet-body 缺少 min-height: 0（主体会被内容撑开，把确认按钮顶出可视区）')
+      report('app.wxss: .sheet-body 缺少 min-height: 0（flex 项目的 min-height 默认 auto，主体压不下去）')
     }
     if (!/(?:^|[;{\s])flex\s*:\s*1/.test(rule)) {
       report('app.wxss: .sheet-body 缺少 flex: 1（主体不会收缩）')
     }
   }
-  // 手算高度是故障 A/C 的源头，一律不许回来
+  // 手算高度是各基础库行为不一致的地方，一律不许回来
   if (/scroll-view\.sheet-body\s*\{[^}]*(?:^|[;{\s])height\s*:/.test(appWxssRaw)) {
-    report('app.wxss: 又给 scroll-view.sheet-body 手算高度了（见 lint 第 7 项：会退回「没有确认按钮」）')
+    report('app.wxss: 给 scroll-view.sheet-body 手算高度了（calc 里混用 vh/rpx，声明被丢掉弹层就塌）')
   }
   if (appWxssRaw.indexOf('.sheet-body-wrap') >= 0) {
     report('app.wxss: 存在 .sheet-body-wrap（该包裹层的 flex:1 会塌成 0 高，导致弹层内容全空）')
   }
 }
-// scroll-view 在这个位置上不被 flex 收缩，是故障 A/C 的共同根源，直接禁掉
 wxmls.forEach((wxml) => {
   const src = fs.readFileSync(wxml, 'utf8')
-  if (/<scroll-view\b[^>]*class\s*=\s*"[^"]*\bsheet-body\b/.test(src)) {
-    report(wxml + ': 弹层主体用了 scroll-view（它在微信里不参与 flex 收缩，会把确认按钮顶出可视区），改成 view')
+  // 主体必须走原生滚动，否则滚动手势会被遮罩的 catchtouchmove 吃掉
+  if (/<view\b[^>]*class\s*=\s*"[^"]*\bsheet-body\b/.test(src)) {
+    report(wxml + ': 弹层主体用了 view（它的 overflow 滚动挂在 touchmove 上，会被遮罩的 catchtouchmove 吃掉，真机滑不动），改成 scroll-view')
   }
   if (src.indexOf('sheet-body-wrap') >= 0) {
     report(wxml + ': 用了会塌陷的 .sheet-body-wrap 包裹弹层主体')
@@ -226,6 +241,31 @@ wxmls.forEach((wxml) => {
     }
   }
 })
+
+console.log('== 9b. 遮罩收起时必须 display:none，不能只靠 opacity/visibility ==')
+/*
+ * 弹层收起后「不完全可见」的那个 bug：主页偶尔冒出来的「背单词」字样。
+ * 那是 habit-editor 名称输入框的 placeholder（「例如：背单词」）。
+ *
+ * 原因是 input / textarea / switch 属于**原生组件** —— 它们由客户端原生控件
+ * 画在 WebView 之上，只认「在不在渲染树里」，不认 opacity / visibility 这类
+ * 绘制层属性。遮罩写 opacity:0 时，WebView 那一层确实透明了，
+ * 但浮在上面的原生输入框照样画出来。
+ *
+ * 只有 display:none（整棵子树不参与渲染）在所有平台、所有基础库下都成立。
+ * 配合组件的 mounted/active 两级状态：收起先摘 --on 播动画，260ms 后摘 --mounted。
+ */
+{
+  const mm = /(?:^|[}\s])\.mask\s*\{([^}]*)\}/m.exec(appWxssRaw)
+  if (!mm) {
+    report('app.wxss: 找不到 .mask 规则')
+  } else if (!/(?:^|[;{\s])display\s*:\s*none/.test(mm[1])) {
+    report('app.wxss: .mask 收起态不是 display:none（原生组件 input/textarea/switch 不认 opacity，会留在屏幕上）')
+  } else if (/(?:^|[;{\s])visibility\s*:\s*hidden/.test(mm[1])) {
+    // visibility:hidden 是上一版的做法，留着会让人以为它有用
+    report('app.wxss: .mask 上残留 visibility:hidden（对原生组件无效，收起靠 display:none）')
+  }
+}
 
 console.log('== 10. 打卡弹层不得提供切换日期的入口 ==')
 /*

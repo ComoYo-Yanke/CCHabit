@@ -14,9 +14,11 @@ const app = getApp()
 const storage = require('../../utils/storage.js')
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
+const pageFade = require('../../utils/page-fade.js')
 
 Page({
   data: {
+    ...pageFade.data,
     statusBarHeight: 20,
 
     range: 'week',
@@ -39,6 +41,7 @@ Page({
   },
 
   onShow() {
+    pageFade.play(this)
     this.refresh()
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       this.getTabBar().setData({ selected: 1 })
@@ -124,7 +127,7 @@ Page({
     this.setData({
       anchor,
       rangeLabel: rangeInfo.label,
-      canNext: dayjs.diffDays(rangeInfo.end, today) < 0,
+      canNext: !!this.shiftedAnchor(1),
       hasHabits: habits.length > 0,
       summary: Object.assign({}, summary, {
         habitCount: habits.length,
@@ -145,11 +148,28 @@ Page({
     this.setData({ range, anchor: dayjs.today() }, () => this.refresh())
   },
 
+  /**
+   * 按 delta 平移区间，返回新的锚点；越界时返回 null（整段都在今天之后，没有数据可看）。
+   *
+   * 这里的方向曾经写反过：「左」按钮点了没反应，只能往「右」翻、还能一直翻到未来去。
+   * 原来那句是 `diffDays(nextStart, today) > 0`，即「区间起点在过去」——
+   * 而上一周 / 上一月 / 上一年的起点**必然**在过去，于是往回翻被全线挡死；
+   * 往未来翻反而没人拦。判据应该是「下一段的起点落在今天之后」，
+   * 也就是这一整段还没发生。
+   *
+   * 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后，不用转 Date。
+   */
+  shiftedAnchor(delta) {
+    const { range } = this.data
+    const today = dayjs.today()
+    const next = dayjs.shiftRange(range, this.data.anchor || today, delta)
+    return dayjs.rangeOf(range, next).start > today ? null : next
+  },
+
   onShiftRange(e) {
     const delta = Number(e.currentTarget.dataset.delta)
-    const { range } = this.data
-    const next = dayjs.shiftRange(range, this.data.anchor || dayjs.today(), delta)
-    if (dayjs.diffDays(dayjs.rangeOf(range, next).start, dayjs.today()) > 0) return
+    const next = this.shiftedAnchor(delta)
+    if (!next) return
     this.setData({ anchor: next }, () => this.refresh())
   },
 

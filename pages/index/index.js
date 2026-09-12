@@ -3,7 +3,7 @@
  *
  * 结构：
  *   1. 顶部问候 + 今日概览（完成数 / 连续天数）
- *   2. 全部习惯的合并热力点阵（近 26 周）
+ *   2. 全部习惯的合并热力点阵（铺满全部历史，可横向滑动回看）
  *   3. 习惯卡片列表（单卡自带近 12 周点阵、今日数值、连续天数）
  *   4. 右下角悬浮按钮：新建习惯
  *
@@ -13,14 +13,24 @@ const app = getApp()
 const storage = require('../../utils/storage.js')
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
+const pageFade = require('../../utils/page-fade.js')
 
-/** 首页合并热力图展示的周数 */
-const OVERVIEW_WEEKS = 26
+/** 首页合并热力图的**最少**周数；有更早的记录就一路往前铺，可以横向滑到底 */
+const OVERVIEW_MIN_WEEKS = 26
+/** 合并热力图的周数上限（约 5 年）：再多也只是把横向滚动条拉得更长，没有信息增量 */
+const OVERVIEW_MAX_WEEKS = 260
 /** 卡片内迷你热力图展示的周数 */
 const CARD_WEEKS = 12
+/**
+ * 卡片上「打卡」按钮记录的数值。
+ * 固定 1：这是「点一下就算今天打过卡」的快捷动作，不套用习惯的 step ——
+ * step 是弹层里快捷档位的幅度，属于精细录入那条路。
+ */
+const QUICK_CHECKIN_VALUE = 1
 
 Page({
   data: {
+    ...pageFade.data,
     statusBarHeight: 20,
 
     // 今日概览
@@ -31,9 +41,9 @@ Page({
     todayPercent: 0,
     maxStreak: 0,
 
-    // 合并热力图
+    // 合并热力图（周数在 refresh 里按最早记录算，这里先给个下限占位）
     overviewMap: {},
-    overviewWeeks: OVERVIEW_WEEKS,
+    overviewWeeks: OVERVIEW_MIN_WEEKS,
 
     // 习惯列表
     items: [],
@@ -56,6 +66,7 @@ Page({
   },
 
   onShow() {
+    pageFade.play(this)
     this.refresh()
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       this.getTabBar().setData({ selected: 0 })
@@ -112,6 +123,15 @@ Page({
       })
     })
 
+    // 概览热力图铺满全部历史：从最早的一条记录算起，向左一直能滑到头。
+    // 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后，不用转 Date。
+    let earliest = today
+    Object.keys(overviewMap).forEach((d) => {
+      if (d < earliest) earliest = d
+    })
+    const spanWeeks = Math.ceil(dayjs.diffDays(earliest, today) / 7) + 1
+    const overviewWeeks = Math.min(OVERVIEW_MAX_WEEKS, Math.max(OVERVIEW_MIN_WEEKS, spanWeeks))
+
     // ---- 每个习惯的卡片数据 ----
     let todayDone = 0
     let maxStreak = 0
@@ -127,7 +147,6 @@ Page({
       if (done) todayDone += 1
       if (streak.current > maxStreak) maxStreak = streak.current
 
-      const target = Number(habit.target) || 0
       const todayValue = todayCell ? todayCell.value : 0
 
       return {
@@ -137,7 +156,6 @@ Page({
         todayCount: todayCell ? todayCell.count : 0,
         todayText: stats.fmtNum(todayValue),
         streak: streak.current,
-        progress: target > 0 ? Math.min(100, Math.round((todayValue / target) * 100)) : 0,
         totalText: stats.fmtNum(all.totalValue),
         totalCount: all.totalCount
       }
@@ -147,6 +165,7 @@ Page({
       items,
       hasHabits: items.length > 0,
       overviewMap,
+      overviewWeeks,
       todayDone,
       todayTotal: items.length,
       todayPercent: items.length ? Math.round((todayDone / items.length) * 100) : 0,
@@ -168,11 +187,35 @@ Page({
     wx.navigateTo({ url: '/pages/habit-detail/habit-detail?id=' + id })
   },
 
-  /** 打开打卡弹层 */
+  /**
+   * 卡片上的「打卡」= **快捷打卡**：直接记一笔，不打开弹层。
+   *
+   * 首页是「一屏扫过去、顺手点一下」的场景，为了记一次默认量的打卡而弹一个
+   * 要读、要等、要关的面板，成本比动作本身还高。需要填数值 / 备注的时候，
+   * 点卡片进详情、或用概览区的「去打卡」，走的是弹层那条精细路线。
+   *
+   * 记的数值固定是 1：这个动作的语义就是「今天打过卡了」，
+   * 不套用 habit.step（那是弹层里快捷档位的幅度）。
+   */
   onCardCheckin(e) {
     const habit = storage.getHabit(e.detail.id)
     if (!habit) return
-    this.setData({ showCheckin: true, checkinHabit: habit, checkinDate: dayjs.today() })
+
+    try {
+      storage.addRecord(habit.id, dayjs.today(), QUICK_CHECKIN_VALUE, '')
+    } catch (err) {
+      this.handleStorageError(err)
+      return
+    }
+
+    // 轻微震动反馈，和弹层里的打卡保持一致
+    if (storage.getSettings().haptic) {
+      wx.vibrateShort({ type: 'light', fail: () => {} })
+    }
+
+    app.bumpDataVersion()
+    this.refresh()
+    wx.showToast({ title: '已打卡', icon: 'none' })
   },
 
   /** 长按卡片 -> 编辑 */

@@ -85,36 +85,6 @@
   margin-top: 2rpx;
 }
 
-/* 进度条 */
-.hc-progress {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  margin-top: 22rpx;
-}
-
-.hc-progress-bar {
-  flex: 1;
-  height: 10rpx;
-  border-radius: 5rpx;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-
-.hc-progress-fill {
-  height: 100%;
-  border-radius: 5rpx;
-  transition: width 0.35s ease;
-}
-
-.hc-progress-text {
-  font-size: 21rpx;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-  min-width: 62rpx;
-  text-align: right;
-}
-
 /* 热力概览 */
 .hc-heat {
   margin-top: 24rpx;

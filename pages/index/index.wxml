@@ -6,7 +6,7 @@
 -->
 <page-meta page-style="{{(showEditor || showCheckin) ? 'overflow: hidden;' : ''}}"></page-meta>
 
-<view class="page">
+<view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
   <!-- ============ 顶部问候 ============ -->
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-date">{{dateLabel}}</view>
@@ -63,12 +63,14 @@
     <view class="section">
       <view class="section-head">
         <text class="section-title">打卡总览</text>
-        <text class="section-sub">近 {{overviewWeeks}} 周</text>
+        <text class="section-sub">共 {{overviewWeeks}} 周 · 左右滑动</text>
       </view>
       <view class="card">
+        <!-- scroll：全部历史横向铺开，初始停在今天，向左拖看更早的记录 -->
         <heatmap
           dayMap="{{overviewMap}}"
           weeks="{{overviewWeeks}}"
+          scroll="{{true}}"
           showMonths="{{true}}"
           showLegend="{{true}}"
         />

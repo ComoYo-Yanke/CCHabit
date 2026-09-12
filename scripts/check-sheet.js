@@ -2,7 +2,7 @@
  * 量弹层布局：确认按钮到底在不在可视区里。
  *
  * 为什么需要它：这个按钮一共「消失」过三次，每次都跟弹层高度有关，而每次
- * 都能在 Chromium 里量出来问题（第一版量出弹层只差 4px 就顶满 88vh）。
+ * 都能在 Chromium 里量出来问题（第一版量出弹层只差 4px 就顶满了 max-height）。
  *
  * 第四版把确认按钮挪进了头部（`.sheet-acts` 绝对定位悬浮在「×」左边），于是它
  * 不再和主体抢空间 —— 头部是 flex-shrink:0，主体再怎么长也顶不掉它。要守的东西
@@ -14,13 +14,27 @@
  *   ④ 头部整块可见，两个按钮都落在头部里（top:0;bottom:0 的垂直居中没跑偏）
  *   ⑤ 主体真的收缩了 —— 内容比盒子高（scrollHeight > clientHeight），
  *      而且没塌成 0 高（那会退化成「只剩标题、内容全没了」）
+ *   ⑥ 弹层占屏比 ≤ 70% —— 底部弹出层不该吃掉整屏，背景要留得出来
  *
  * ①②③④ 是这一版的新守卫。绝对定位的代价是「位置可能跑到别处去」，而不是
  * 「可能不显示」——所以才要量坐标，光看 DOM 里有没有这个节点是没用的。
  * ⑤ 留着，它守的是主体本身还健康（内容可滚动、不是被撑爆或被压扁）。
+ * ⑥ 是「创建习惯的弹层划不动」那条反馈加的：主因是弹层几乎正好装得下，
+ *   滚动行程短到看不出来。把上限收到 68vh 后每台机型的正常内容都会溢出，
+ *   这条同时钉住「别再调回接近满屏的高度」。
  *
  * 每种机型都跑两遍：正常内容 + 5 倍压力内容。压力那一遍顶到 max-height，
  * 是「头部会不会被主体挤走」的真正守卫。
+ *
+ * ⚠️ 这个脚本量不出「真机上滑不滑得动」。
+ * 主体已经从 view + overflow-y:auto 换成了 scroll-view（原因见 lint-structure 第 7 条：
+ * 普通 view 的 overflow 滚动挂在 touchmove 上，会被遮罩的 catchtouchmove 吃掉）。
+ * 而 scroll-view 是原生组件，浏览器里既没有原生滚动、也没有 touchmove 被吃这回事，
+ * 那个 bug 在本脚本里**结构性地复现不出来**。这里能守的只是「盒子的尺寸关系没错」：
+ * 主体有没有被内容撑爆、有没有塌成 0 —— 尺寸对了才轮得到讨论滚动。
+ *
+ * 为了让 scroll-view 量得出来，fixture 里给它补了 baseline 样式
+ * （浏览器不认识这个标签，默认 display:inline，量出来全是 0）。
  *
  * 注意 rpx 不是浏览器认识的单位，Chromium 直接丢掉整条声明，所以先把 rpx 换算成 px。
  */
@@ -51,7 +65,7 @@ if (!EDGE) {
  * 好在宽度真的不影响结论：弹层内部尺寸全是 rpx，1rpx = W/750，
  * 整套布局在设计上是**等比缩放**的 —— 496px 宽的渲染就是任何一台真机的等比例版本，
  * 「按钮在 × 左边」「按钮不压标题」这类相对关系与宽度无关。
- * 唯一不看 rpx 的是 .sheet 的 max-height: 88vh，它只看高度，所以高度必须真的换。
+ * 唯一不看 rpx 的是 .sheet 的 max-height（68vh），它只看高度，所以高度必须真的换。
  *
  * 换算用的宽度由 calibrateChrome() 现场量出来（见下），不写死。
  */
@@ -110,10 +124,10 @@ function assertHeadRule() {
 /**
  * 构造与 habit-editor 一致的 DOM：
  * .mask(fixed, 满屏, flex column, justify-content:flex-end)
- *   .sheet(max-height 88vh, flex column, overflow hidden)
+ *   .sheet(max-height 68vh, flex column, overflow hidden)
  *     .sheet-head(position:relative, flex-shrink:0)
  *       .sheet-title / .sheet-acts(position:absolute, 悬浮) / .sheet-close
- *     view.sheet-body(flex:1, min-height:0) / .sheet-safe
+ *     scroll-view.sheet-body(flex:1, min-height:0, max-height:60vh) / .sheet-safe
  *
  * @param {number} stress 内容倍数：1 = 正常表单，5 = 压力测试
  */
@@ -131,7 +145,6 @@ function buildHtml(device, stress, w) {
     field('图标', `<view class="icon-grid">${'<view class="icon-cell">📖</view>'.repeat(12)}</view>`),
     field('主题色', `<view class="color-row">${'<view class="color-cell"></view>'.repeat(8)}</view>`),
     field('数值单位', `<view class="chip-row">${'<view class="chip">次</view>'.repeat(9)}</view>`),
-    field('每日目标', '<input class="field-input" placeholder="如 50">'),
     field('快捷步长', '<input class="field-input" placeholder="如 10">'),
     `<view class="switch-row"><view class="flex-1"><view class="switch-title">启用该习惯</view>
        <view class="switch-desc">关闭后不在首页展示，也不计入统计</view></view>
@@ -149,8 +162,16 @@ function buildHtml(device, stress, w) {
   :root { --safe: ${SAFE_INSET}px; }
   .sheet-safe { height: var(--safe) !important; }
   .rule { display: none; }
+  /*
+   * scroll-view 的 baseline。
+   * 浏览器不认识这个标签（它是微信的原生组件），未知元素默认 display:inline ——
+   * 那样它就当不成 flex 项目，量出来高 0，整份 fixture 全废。
+   * 这里只补「让它像个块级盒子」所需的部分：原生滚动行为浏览器给不了，
+   * 也不需要 —— 本脚本量的只是尺寸关系（见文件头说明）。
+   */
+  scroll-view { display: block; overflow: hidden; }
 </style></head><body>
-<view class="mask mask--on">
+<view class="mask mask--mounted mask--on">
   <view class="sheet">
     <view class="sheet-head sheet-head--acts">
       <!-- 用 12 个字的标题（习惯名上限）。
@@ -169,10 +190,10 @@ function buildHtml(device, stress, w) {
       </view>
       <view class="sheet-close press"><view class="ic ic-close-idle"></view></view>
     </view>
-    <view class="sheet-body">
+    <scroll-view class="sheet-body" scroll-y>
       ${body.join('\n')}
       <view class="sheet-gap"></view>
-    </view>
+    </scroll-view>
     <view class="sheet-safe"></view>
   </view>
 </view>
@@ -219,7 +240,9 @@ var out = {
   // ⑦ 主体真的收缩了：内容比盒子高
   bodyShrank: body.scrollHeight > br.h + 1,
   // ⑧ 主体没塌成 0 高
-  bodySane: br.h > 40
+  bodySane: br.h > 40,
+  // ⑨ 弹层占屏比：底部弹出层不该吃掉整屏，背景得留得出来
+  sheetCoverage: sr.h / vh
 };
 document.getElementById('out').textContent = 'RESULT' + JSON.stringify(out);
 </script></body></html>`
@@ -294,6 +317,11 @@ function failures(r, tag) {
   if (!r.headFullyVisible) bad.push('头部被顶出可视区')
   if (!r.actsInsideHead) bad.push('悬浮按钮跑出头部（垂直居中基准错了，或头部没 position: relative）')
   if (!r.bodySane) bad.push('主体高度接近 0，退化成「只剩标题」')
+  // ⑨ 弹层不能吃掉整屏。上限是 .sheet 的 max-height: 68vh，留 2% 给取整误差。
+  // 超了说明上限被调大（或丢了），底部弹出层会变成全屏页，背景完全看不见。
+  if (r.sheetCoverage > 0.7) {
+    bad.push('弹层占了 ' + Math.round(r.sheetCoverage * 100) + '% 的屏幕，底部弹出层不该吃掉整屏')
+  }
   if (r.btnText !== '创建') bad.push('确认按钮文案不对：' + r.btnText)
   return bad.map((s) => tag + '：' + s)
 }

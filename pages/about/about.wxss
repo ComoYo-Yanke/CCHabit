@@ -112,6 +112,53 @@
   line-height: 1.5;
 }
 
+/* ============ 更新日志 ============ */
+/*
+ * 每个版本一块，块之间用一条细分隔线断开（最后一块不要线，
+ * :last-child 兜底 —— 否则卡片底部会多出一条悬空的横线）。
+ */
+.log + .log {
+  margin-top: 26rpx;
+  padding-top: 26rpx;
+  border-top: 1rpx solid var(--border-soft);
+}
+
+.log-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14rpx;
+}
+
+.log-ver {
+  font-size: 27rpx;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.log-date {
+  font-size: 22rpx;
+  color: var(--text-3);
+}
+
+.log-item {
+  display: flex;
+  gap: 10rpx;
+  margin-top: 12rpx;
+}
+
+.log-dot {
+  font-size: 24rpx;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.log-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
 /* ============ 隐私说明 ============ */
 .privacy-row {
   display: flex;

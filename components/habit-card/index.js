@@ -15,7 +15,6 @@ Component({
      *   todayCount: Number,    今日打卡次数
      *   todayText: String,     今日累计数值（已格式化）
      *   streak: Number,        当前连续天数
-     *   progress: Number,      0-100，未设目标时为 0
      *   done: Boolean          今日是否已打卡
      * }
      */

@@ -10,6 +10,9 @@
  */
 const storage = require('../../utils/storage.js')
 
+/** 退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
+const SHEET_LEAVE_MS = 260
+
 /** 新建时的默认表单 */
 function emptyForm() {
   return {
@@ -18,7 +21,6 @@ function emptyForm() {
     unit: '',
     icon: '🎯',
     color: storage.HABIT_COLORS[0],
-    target: '',
     step: '1',
     enabled: true
   }
@@ -43,10 +45,38 @@ Component({
     icons: storage.ICON_PRESETS,
     colors: storage.HABIT_COLORS,
     units: storage.UNIT_PRESETS,
-    nameError: ''
+    nameError: '',
+
+    /** 是否已挂载到 DOM（false = display:none，整棵子树不渲染） */
+    mounted: false,
+    /** 是否已展开（驱动入场 / 退场过渡） */
+    active: false
   },
 
   observers: {
+    /**
+     * 弹层的挂载 / 展开两级状态，理由见 app.wxss 的 .mask：
+     * 收起时必须是 display:none —— 名称输入框是原生组件（input），
+     * 它不认 opacity / visibility，只有「不在」才是真的看不见。
+     */
+    'show': function (show) {
+      if (show) {
+        clearTimeout(this._unmountTimer)
+        // 先挂载成「收起姿态」（透明 + 面板在屏幕外），下一帧再展开，
+        // 入场过渡才有起点。两件事挤在同一次渲染里的话，过渡会被跳过。
+        this.setData({ mounted: true })
+        wx.nextTick(() => {
+          // 下一帧时可能已经被关掉了，补一道判断免得它自己又弹回来
+          if (this.data.show) this.setData({ active: true })
+        })
+        return
+      }
+      if (!this.data.mounted) return
+      // 先摘 --on 播完退场动画，过渡走完再摘挂载落到 display:none
+      this.setData({ active: false })
+      this._unmountTimer = setTimeout(() => this.setData({ mounted: false }), SHEET_LEAVE_MS)
+    },
+
     'show, habit': function (show, habit) {
       if (!show) return
       if (habit && habit.id) {
@@ -63,8 +93,6 @@ Component({
             unit: habit.unit || '',
             icon: habit.icon || '🎯',
             color: habit.color || storage.HABIT_COLORS[0],
-            // 0 在表单里表示为空，避免用户看到无意义的 0
-            target: habit.target ? String(habit.target) : '',
             step: String(habit.step || 1),
             enabled: habit.enabled !== false
           }
@@ -72,6 +100,13 @@ Component({
       } else {
         this.setData({ isEdit: false, nameError: '', customUnit: false, customIcon: false, form: emptyForm() })
       }
+    }
+  },
+
+  lifetimes: {
+    detached() {
+      // 组件已经销毁后 setData 会报警告，退场定时器要先撤掉
+      clearTimeout(this._unmountTimer)
     }
   },
 
@@ -132,8 +167,7 @@ Component({
         return
       }
 
-      // 目标与步长做数值归一：非法输入回落到默认值，避免 NaN 进入存储
-      const target = Math.max(0, Number(f.target) || 0)
+      // 步长做数值归一：非法输入回落到默认值，避免 NaN 进入存储
       const step = Math.max(0.01, Number(f.step) || 1)
 
       // 图标：自定义模式下用户可能什么都没填（或只敲了个空格），
@@ -147,7 +181,9 @@ Component({
           unit: (f.unit || '').trim().slice(0, 6),
           icon: icon || '🎯',
           color: f.color,
-          target: Math.round(target * 100) / 100,
+          // 不再提交 target：每日目标 / 进度条整套已经移除。
+          // 不带这个字段，saveHabit 的合并会把老数据里已有的值原样留着，
+          // 它们还在给热力图的色阶当基准，不声不响地继续有用。
           step: Math.round(step * 100) / 100,
           enabled: f.enabled
         }

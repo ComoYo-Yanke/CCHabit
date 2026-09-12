@@ -1,5 +1,9 @@
-<!-- catchtouchmove：挡住冒泡到页面的滑动，否则在弹层上拖会滚动背后那一屏（见 checkin-sheet 顶部注释） -->
-<view class="mask {{show ? 'mask--on' : ''}}" catchtouchmove="noop" bindtap="onClose">
+<!--
+  catchtouchmove：挡住冒泡到页面的滑动，否则在弹层上拖会滚动背后那一屏（见 checkin-sheet 顶部注释）。
+  mounted / active 两级状态：收起时必须 display:none，否则原生组件（input）不认 opacity，
+  会在主页上留下「不完全可见」的残影 —— 详见 app.wxss 的 .mask。
+-->
+<view class="mask {{mounted ? 'mask--mounted' : ''}} {{active ? 'mask--on' : ''}}" catchtouchmove="noop" bindtap="onClose">
   <view class="sheet" catchtap="noop">
     <view class="sheet-head sheet-head--acts">
       <text class="sheet-title ellipsis">{{isEdit ? '编辑习惯' : '新建习惯'}}</text>
@@ -13,9 +17,9 @@
       </view>
     </view>
 
-    <!-- 必须是 view 不是 scroll-view：scroll-view 在微信里不参与 flex 收缩，
-         会被内容撑高。详见 app.wxss 的 .sheet-body -->
-    <view class="sheet-body">
+    <!-- 必须是 scroll-view：普通 view 的 overflow 滚动挂在 WebView 的 touchmove 上，
+         会被遮罩的 catchtouchmove 吃掉，真机上滑不动。详见 app.wxss 的 .sheet-body -->
+    <scroll-view scroll-y class="sheet-body" show-scrollbar="{{false}}">
       <!-- 名称 -->
       <view class="field">
         <view class="field-label">名称</view>
@@ -116,38 +120,22 @@
         />
       </view>
 
-      <!-- 目标与步长 -->
-      <view class="field-row">
-        <view class="field flex-1">
-          <view class="field-label">
-            每日目标
-            <text class="field-hint">0 表示不设目标</text>
-          </view>
-          <input
-            class="field-input"
-            type="digit"
-            value="{{form.target}}"
-            data-field="target"
-            placeholder="如 50"
-            placeholder-class="ph"
-            bindinput="onInput"
-          />
+      <!-- 快捷步长。曾经还有个「每日目标」，连同进度条一起撤掉了：
+           打卡就是记个数，进度条是多余的一层概念。 -->
+      <view class="field">
+        <view class="field-label">
+          快捷步长
+          <text class="field-hint">打卡弹层里快捷按钮的幅度</text>
         </view>
-        <view class="field flex-1">
-          <view class="field-label">
-            快捷步长
-            <text class="field-hint">快捷按钮幅度</text>
-          </view>
-          <input
-            class="field-input"
-            type="digit"
-            value="{{form.step}}"
-            data-field="step"
-            placeholder="如 10"
-            placeholder-class="ph"
-            bindinput="onInput"
-          />
-        </view>
+        <input
+          class="field-input"
+          type="digit"
+          value="{{form.step}}"
+          data-field="step"
+          placeholder="如 10"
+          placeholder-class="ph"
+          bindinput="onInput"
+        />
       </view>
 
       <!-- 启用开关（仅编辑时展示，新建默认启用） -->
@@ -160,7 +148,7 @@
       </view>
 
       <view class="sheet-gap"></view>
-    </view>
+    </scroll-view>
     <view class="sheet-safe"></view>
   </view>
 </view>

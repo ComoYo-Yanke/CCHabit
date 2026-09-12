@@ -18,6 +18,9 @@
 const storage = require('../../utils/storage.js')
 const dayjs = require('../../utils/date.js')
 
+/** 退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
+const SHEET_LEAVE_MS = 260
+
 Component({
   options: { styleIsolation: 'apply-shared' },
 
@@ -48,11 +51,37 @@ Component({
     quickList: [],
     /** { [档位值]: true } —— 供 WXML 判断快捷按钮选中态，避免在模板里做数值比较 */
     isQuickOn: {},
-    progress: 0,
-    progressText: ''
+
+    /** 是否已挂载到 DOM（false = display:none，整棵子树不渲染） */
+    mounted: false,
+    /** 是否已展开（驱动入场 / 退场过渡） */
+    active: false
   },
 
   observers: {
+    /**
+     * 弹层的挂载 / 展开两级状态，理由见 app.wxss 的 .mask：
+     * 收起时必须是 display:none —— 数值输入框、备注框都是原生组件（input），
+     * 它们不认 opacity / visibility，只有「不在」才是真的看不见。
+     */
+    'show': function (show) {
+      if (show) {
+        clearTimeout(this._unmountTimer)
+        // 先挂载成「收起姿态」（透明 + 面板在屏幕外），下一帧再展开，
+        // 入场过渡才有起点。两件事挤在同一次渲染里的话，过渡会被跳过。
+        this.setData({ mounted: true })
+        wx.nextTick(() => {
+          // 下一帧时可能已经被关掉了，补一道判断免得它自己又弹回来
+          if (this.data.show) this.setData({ active: true })
+        })
+        return
+      }
+      if (!this.data.mounted) return
+      // 先摘 --on 播完退场动画，过渡走完再摘挂载落到 display:none
+      this.setData({ active: false })
+      this._unmountTimer = setTimeout(() => this.setData({ mounted: false }), SHEET_LEAVE_MS)
+    },
+
     'show, habit, date': function (show, habit, date) {
       if (!show || !habit) return
       // 未来的日期一律夹回今天：只读还能说是「回看」，看未来就是纯粹的错误状态
@@ -70,15 +99,18 @@ Component({
     }
   },
 
+  lifetimes: {
+    detached() {
+      // 组件已经销毁后 setData 会报警告，退场定时器要先撤掉
+      clearTimeout(this._unmountTimer)
+    }
+  },
+
   methods: {
     /** 快捷按钮：按步长生成本次打卡的常用数值档位 */
     buildQuickList(habit) {
       const step = Number(habit.step) || 1
-      const target = Number(habit.target) || 0
-      const list = [step, step * 2, step * 5]
-      // 设了目标值就把目标档位也放进来，方便「一次打满」
-      if (target > 0 && list.indexOf(target) < 0) list.push(target)
-      return list
+      return [step, step * 2, step * 5]
         .filter((v, i, arr) => v > 0 && arr.indexOf(v) === i)
         .slice(0, 4)
         .map((v) => ({ value: v, label: '+' + trimNum(v) }))
@@ -106,9 +138,6 @@ Component({
         total += Number(r.v) || 0
       })
 
-      const target = Number(habit.target) || 0
-      const progress = target > 0 ? Math.min(100, Math.round((total / target) * 100)) : 0
-
       // 快捷档位的选中态跟着当前输入值走，刷新时一并重算，
       // 这样清空/切日期/编辑记录等入口都不需要各自维护它
       const isQuickOn = {}
@@ -135,9 +164,7 @@ Component({
         dayCount: records.length,
         dayTotal: total,
         dayTotalText: trimNum(total),
-        dateLabel: dayjs.friendlyLabel(activeDate),
-        progress,
-        progressText: target > 0 ? trimNum(total) + ' / ' + trimNum(target) + (habit.unit || '') : ''
+        dateLabel: dayjs.friendlyLabel(activeDate)
       })
     },
 
@@ -180,13 +207,6 @@ Component({
       const v = e.currentTarget.dataset.value
       const str = trimNum(v)
       this.setValue(this.data.value === str ? '' : str)
-    },
-
-    /** 把当前输入值追加到已有数值上（连续录入场景） */
-    onAppendStep(e) {
-      const step = Number(e.currentTarget.dataset.step) || 1
-      const cur = Number(this.data.value) || 0
-      this.setValue(trimNum(cur + step))
     },
 
     onToggleNote() {

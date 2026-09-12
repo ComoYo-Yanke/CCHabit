@@ -269,9 +269,58 @@ view, text, scroll-view, button, input, textarea {
   opacity: 0.7;
 }
 
+/*
+ * 页面淡入（底部 tab 切换用）。
+ *
+ * 为什么是两个内容一模一样的动画：switchTab 是同步切页，目标页面的 DOM 一直
+ * 活着，只是从幕后被搬到台前。给 .page 挂一个固定的 animation 只会播第一次，
+ * 之后再切都不会动 —— 同一个 animation-name，浏览器认为「还是那个动画」，
+ * 不会重头开始。名字换一下才会当作新动画重播，所以这里备了 A / B 两个，
+ * 页面每次 onShow 由 utils/page-fade.js 在两者之间翻一次。
+ *
+ * 只动 opacity，不碰 transform：.page 里可能挂着 position: fixed 的弹层，
+ * 祖先一旦有 transform 就会变成它的包含块，fixed 立刻失效（见设计决策 15）。
+ * opacity 只产生层叠上下文，不会变成包含块，是安全的。
+ *
+ * 也只有「入场」没有「退场」：switchTab 切页是同步的，旧页面当场就没了，
+ * 没有能播退场动画的时间。淡入已经足够抹掉切换的突兀感。
+ */
+@keyframes pageFadeInA {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pageFadeInB {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page--fade {
+  animation-duration: 0.24s;
+  animation-timing-function: ease;
+  animation-fill-mode: both;
+}
+
 /* ============================================================
    底部弹层（habit-editor / checkin-sheet 共用）
    ============================================================ */
+/*
+ * 遮罩：**收起时完全不渲染**。
+ *
+ * 早先写的是 opacity:0 + visibility:hidden，看着等效，其实不是。
+ * input / textarea / switch 是**原生组件**，由客户端原生控件画在 WebView 之上，
+ * 它们只认「在不在」，不认 opacity / visibility 这类绘制层属性。
+ * 于是在收起状态下，弹层里的输入框会以「不完全可见」的形态留在屏幕上 ——
+ * 主页偶尔冒出来的那个「背单词」，就是 habit-editor 名称框的 placeholder。
+ * 只有 display:none（整棵子树不参与渲染）在所有平台、所有基础库下都成立。
+ *
+ * 但 display 和 transition 天生不兼容（display 一变过渡就被打断，入场会「跳」），
+ * 所以把状态拆成两级：
+ *   .mask--mounted  已挂载 —— display:flex，但仍是「收起」姿态（透明 + 弹层在屏幕外）
+ *   .mask--on       已展开 —— 透明度和位移一起过渡到位
+ * 关闭时先摘 --on 播完退场动画，延迟一会儿再由 JS 摘掉 --mounted 落到 display:none。
+ * 万一过渡因为任何原因没跑起来，收起姿态本身也在屏幕外，一样漏不出来。
+ */
 .mask {
   position: fixed;
   left: 0;
@@ -280,17 +329,20 @@ view, text, scroll-view, button, input, textarea {
   bottom: 0;
   z-index: 1000;
   background: rgba(0, 0, 0, 0.6);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.22s ease, visibility 0.22s ease;
-  display: flex;
+  /* 关键：不挂载即不渲染，原生组件也留不下来 */
+  display: none;
   flex-direction: column;
   justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.mask--mounted {
+  display: flex;
 }
 
 .mask--on {
   opacity: 1;
-  visibility: visible;
 }
 
 .sheet {
@@ -299,7 +351,10 @@ view, text, scroll-view, button, input, textarea {
   border-top: 1rpx solid var(--border);
   transform: translateY(100%);
   transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
-  max-height: 88vh;
+  /* 弹层最多占屏幕的 68%：这是底部弹出层的体量，再高就成了「全屏页」，
+     背景完全看不见，用户也失去了「这只是盖在上面的一层」的感觉。
+     同时它保证了主体一定溢出 —— 溢出才需要滚，见 .sheet-body 的说明。 */
+  max-height: 68vh;
   display: flex;
   flex-direction: column;
   /* 内容再长也不许溢出：一旦溢出，超出 max-height 的部分会被裁掉，
@@ -308,7 +363,7 @@ view, text, scroll-view, button, input, textarea {
 }
 
 .mask--on .sheet {
-  transform: translateY(-40px);
+  transform: translateY(-30px);
 }
 
 .sheet-head {
@@ -412,14 +467,16 @@ view, text, scroll-view, button, input, textarea {
 }
 
 /*
- * 弹层主体：**一律用 view，靠 flex 收缩，不手算高度**。
+ * 弹层主体：**scroll-view**，靠 flex 收缩，不手算高度。
  *
- * 这里踩过三次坑，三版做法都记录在案，别再走回头路：
+ * 这里踩过四次坑，四版做法都记录在案，别再走回头路：
  *
  * ① `scroll-view` + `flex: 1`（第一版）
- *    scroll-view 在微信里**不参与 flex 收缩**，会被内容撑高。内容一旦超过
- *    .sheet 的 max-height: 88vh，overflow:hidden 就把下面的 .sheet-foot
- *    （当时的确认按钮）整块裁掉 —— 「表单都在，就是没有确认按钮」。
+ *    主体没有收缩，被内容撑高。内容一旦超过 .sheet 的 max-height，
+ *    overflow:hidden 就把下面的 .sheet-foot（当时的确认按钮）整块裁掉 ——
+ *    「表单都在，就是没有确认按钮」。真正的病根是少了 min-height: 0
+ *    （flex 项的 min-height 默认是 auto，撑起来就缩不回去），当时误判成了
+ *    「scroll-view 不参与 flex 收缩」，连滚动的能力一起扔掉了。
  *
  * ② 外面套一层 view 用 flex 收缩 + scroll-view 绝对定位（第二版）
  *    那层 wrap 的 flex:1 在微信里塌成 0 高，scroll-view 跟着 0 高，
@@ -428,27 +485,46 @@ view, text, scroll-view, button, input, textarea {
  * ③ `scroll-view` + `height: calc(78vh - 240rpx)`（第三版）
  *    把一个弹层的可见性吊在**一条声明**上。calc() 里混用 vh 和 rpx，
  *    正是各基础库解析行为不一致的地方；只要这条被丢掉，scroll-view 就退回
- *    没有高度的状态，而它又不会收缩 —— 直接回到故障 ①。
- *    量出来是好的（scripts/check-sheet.js 在浏览器里量过），真机上却复发，
- *    因为「浏览器认得这条声明」和「微信认得这条声明」是两件事。
+ *    没有高度的状态 —— 直接回到故障 ①。量出来是好的（scripts/check-sheet.js
+ *    在浏览器里量过），真机上却复发，因为「浏览器认得这条声明」和
+ *    「微信认得这条声明」是两件事。
  *
- * 正解就是最朴素的那个：**主体是 .sheet 这个 flex column 的子项**，
- * flex:1 + min-height:0（min-height:0 是关键，否则 min-height:auto 会让
- * 它撑到内容高度、又收缩不了）。内容再长也是主体自己滚，不会把弹层撑爆。
+ * ④ 普通 view + `overflow-y: auto`（第四版）
+ *    在浏览器里能滚，**真机上不滚**。overflow 滚动的实现挂在 WebView 的
+ *    touchmove 上，而遮罩为了防穿透正好 catch 住了 touchmove（见 .mask）。
+ *    手指在弹层上拖，弹层纹丝不动，滚的却是背后那一屏 —— 这就是
+ *    「弹出后滑不动，滑的是背景主页」。
  *
- * 第四版更进一步：确认按钮已经挪进 .sheet-head（见 .sheet-acts），不再待在
- * 底部抢空间。这条 flex 让位现在守的是「内容多的时候主体别把弹层撑爆」，
- * 而不是「按钮别被裁掉」—— 后者已经不可能发生了。
+ * 第五版（当前）：回到 scroll-view，并且补上 ① 缺的那句 min-height: 0。
+ * 两件事各归各位：
+ *   - scroll-view 的滚动由客户端原生接管，触摸事件在它内部就被消费，
+ *     不冒泡到遮罩，也就不会被 catchtouchmove 吃掉；
+ *   - min-height: 0 让 flex: 1 算得出真正的可用高度，主体再长也撑不破弹层。
  *
- * 没有任何手算的高度，也就没有任何可以算错、可以被解析器丢掉的东西。
+ * 「确认按钮被顶出可视区」那类故障现在连发生的物理条件都没有了：
+ * 按钮在 .sheet-head 里（flex-shrink: 0），主体怎么长都够不着它。
+ * 剩下的只有「主体要能滚」这一件事，而这件事只有 scroll-view 做得到。
+ *
+ * 依然没有任何手算的高度，没有可以算错、可以被解析器丢掉的东西。
+ *
+ * 第六版补充：主体加了一条 `max-height` 兜底。
+ * 起因是「创建习惯的弹层划不动」。排查下来最可能的情况是主体**几乎正好装得下** ——
+ * 内容比可视区只高出几十 rpx，滚动行程短到看不出来，看着就像不能滚。
+ * 把 .sheet 的上限从 88vh 收到 68vh（见上），主体必定溢出，滚动才有意义。
+ *
+ * max-height 那一句守的是另一件事：scroll-view 要能滚，前提是它有一个**确定的高度**。
+ * flex: 1 算出来的高度在微信里通常认，但赌不起 —— 万一没认，scroll-view 就是
+ * content 高，永远不滚。给它一条自己的上限，即使 flex 分配失效，盒子高度也有个确定的顶。
+ * 两条同时生效也不会打架：装了 flex 就以 flex 为准，max-height 只在内容真的超出时才碰得到。
  */
 .sheet-body {
   padding: 0 28rpx;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  /* iOS 上让 overflow 滚动有惯性，手感接近 scroll-view */
-  -webkit-overflow-scrolling: touch;
+  /* 兜底高度，必须小于 .sheet 的上限：差值留给 .sheet-head 和 .sheet-safe。
+     真机上头部比这个差值高也没关系，flex-shrink 会接着往下压，
+     压出来的仍然是确定高度 —— 这条只是保证「不会是 content 高」。 */
+  max-height: 60vh;
 }
 
 .sheet-foot {

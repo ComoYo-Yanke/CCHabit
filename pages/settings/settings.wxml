@@ -1,7 +1,7 @@
 <!-- page-meta 必须是页面第一个节点；作用见 pages/habit-detail 顶部注释 -->
 <page-meta page-style="{{showImport ? 'overflow: hidden;' : ''}}"></page-meta>
 
-<view class="page">
+<view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-title">我的</view>
     <view class="hero-date">数据只保存在这台手机上</view>
@@ -166,7 +166,9 @@
 </view>
 
 <!-- ============ 导入弹层 ============ -->
-<view class="mask {{showImport ? 'mask--on' : ''}}" catchtouchmove="noop" bindtap="onCloseImport">
+<!-- mounted / active 两级状态：收起时必须 display:none，否则这里的 textarea
+     （原生组件，不认 opacity / visibility）会在页面上留下残影。详见 app.wxss 的 .mask -->
+<view class="mask {{importMounted ? 'mask--mounted' : ''}} {{importActive ? 'mask--on' : ''}}" catchtouchmove="noop" bindtap="onCloseImport">
   <view class="sheet" catchtap="noop">
     <view class="sheet-head">
       <text class="sheet-title">导入数据</text>
@@ -175,7 +177,9 @@
       </view>
     </view>
 
-    <view class="sheet-body">
+    <!-- scroll-view：普通 view 的 overflow 滚动会被遮罩的 catchtouchmove 吃掉，
+         真机上粘不进内容就滑不动。详见 app.wxss 的 .sheet-body -->
+    <scroll-view scroll-y class="sheet-body" show-scrollbar="{{false}}">
       <view class="field">
         <view class="field-label">把之前「导出备份」得到的内容粘贴到这里</view>
         <textarea
@@ -187,7 +191,7 @@
           bindinput="onImportInput"
         />
       </view>
-    </view>
+    </scroll-view>
 
     <view class="sheet-foot">
       <view class="btn btn--ghost sheet-del" bindtap="onCloseImport">取消</view>

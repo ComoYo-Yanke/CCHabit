@@ -1,25 +1,30 @@
 .heat {
   width: 100%;
   overflow: hidden;
+  /* 月份刻度行占的总高度（行高 20rpx + 下边距 8rpx）。
+     星期列要和网格对齐就得跳过这一行，两个数字只在 .heat-months 里写一次，
+     这里引用，免得改了一处忘另一处。 */
+  --heat-month-h: 28rpx;
 }
 
 /* ---- 月份刻度 ---- */
+/*
+ * 刻度行和网格同属 .heat-inner，两者左边缘天然对齐，
+ * 所以这里不再需要给星期列让位（早先它是 .heat-body 的兄弟才要 34rpx 的缩进）。
+ */
 .heat-months {
   display: flex;
-  margin-left: 34rpx; /* 与 heat-grid 对齐（左侧星期列宽） */
+  height: 20rpx;
   margin-bottom: 8rpx;
-}
-
-.heat-weekdays + .heat-grid {
-  margin-left: 0;
 }
 
 .heat-month-cell {
   flex: 1;
   min-width: 0;
   font-size: 20rpx;
-  color: var(--text-3);
   line-height: 1;
+  color: var(--text-3);
+  /* 月份标签比它占的列宽，「10月」得允许溢出到相邻槽位上 */
   overflow: visible;
   white-space: nowrap;
 }
@@ -37,6 +42,11 @@
   flex-shrink: 0;
 }
 
+/* 有月份刻度行时，星期列要下移一行才能和网格对齐 */
+.heat--months .heat-weekdays {
+  margin-top: var(--heat-month-h);
+}
+
 /* 高度必须与 .heat-cell 的 height + 行间距严格相等，否则刻度会串行 */
 .heat-weekday {
   height: 26rpx;
@@ -46,10 +56,14 @@
   line-height: 26rpx;
 }
 
-.heat-grid {
-  display: flex;
+/* 月份刻度 + 网格的公共容器：滚动模式里它被撑到 weeks × 32rpx 宽 */
+.heat-inner {
   flex: 1;
   min-width: 0;
+}
+
+.heat-grid {
+  display: flex;
   gap: 6rpx;
 }
 
@@ -74,6 +88,34 @@
   background: transparent;
 }
 
+/* ---- 横向滚动模式（首页的打卡总览） ---- */
+/*
+ * 容器宽度不定，没法再用 flex:1 等分，改成固定列宽：
+ * 整块网格的宽度由 JS 算好（weeks × 32rpx）写在 .heat-inner 的内联样式上，
+ * 32rpx 与 index.js 里的 COL_W 是同一个数，改一处要改两处。
+ */
+.heat--scroll .heat-scroll {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 列宽自带间距，flex 的 gap 就不需要了 */
+.heat--scroll .heat-grid,
+.heat--scroll .heat-months {
+  gap: 0;
+}
+
+.heat--scroll .heat-col,
+.heat--scroll .heat-month-cell {
+  flex: none;
+  width: 32rpx;
+}
+
+/* 32rpx 的列里只画 26rpx，右边留出的 6rpx 就是列间距 */
+.heat--scroll .heat-cell {
+  width: 26rpx;
+}
+
 /* ---- 紧凑模式（习惯卡片内） ---- */
 .heat--compact .heat-months,
 .heat--compact .heat-weekdays {
@@ -88,10 +130,6 @@
 .heat--compact .heat-cell {
   height: 20rpx;
   border-radius: 5rpx;
-}
-
-.heat--compact .heat-body {
-  padding-left: 0;
 }
 
 /* ---- 图例 ---- */

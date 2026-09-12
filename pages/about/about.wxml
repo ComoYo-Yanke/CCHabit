@@ -57,6 +57,26 @@
     </view>
   </view>
 
+  <!-- ============ 最近更新 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">最近更新</text>
+      <text class="section-sub">当前 v{{version}}</text>
+    </view>
+    <view class="card">
+      <view class="log" wx:for="{{changelog}}" wx:key="version">
+        <view class="log-head">
+          <text class="log-ver">v{{item.version}}</text>
+          <text class="log-date">{{item.date}}</text>
+        </view>
+        <view class="log-item" wx:for="{{item.items}}" wx:for-item="line" wx:key="*this">
+          <text class="log-dot">·</text>
+          <text class="log-text">{{line}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <!-- ============ 数据与隐私 ============ -->
   <view class="section">
     <view class="section-head">
@@ -99,14 +119,19 @@
         <text class="dev-mail-text">{{developer.email}}</text>
         <text class="dev-mail-copy">复制</text>
       </view>
-      <!-- <view class="dev-mail press" bindtap="onCopyEmail">
+      <!--
+        GitHub 快捷方式。
+        小程序不能直接打开外部链接（web-view 只认业务域名，个人开发者一般没有），
+        所以这里做的是「复制地址」：点了复制到剪贴板，用户自己粘到浏览器。
+      -->
+      <view class="dev-mail press" bindtap="onCopyGithub">
         <view class="ic ic-github-idle dev-mail-icon"></view>
-        <text class="dev-mail-text">{{developer.github}}</text>
+        <text class="dev-mail-text">github.com/ComoYo-Yanke/CCHabit</text>
         <text class="dev-mail-copy">复制</text>
-      </view> -->
+      </view>
     </view>
     <view class="about-desc">
-      使用中遇到问题、或有想加的功能，欢迎邮件告诉我。
+      使用中遇到问题、或有想加的功能，欢迎邮件告诉我，也欢迎来 GitHub 提 issue。
     </view>
   </view>
 

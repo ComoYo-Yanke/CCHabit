@@ -11,9 +11,14 @@
 const app = getApp()
 const storage = require('../../utils/storage.js')
 const dayjs = require('../../utils/date.js')
+const pageFade = require('../../utils/page-fade.js')
+
+/** 导入弹层的退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
+const SHEET_LEAVE_MS = 260
 
 Page({
   data: {
+    ...pageFade.data,
     statusBarHeight: 20,
 
     habitCount: 0,
@@ -30,15 +35,24 @@ Page({
     // 导入弹层
     showImport: false,
     importText: '',
+    /** 弹层是否已挂载到 DOM（false = display:none，整棵子树不渲染） */
+    importMounted: false,
+    /** 弹层是否已展开（驱动入场 / 退场过渡） */
+    importActive: false,
 
-    version: '1.0.1'
+    version: '1.0.2'
   },
 
   onLoad() {
     this.setData({ statusBarHeight: app.globalData.statusBarHeight || 20 })
   },
 
+  onUnload() {
+    clearTimeout(this._unmountTimer)
+  },
+
   onShow() {
+    pageFade.play(this)
     this.refresh()
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       this.getTabBar().setData({ selected: 2 })
@@ -104,11 +118,19 @@ Page({
   },
 
   onOpenImport() {
-    this.setData({ showImport: true, importText: '' })
+    clearTimeout(this._unmountTimer)
+    // 先挂载成「收起姿态」，下一帧再展开，入场过渡才有起点
+    this.setData({ showImport: true, importText: '', importMounted: true })
+    wx.nextTick(() => {
+      if (this.data.showImport) this.setData({ importActive: true })
+    })
   },
 
   onCloseImport() {
-    this.setData({ showImport: false })
+    if (!this.data.importMounted) return
+    // 先摘 --on 播完退场动画，过渡走完再摘挂载落到 display:none
+    this.setData({ showImport: false, importActive: false })
+    this._unmountTimer = setTimeout(() => this.setData({ importMounted: false }), SHEET_LEAVE_MS)
   },
 
   noop() {},
@@ -134,7 +156,9 @@ Page({
         try {
           const r = storage.importData(text)
           app.bumpDataVersion()
-          this.setData({ showImport: false })
+          // 走 onCloseImport 而不是直接 setData：弹层是「挂载 + 展开」两级状态，
+          // 只把 showImport 置 false 会留下一块已经展开但没人收的遮罩
+          this.onCloseImport()
           this.refresh()
           wx.showModal({
             title: '导入完成',
