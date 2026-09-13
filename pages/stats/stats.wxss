@@ -1,6 +1,6 @@
 .hero {
   padding: 0 28rpx 8rpx;
-  background: linear-gradient(180deg, #161C2B 0%, rgba(14, 16, 20, 0) 100%);
+  background: var(--grad-top);
 }
 
 .hero-title {

@@ -4,8 +4,12 @@
   wheel 事件，catchtouchmove 完全不参与，滚动照样落到背后那一屏 ——
   用户看到的正是「滑的是背景主屏」。这里在弹层打开期间把页面根节点的滚动关掉，
   从源头上掐断，滚轮也好触摸也好都滚不动。
+
+  themeStyle 是当前主题的 CSS 变量，写成 page 的行内样式后覆盖 app.wxss 里的
+  深色默认值，整页随之换肤（见 utils/theme.js）。page-style 是整体覆盖，
+  所以弹层的 overflow 必须自己拼在后面。
 -->
-<page-meta page-style="{{(showCheckin || showEditor) ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{(showCheckin || showEditor) ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <nav-bar title="{{habit.name}}" back="{{true}}" fixed="{{true}}" scrolled="{{scrolled}}">
   <view slot="right" class="nav-action press" bindtap="onOpenEditor">
@@ -13,20 +17,18 @@
   </view>
 </nav-bar>
 
-<view class="page page--no-tabbar" wx:if="{{habit}}">
+<view class="page page--no-tabbar page--fade" style="animation-name: pageFadeIn{{fadeKey}}" wx:if="{{habit}}">
   <!-- ============ 头部信息 ============ -->
   <view class="section">
-    <view class="card" style="background: linear-gradient(135deg, {{habit.color}}22 0%, #171B24 65%);">
+    <!-- 渐变底色写 var(--surface) 而不是字面色值：浅色主题下这里要跟着变白 -->
+    <view class="card" style="background: linear-gradient(135deg, {{habit.color}}22 0%, var(--surface) 65%);">
       <view class="hd-top">
         <view class="hd-icon" style="background: {{habit.color}}26; border-color: {{habit.color}}55;">
           {{habit.icon}}
         </view>
         <view class="flex-1">
           <view class="hd-name ellipsis">{{habit.name}}</view>
-          <view class="hd-sub">
-            {{habit.unit ? '单位 ' + habit.unit + ' · ' : '纯计数'}}
-            {{habit.target > 0 ? '目标 ' + habit.target : '未设目标'}}
-          </view>
+          <view class="hd-sub">{{habit.unit ? '单位 ' + habit.unit : '纯计数打卡'}}</view>
         </view>
       </view>
 
@@ -60,7 +62,7 @@
   <view class="section">
     <view class="section-head">
       <text class="section-title">打卡日历</text>
-      <text class="section-sub">点击日期可补打卡</text>
+      <text class="section-sub">仅作记录查看，可往前翻月份</text>
     </view>
     <view class="card">
       <view class="cal-head">
@@ -77,15 +79,15 @@
         <view wx:for="{{['一','二','三','四','五','六','日']}}" wx:key="index" class="cal-weekday">{{item}}</view>
       </view>
 
+      <!-- 日历是只读一览：刻意不绑点击。打卡入口在页头的「打卡」按钮，
+           要看某天的明细走下面的历史记录列表。之前这里绑了点击，
+           结果点今天/未来会弹出打卡层 —— 一个不该有写入路径的面板成了写入入口。 -->
       <view class="cal-grid">
         <view
           wx:for="{{calCells}}"
           wx:key="key"
           class="cal-cell {{item.empty ? 'cal-cell--empty' : ''}} {{item.isToday ? 'cal-cell--today' : ''}} {{item.isFuture ? 'cal-cell--future' : ''}}"
           style="{{item.mark ? 'background:' + item.mark + '26;' : ''}}"
-          data-date="{{item.date}}"
-          data-future="{{item.isFuture}}"
-          bindtap="onCalDayTap"
         >
           <block wx:if="{{!item.empty}}">
             <text class="cal-day" style="{{item.mark ? 'color:' + item.mark + ';font-weight:600;' : ''}}">{{item.day}}</text>
@@ -161,6 +163,7 @@
         type="line"
         chartData="{{lineData}}"
         opts="{{chartOpts}}"
+        theme="{{themeName}}"
         height="{{420}}"
         unit="{{habit.unit}}"
         hidden="{{showCheckin || showEditor}}"
@@ -180,6 +183,7 @@
         type="column"
         chartData="{{barData}}"
         opts="{{barOpts}}"
+        theme="{{themeName}}"
         height="{{400}}"
         unit=" 次"
         hidden="{{showCheckin || showEditor}}"
@@ -191,13 +195,15 @@
   <view class="section">
     <view class="section-head">
       <text class="section-title">完成情况</text>
-      <text class="section-sub">近 {{heatWeeks}} 周</text>
+      <text class="section-sub">共 {{heatWeeks}} 周 · 左右滑动</text>
     </view>
     <view class="card">
+      <!-- scroll：格子按固定宽度铺开，初始停在今天，向左拖能一直看到最早的记录。
+           不传 target：每日目标已经移除，色阶按区间内的最大值相对分档 -->
       <heatmap
         dayMap="{{dayMap}}"
         weeks="{{heatWeeks}}"
-        target="{{habit.target}}"
+        scroll="{{true}}"
         color="{{habit.color}}"
         showMonths="{{true}}"
         showLegend="{{true}}"

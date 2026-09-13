@@ -14,6 +14,7 @@ const storage = require('../../utils/storage.js')
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
+const theme = require('../../utils/theme.js')
 
 /** 首页合并热力图的**最少**周数；有更早的记录就一路往前铺，可以横向滑到底 */
 const OVERVIEW_MIN_WEEKS = 26
@@ -32,6 +33,10 @@ Page({
   data: {
     ...pageFade.data,
     statusBarHeight: 20,
+
+    // 主题（见 utils/theme.js）：themeStyle 供 page-meta 换肤，themeName 给图表
+    themeName: theme.DEFAULT_THEME,
+    themeStyle: '',
 
     // 今日概览
     dateLabel: '',
@@ -58,6 +63,7 @@ Page({
   },
 
   onLoad() {
+    this.syncTheme()
     this.setData({
       statusBarHeight: app.globalData.statusBarHeight || 20,
       dateLabel: this.buildDateLabel(),
@@ -68,12 +74,27 @@ Page({
   onShow() {
     pageFade.play(this)
     this.refresh()
-    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 0 })
-    }
+    // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统），每次回来重新解析
+    this.syncTheme()
+    this.syncTabBar()
     // 从「我的 / 统计」页点「新建习惯」跳过来时，把编辑弹层直接打开，
     // 否则用户切到首页后只看到一个 + 按钮，会以为功能坏了
     if (app.consumePendingAction() === 'newHabit') this.onAddHabit()
+  },
+
+  /** 读取当前主题并落到 page-style（真正换肤的一步，见 utils/theme.js） */
+  syncTheme() {
+    const name = theme.current()
+    theme.applyWindow(name)
+    const style = theme.cssVars(name) + ';'
+    if (style !== this.data.themeStyle) this.setData({ themeName: name, themeStyle: style })
+  },
+
+  /** tabBar 不在页面的节点树里，配色要由页面推过去（见 custom-tab-bar/index.js） */
+  syncTabBar() {
+    if (typeof this.getTabBar !== 'function') return
+    const tb = this.getTabBar()
+    if (tb) tb.setActive(0)
   },
 
   onPullDownRefresh() {
@@ -274,12 +295,8 @@ Page({
       wx.showToast({ title: '已删除 ' + removed + ' 条记录', icon: 'none' })
     }
 
-    // 尊重「删除前二次确认」偏好
-    if (!storage.getSettings().confirmDelete) {
-      doDelete()
-      return
-    }
-
+    // 恒定二次确认，不提供开关：删习惯会级联删掉它全部打卡记录且不可恢复，
+    // 没有「以后别问了」的合理场景
     wx.showModal({
       title: '删除「' + name + '」？',
       content: '该习惯下的全部打卡记录会一并删除，且无法恢复。',

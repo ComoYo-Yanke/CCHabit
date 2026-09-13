@@ -36,6 +36,13 @@ Component({
     canvasId: { type: String, value: 'chartCanvas' },
     /** CSS 高度（rpx），宽度自适应容器 */
     height: { type: Number, value: 460 },
+    /**
+     * 当前主题 'dark' | 'light'。
+     *
+     * 必须由页面显式传下来：图表颜色写在 uCharts 的配置对象里（见 opts.js 注释），
+     * 读不到 CSS 变量，所以页面切主题时 canvas 不会自己变色。
+     */
+    theme: { type: String, value: 'dark' },
     /** 是否开启触摸提示 */
     touch: { type: Boolean, value: true },
     /** 提示框数值单位后缀 */
@@ -71,6 +78,15 @@ Component({
       else this.initCanvas()
     },
 
+    'theme': function () {
+      // 换主题时数据没变、opts 属性也没变，observer 不会被别处触发，
+      // 但画布上留着的还是上一套配色，必须自己重绘一次。
+      // 初始化阶段不掺和：那时还没实例，ready() 会用新主题建图。
+      if (!this._size) return
+      this.clearCanvas()
+      this.render()
+    },
+
     'hidden': function (hidden) {
       // 重新显示时必须重建，不能只 render()：
       // display:none 期间 canvas 节点量出来的宽高是 0，后备缓冲也被重置过，
@@ -93,7 +109,15 @@ Component({
 
   methods: {
     buildOpts(runtime) {
-      return buildChartOpts(this.data.opts, runtime)
+      return buildChartOpts(this.data.opts, runtime, this.data.theme)
+    },
+
+    /** 清空整块画布（设备像素坐标系，和 render 里的清屏写法一致） */
+    clearCanvas() {
+      if (!this.chart || !this._size) return
+      const ctx = this.chart.opts && this.chart.opts.context
+      if (!ctx) return
+      ctx.clearRect(0, 0, this._size.width * this._size.dpr, this._size.height * this._size.dpr)
     },
 
     /** 是否已有可绘制的数据（纯判断，不依赖 setData 的时序） */

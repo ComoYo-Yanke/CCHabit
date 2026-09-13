@@ -5,13 +5,15 @@
  *   1. 数据概览（习惯数、记录数、使用天数）
  *   2. 存储管理（用量进度条 + 导出 / 导入 / 清空）
  *   3. 习惯管理（启停开关、进入详情编辑）
- *   4. 偏好设置（震动反馈、删除确认）
- *   5. 关于（数据仅存本地，不上云）
+ *   4. 外观（浅色 / 深色 / 跟随系统）
+ *   5. 偏好设置（震动反馈）
+ *   6. 关于（数据仅存本地，不上云）
  */
 const app = getApp()
 const storage = require('../../utils/storage.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
+const theme = require('../../utils/theme.js')
 
 /** 导入弹层的退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
 const SHEET_LEAVE_MS = 260
@@ -28,7 +30,16 @@ Page({
     usage: { currentSize: 0, limitSize: 10240, percent: 0, level: 'ok' },
     usageText: '',
 
-    settings: { haptic: true, confirmDelete: true },
+    settings: { haptic: true, theme: theme.DEFAULT_THEME },
+
+    // ---- 外观 ----
+    themeOptions: theme.OPTIONS,
+    /** 解析后的实际主题名 'dark' | 'light'，也是给图表组件传的值 */
+    themeName: theme.DEFAULT_THEME,
+    /** 给 page-meta 的 page-style，整页换肤靠它（见 wxml 顶部注释） */
+    themeStyle: '',
+    /** 段落右上角的状态说明 */
+    themeHint: '',
 
     habits: [],
 
@@ -40,10 +51,14 @@ Page({
     /** 弹层是否已展开（驱动入场 / 退场过渡） */
     importActive: false,
 
-    version: '1.0.2'
+    version: '1.0.3'
   },
 
   onLoad() {
+    // 先把设置读进来再落地主题：syncTheme 读的是 data.settings.theme，
+    // 而 onLoad 时 data 里还只是默认值。顺序反了就会先按深色画一帧再跳成浅色。
+    this.setData({ settings: storage.getSettings() })
+    this.syncTheme()
     this.setData({ statusBarHeight: app.globalData.statusBarHeight || 20 })
   },
 
@@ -54,9 +69,47 @@ Page({
   onShow() {
     pageFade.play(this)
     this.refresh()
-    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 2 })
-    }
+    // 系统主题可能在离开期间变过，「跟随系统」要重新解析一次
+    this.syncTheme()
+    this.syncTabBar()
+  },
+
+  /** tabBar 在页面的节点树之外，主题得由页面主动推过去（见 custom-tab-bar/index.js） */
+  syncTabBar() {
+    if (typeof this.getTabBar !== 'function') return
+    const tb = this.getTabBar()
+    if (tb) tb.setActive(2)
+  },
+
+  /**
+   * 把当前主题落到三个地方，缺一不可：
+   *   themeStyle —— 写进 page 的行内样式，重写 CSS 变量，这是真正换肤的一步；
+   *   themeName  —— 解析后的主题名，给 canvas 图表用（它读不到 CSS 变量）；
+   *   themeHint  —— 段落右上角的状态文案。
+   */
+  syncTheme() {
+    const setting = this.data.settings.theme || theme.DEFAULT_THEME
+    const name = theme.resolve(setting, theme.system())
+    // labelOf 取的是选项文案；解析出来的 'light' / 'dark' 恰好也是这两个选项，
+    // 所以同一个函数两处都能用，不必再维护第二份中英对照
+    const cn = theme.labelOf(name)
+    theme.applyWindow(name)
+    this.setData({
+      themeName: name,
+      themeStyle: theme.cssVars(name) + ';',
+      themeHint: setting === 'system' ? theme.labelOf(setting) + ' · 当前' + cn : '始终' + cn
+    })
+  },
+
+  onPickTheme(e) {
+    const key = e.currentTarget.dataset.key
+    if (key === this.data.settings.theme) return
+    storage.saveSettings({ theme: key })
+    // 先改设置再 syncTheme：后者读的是 data 里的值
+    this.setData({ 'settings.theme': key }, () => {
+      this.syncTheme()
+      this.syncTabBar()
+    })
   },
 
   onPullDownRefresh() {

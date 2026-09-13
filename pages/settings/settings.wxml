@@ -1,5 +1,10 @@
-<!-- page-meta 必须是页面第一个节点；作用见 pages/habit-detail 顶部注释 -->
-<page-meta page-style="{{showImport ? 'overflow: hidden;' : ''}}"></page-meta>
+<!--
+  page-meta 必须是页面第一个节点；作用见 pages/habit-detail 顶部注释。
+  themeStyle 就是主题本身：它把当前主题的 CSS 变量写成 page 的行内样式，
+  优先级高于 app.wxss 里 page 选择器下的深色默认值，整页随之换肤。
+  page-style 是整体覆盖而不是追加，所以弹层的 overflow 必须自己拼在后面。
+-->
+<page-meta page-style="{{themeStyle}}{{showImport ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
@@ -113,13 +118,33 @@
     <view class="btn btn--ghost mg-add" bindtap="onAddHabit">新建习惯</view>
   </view>
 
+  <!-- ============ 外观 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">外观</text>
+      <text class="section-sub">{{themeHint}}</text>
+    </view>
+    <view class="card">
+      <view class="segment">
+        <view
+          wx:for="{{themeOptions}}"
+          wx:key="key"
+          class="segment-item {{settings.theme === item.key ? 'segment-item--on' : ''}}"
+          data-key="{{item.key}}"
+          bindtap="onPickTheme"
+        >{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
   <!-- ============ 偏好设置 ============ -->
   <view class="section">
     <view class="section-head">
       <text class="section-title">偏好设置</text>
     </view>
+    <!-- 删除习惯的二次确认不设开关：级联删除不可恢复，没有需要跳过它的场景 -->
     <view class="card" style="padding: 8rpx 28rpx;">
-      <view class="sw-item">
+      <view class="sw-item sw-item--last">
         <view class="flex-1">
           <view class="sw-title">打卡震动反馈</view>
           <view class="sw-desc">打卡成功时轻微震动</view>
@@ -128,18 +153,6 @@
           checked="{{settings.haptic}}"
           color="#5B8CFF"
           data-field="haptic"
-          bindchange="onToggleSetting"
-        />
-      </view>
-      <view class="sw-item sw-item--last">
-        <view class="flex-1">
-          <view class="sw-title">删除前二次确认</view>
-          <view class="sw-desc">删除习惯时弹出确认提示</view>
-        </view>
-        <switch
-          checked="{{settings.confirmDelete}}"
-          color="#5B8CFF"
-          data-field="confirmDelete"
           bindchange="onToggleSetting"
         />
       </view>

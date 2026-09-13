@@ -1,3 +1,6 @@
+<!-- 换肤靠它：把当前主题的 CSS 变量写成 page 的行内样式（见 utils/theme.js） -->
+<page-meta page-style="{{themeStyle}}"></page-meta>
+
 <view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-title">统计</view>
@@ -78,6 +81,7 @@
           type="line"
           chartData="{{lineData}}"
           opts="{{lineOpts}}"
+          theme="{{themeName}}"
           height="{{420}}"
           unit=" 次"
         />
@@ -96,6 +100,7 @@
           type="column"
           chartData="{{barData}}"
           opts="{{barOpts}}"
+          theme="{{themeName}}"
           height="{{400}}"
           unit=" 次"
         />

@@ -7,7 +7,7 @@
   align-items: center;
   text-align: center;
   padding: 56rpx 28rpx 48rpx;
-  background: linear-gradient(160deg, #1B2334 0%, #171B24 62%);
+  background: linear-gradient(160deg, var(--grad-card-from) 0%, var(--grad-card-to) 62%);
 }
 
 .app-logo {
@@ -195,7 +195,8 @@
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent) 0%, #7FB2FF 100%);
+  /* 终点不能太浅：这里要压白字，浅色主题下和深色用的是同一个底色 */
+  background: linear-gradient(135deg, var(--accent) 0%, #3D6FE0 100%);
   color: #FFFFFF;
   font-size: 34rpx;
   font-weight: 700;

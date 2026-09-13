@@ -30,6 +30,34 @@ App({
     this.initSystemInfo()
     // 首次启动时做一次存储结构初始化 / 版本迁移
     storage.ensureInit()
+    this.watchSystemTheme()
+  },
+
+  /**
+   * 监听系统深浅色切换，实时把主题跟过去。
+   *
+   * 这个事件只有在 app.json 里配了 `"darkmode": true` 时才会派发（基础库 2.11.0 起），
+   * 而同一个开关也决定了 `wx.getAppBaseInfo().theme` 有没有值 —— 两者一起失效。
+   * 所以那条配置不是可选项：少了它，「跟随系统」会安静地永远解析成深色，
+   * 看上去就和「这个功能没做」一模一样（见 README 决策 27）。
+   *
+   * 刻意不读回调参数里的 res.theme：下面的 syncTheme() 会自己去问一次系统，
+   * 让「系统主题」只有一个来源，不用在两个值之间做取舍。
+   *
+   * 只重画栈顶页面，它才是可见的那个；栈里其余的页面等各自 onShow 时会走一遍
+   * syncTheme()，那时读到的已经是新主题了。
+   */
+  watchSystemTheme() {
+    if (typeof wx.onThemeChange !== 'function') return
+    wx.onThemeChange(() => {
+      const pages = getCurrentPages()
+      const cur = pages[pages.length - 1]
+      if (!cur) return
+      if (typeof cur.syncTheme === 'function') cur.syncTheme()
+      // tabBar 在页面的节点树之外，得单独推一次（见 custom-tab-bar/index.js）
+      const tb = typeof cur.getTabBar === 'function' ? cur.getTabBar() : null
+      if (tb && typeof tb.syncTheme === 'function') tb.syncTheme()
+    })
   },
 
   /**

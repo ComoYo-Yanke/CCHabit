@@ -3,7 +3,13 @@
  *
  * 之所以单独成文件：默认配置里少一个 `extra.column` 就会让柱状图整个抛错，
  * 这类问题必须在 Node 里能跑测试才守得住。
+ *
+ * 颜色一律从 utils/theme.js 的变量表里取，不写字面量 —— 图表画在 canvas 上，
+ * 读不到 CSS 变量，只能由 JS 喂；从同一份表里取色才能保证它和周围的卡片、
+ * 文字属于同一套主题，不会出现「页面切成浅色了，图表还是深色底」。
  */
+
+const theme = require('../../utils/theme.js')
 
 /**
  * 柱状图 X 轴类别名收缩器（uCharts 的 xAxis.formatter 钩子）。
@@ -52,7 +58,7 @@ function xCategoryFormatter(val, index, opts) {
 }
 
 /**
- * 暗色主题下的默认图表配置，可被页面传入的 opts 深度覆盖。
+ * 指定主题下的默认图表配置，可被页面传入的 opts 深度覆盖。
  *
  * 故意写成工厂函数而不是常量对象：uCharts 内部对 yAxis.data 之类的字段是浅拷贝，
  * 若多个图表实例共享同一份默认配置，一个图的数据会串到另一个图上。
@@ -62,13 +68,16 @@ function xCategoryFormatter(val, index, opts) {
  * uCharts 只在少数几处用 `assign({}, 局部默认, opts.extra.xxx)` 兜底，
  * 而 fixColumeData() 是直接读 `opts.extra.column.seriesGap` 的，
  * 缺了 extra.column 会抛 TypeError，柱状图直接白屏。
+ *
+ * @param {string} [themeName] 'dark' | 'light'，缺省走深色
  */
-function defaultOpts() {
+function defaultOpts(themeName) {
+  const t = theme.vars(themeName)
   return {
     background: 'transparent',
     padding: [16, 16, 0, 8],
     fontSize: 11,
-    fontColor: '#98A2B3',
+    fontColor: t['--text-2'],
     legend: { show: false },
     dataLabel: false,
     dataPointShape: false,
@@ -78,7 +87,7 @@ function defaultOpts() {
     xAxis: {
       disableGrid: true,
       axisLine: false,
-      fontColor: '#667085',
+      fontColor: t['--text-3'],
       fontSize: 10,
       scrollShow: false,
       rotateLabel: false,
@@ -95,8 +104,8 @@ function defaultOpts() {
     yAxis: {
       gridType: 'dash',
       dashLength: 3,
-      gridColor: '#262C38',
-      fontColor: '#667085',
+      gridColor: t['--border'],
+      fontColor: t['--text-3'],
       fontSize: 10,
       data: [{ min: 0 }],
       showTitle: false
@@ -128,7 +137,7 @@ function defaultOpts() {
         // 不能用八位色值：uCharts 的 hexToRgb 只认 3 / 6 位，
         // 传 '#00000000' 会让它的正则匹配失败、rgb 为 null，再取 rgb[1] 直接抛错。
         // 「透明」一律用六位色值 + Opacity 表达。
-        meterFillColor: '#262C38',
+        meterFillColor: t['--border'],
         barBorderCircle: false,
         barBorderRadius: [],
         linearType: 'custom',
@@ -160,12 +169,12 @@ function defaultOpts() {
         showCategory: true,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#262C38',
-        bgColor: '#1E232E',
+        borderColor: t['--border'],
+        bgColor: t['--surface-2'],
         bgOpacity: 1,
-        fontColor: '#EDF1F7',
-        labelFontColor: '#5B8CFF',
-        gridColor: '#262C38',
+        fontColor: t['--text'],
+        labelFontColor: t['--accent'],
+        gridColor: t['--border'],
         dashLength: 3,
         boxPadding: 6,
         fontSize: 11,
@@ -198,11 +207,15 @@ function mergeDeep(target, source) {
 }
 
 /**
- * 组装最终配置：默认暗色主题 <- 页面传入的 opts <- 运行时参数。
+ * 组装最终配置：主题默认值 <- 页面传入的 opts <- 运行时参数。
  * 分层覆盖，页面只需要写自己关心的那几项。
+ *
+ * @param {Object} pageOpts 页面级覆盖
+ * @param {Object} runtime  运行时参数（尺寸 / series 等），优先级最高
+ * @param {string} [themeName] 'dark' | 'light'
  */
-function buildChartOpts(pageOpts, runtime) {
-  return mergeDeep(mergeDeep(defaultOpts(), pageOpts), runtime)
+function buildChartOpts(pageOpts, runtime, themeName) {
+  return mergeDeep(mergeDeep(defaultOpts(themeName), pageOpts), runtime)
 }
 
 module.exports = {

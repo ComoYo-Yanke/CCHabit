@@ -2,7 +2,15 @@
 
 @import "styles/icons.wxss";
 
-/* ============ 设计变量（暗黑模式调色板） ============ */
+/* ============ 设计变量（深色调色板 = 默认值） ============ */
+/*
+ * ⚠️ 这里的值只在「没写 page-style 时」生效。页面挂载时会用
+ * <page-meta page-style="{{themeStyle}}"> 把当前主题的变量写成 page 的行内样式，
+ * 内联样式优先级更高，会整体盖掉这一块。两边的变量名必须逐字对应。
+ *
+ * 因此**新增一个变量要同时改两处**：这里（深色）和 utils/theme.js 的 THEMES
+ * （深色 + 浅色）。只加在这里的话，浅色主题下这一处会悄悄退回深色值。
+ */
 page {
   /* 背景层级：page < surface < surface-2 < surface-3 */
   --bg: #0E1014;
@@ -34,7 +42,15 @@ page {
   --heat-3: #4F8CE0;
   --heat-4: #7FB2FF;
 
-  /* 圆角与间距 */
+  /* 没法只靠上面的色值拼出来的几处，直接存整段值（浅色主题换成对应的一套，见 utils/theme.js） */
+  --grad-top: linear-gradient(180deg, #161C2B 0%, rgba(14, 16, 20, 0) 100%);
+  --grad-card-from: #1B2334;
+  --grad-card-to: #171B24;
+  --inset-bg: rgba(0, 0, 0, 0.18);
+  --ring: rgba(255, 255, 255, 0.7);
+  --nav-bg: rgba(14, 16, 20, 0.92);
+
+  /* 圆角与间距：与主题无关，因此不在 utils/theme.js 里 */
   --r-sm: 12rpx;
   --r-md: 20rpx;
   --r-lg: 28rpx;
@@ -295,10 +311,18 @@ view, text, scroll-view, button, input, textarea {
   to { opacity: 1; }
 }
 
+/*
+ * 时长与曲线：0.24s / ease 观感偏「一顿」—— ease 前段太慢，深色底上会先愣一下再亮起来。
+ * 换成前快后缓的曲线（0.25 处就走过 60%），一秒内就完成主要变化，
+ * 收尾再慢慢贴合，读起来是「稳稳定住」而不是「突然出现」。
+ * 只动 opacity，**不要加 transform**：那会让 .page 变成 fixed 子元素的包含块，
+ * 页面里的固定定位元素会跟着跑（README 决策 15）。
+ */
 .page--fade {
-  animation-duration: 0.24s;
-  animation-timing-function: ease;
+  animation-duration: 0.28s;
+  animation-timing-function: cubic-bezier(0.25, 0.8, 0.35, 1);
   animation-fill-mode: both;
+  will-change: opacity;
 }
 
 /* ============================================================

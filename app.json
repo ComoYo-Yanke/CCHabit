@@ -7,8 +7,8 @@
     "pages/about/about"
   ],
   "window": {
-    "backgroundTextStyle": "dark",
-    "backgroundColor": "#0E1014",
+    "backgroundTextStyle": "@windowTextStyle",
+    "backgroundColor": "@windowBg",
     "navigationBarBackgroundColor": "#0E1014",
     "navigationBarTitleText": "习惯打卡",
     "navigationBarTextStyle": "white",
@@ -28,5 +28,7 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "darkmode": true,
+  "themeLocation": "theme.json"
 }

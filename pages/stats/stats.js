@@ -15,11 +15,16 @@ const storage = require('../../utils/storage.js')
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
+const theme = require('../../utils/theme.js')
 
 Page({
   data: {
     ...pageFade.data,
     statusBarHeight: 20,
+
+    // 主题：themeStyle 供 page-meta 换肤，themeName 给 canvas 图表（它读不到 CSS 变量）
+    themeName: theme.DEFAULT_THEME,
+    themeStyle: '',
 
     range: 'week',
     anchor: '',
@@ -37,15 +42,30 @@ Page({
   },
 
   onLoad() {
+    this.syncTheme()
     this.setData({ statusBarHeight: app.globalData.statusBarHeight || 20 })
   },
 
   onShow() {
     pageFade.play(this)
     this.refresh()
-    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 1 })
-    }
+    // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
+    this.syncTheme()
+    this.syncTabBar()
+  },
+
+  /** 读取当前主题并落到 page-style；themeName 变化会让图表组件自己重绘 */
+  syncTheme() {
+    const name = theme.current()
+    theme.applyWindow(name)
+    const style = theme.cssVars(name) + ';'
+    if (style !== this.data.themeStyle) this.setData({ themeName: name, themeStyle: style })
+  },
+
+  syncTabBar() {
+    if (typeof this.getTabBar !== 'function') return
+    const tb = this.getTabBar()
+    if (tb) tb.setActive(1)
   },
 
   onPullDownRefresh() {

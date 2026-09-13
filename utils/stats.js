@@ -316,6 +316,9 @@ function monthCalendar(dayMap, anchor) {
   for (let d = 1; d <= total; d++) {
     const date = ym + '-' + dayjs.pad2(d)
     const cell = dayMap[date]
+    // diffDays(a, b) 算的是 b - a，所以这里拿到的是「date 减今天」：正数才是未来。
+    // 这行原来写的是 diff < 0，把方向弄反了 —— 过去的日子被标成未来，
+    // 于是日历上点昨天会提示「还没到的日子」，点明天反而能打开打卡层。
     const diff = dayjs.diffDays(todayStr, date)
     cells.push({
       key: date,
@@ -326,7 +329,7 @@ function monthCalendar(dayMap, anchor) {
       count: cell ? cell.count : 0,
       done: !!(cell && cell.count),
       isToday: date === todayStr,
-      isFuture: diff < 0
+      isFuture: diff > 0
     })
   }
   // 末尾补齐到整周，保持网格规整

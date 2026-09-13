@@ -28,12 +28,11 @@
     </view>
   </view>
 
-  <!-- 近 N 周热力概览 -->
+  <!-- 近 N 周热力概览。不传 target：每日目标已经移除，色阶按区间内最大值相对分档 -->
   <view wx:if="{{showHeat}}" class="hc-heat">
     <heatmap
       dayMap="{{item.dayMap}}"
       weeks="{{weeks}}"
-      target="{{item.habit.target}}"
       compact="{{true}}"
       showMonths="{{false}}"
       showLegend="{{false}}"

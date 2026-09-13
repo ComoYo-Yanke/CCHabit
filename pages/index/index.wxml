@@ -3,8 +3,12 @@
   遮罩上的 catchtouchmove 只拦触摸事件；开发者工具里鼠标滚轮走 wheel 事件，
   它会直接滚到背后的主屏。这里在弹层打开期间关掉页面根节点的滚动，
   从源头掐断，滚轮和触摸都滚不动。详见 pages/habit-detail 顶部同样的注释。
+
+  themeStyle 是当前主题的 CSS 变量，写成 page 的行内样式后覆盖 app.wxss 里的
+  深色默认值，整页随之换肤（见 utils/theme.js）。page-style 是整体覆盖，
+  所以弹层的 overflow 必须自己拼在后面。
 -->
-<page-meta page-style="{{(showEditor || showCheckin) ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin) ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
   <!-- ============ 顶部问候 ============ -->

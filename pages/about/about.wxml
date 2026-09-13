@@ -1,6 +1,12 @@
+<!--
+  page-meta 必须是页面的第一个节点。
+  换肤就靠它：把当前主题的 CSS 变量写成 page 的行内样式（见 utils/theme.js）。
+-->
+<page-meta page-style="{{themeStyle}}"></page-meta>
+
 <nav-bar title="关于" back="{{true}}" fixed="{{true}}" />
 
-<view class="page page--no-tabbar">
+<view class="page page--no-tabbar page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
   <!-- ============ 应用标识 ============ -->
   <view class="section">
     <view class="app-hero card">

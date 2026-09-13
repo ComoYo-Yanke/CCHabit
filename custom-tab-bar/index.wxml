@@ -1,5 +1,9 @@
-<!-- 自定义底部导航栏 -->
-<view class="tabbar">
+<!--
+  自定义底部导航栏。
+  底色/描边走行内样式而不是 wxss：tabBar 由框架独立挂载，继承不到 page 上的
+  CSS 变量，颜色只能从 JS 喂进来（见 index.js 的 syncTheme）。
+-->
+<view class="tabbar" style="background: {{c.bg}}; border-top-color: {{c.border}};">
   <view class="tabbar-inner">
     <view
       wx:for="{{list}}"

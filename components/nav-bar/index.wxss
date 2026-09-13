@@ -14,7 +14,7 @@
 
 /* 滚动后浮现背景，避免文字与内容重叠 */
 .nav--fixed.nav--scrolled {
-  background: rgba(14, 16, 20, 0.92);
+  background: var(--nav-bg);
   border-bottom-color: var(--border-soft);
 }
 

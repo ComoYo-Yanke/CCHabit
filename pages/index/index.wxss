@@ -3,7 +3,8 @@
   padding-left: 28rpx;
   padding-right: 28rpx;
   padding-bottom: 8rpx;
-  background: linear-gradient(180deg, #161C2B 0%, rgba(14, 16, 20, 0) 100%);
+  /* 顶部光晕的整段值来自主题：浅色下要换成白色微光，写死就会是一条深色带 */
+  background: var(--grad-top);
 }
 
 .hero-date {
@@ -22,7 +23,7 @@
 
 /* 今日概览 */
 .overview {
-  background: linear-gradient(135deg, #1B2334 0%, #171B24 60%);
+  background: linear-gradient(135deg, var(--grad-card-from) 0%, var(--grad-card-to) 60%);
 }
 
 .ov-label {

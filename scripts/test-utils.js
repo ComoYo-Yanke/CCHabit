@@ -73,6 +73,10 @@ eq('cal cells %7', cal.cells.length % 7, 0)
 eq('cal offset (Sep 1 2026 is Tue)', cal.cells.findIndex(c=>c.day===1), 1)
 eq('cal done mark', cal.cells.find(c=>c.date==='2026-09-11').done, true)
 eq('cal canNext', cal.canNext, false)
+// isFuture 曾经把 diffDays 的方向写反（变成「过去 = 未来」），日历上点昨天会提示
+// 「还没到的日子」。这里不做时钟相关的断言，只钉住它和日期比较结果一致。
+eq('cal future flag 与日期比较一致',
+  cal.cells.filter(c=>!c.empty).every(c => c.isFuture === (c.date > d.today())), true)
 
 console.log(fail ? `\n${fail} FAILED` : '\nALL PASS')
 process.exit(fail ? 1 : 0)

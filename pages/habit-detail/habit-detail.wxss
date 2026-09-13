@@ -47,7 +47,7 @@
   display: flex;
   align-items: center;
   margin-top: 32rpx;
-  background: rgba(0, 0, 0, 0.18);
+  background: var(--inset-bg);
   border-radius: var(--r-md);
   padding: 22rpx 0;
 }
@@ -170,10 +170,14 @@
   border: 2rpx solid var(--accent);
 }
 
+/* 未来的日子：压暗一档即可，别用 surface 系列 —— 那组颜色是「底色」，
+   浅色主题下 --surface-3 是接近纯白的 #E5E7EB，写在白卡片上等于把日期擦掉了 */
 .cal-cell--future .cal-day {
-  color: var(--surface-3);
+  color: var(--text-3);
+  opacity: 0.55;
 }
 
+/* 正常情况下未来的格子不会有记录，留着兜住导入进来的脏数据 */
 .cal-cell--future .cal-dot {
   opacity: 0.3;
 }

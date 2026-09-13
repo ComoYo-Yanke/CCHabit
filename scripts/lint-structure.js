@@ -106,6 +106,44 @@ if (appJson.tabBar && appJson.tabBar.custom) {
 appJson.tabBar.list.forEach((t) => {
   if (appJson.pages.indexOf(t.pagePath) < 0) report('tabBar 中的 ' + t.pagePath + ' 不在 pages 列表里')
 })
+console.log('== 5b. 主题开关与 theme.json 是否配套 ==')
+/*
+ * darkmode 这个开关决定的不是「要不要用暗色」，而是系统主题信息**存不存在**：
+ * 关掉之后 wx.onThemeChange 不派发、getAppBaseInfo().theme 也没有值，
+ * 于是「跟随系统」会安静地永远解析成深色 —— 一个查不出来源的功能缺失。
+ * 它曾经真的被关掉过一次（理由是不想让框架接管原生控件配色，而那两个面
+ * 本项目的实现是 custom，框架根本碰不到），所以钉在这里。
+ */
+if (appJson.darkmode !== true) {
+  report('app.json 缺少 "darkmode": true —— 关掉它「跟随系统」会静默失效，永远停在深色')
+}
+if (appJson.darkmode === true) {
+  const loc = appJson.themeLocation || 'theme.json'
+  if (!fs.existsSync(loc)) report('darkmode 已开启但找不到主题文件 ' + loc)
+  else {
+    let themeJson = null
+    try {
+      themeJson = JSON.parse(fs.readFileSync(loc, 'utf8'))
+    } catch (e) {
+      report(loc + ' 不是合法 JSON')
+    }
+    // app.json 里以 @ 开头的值必须能在 theme.json 的两套里都查到，
+    // 少一个键小程序是直接起不来的，所以检查必须覆盖 light 和 dark 两边
+    if (themeJson) {
+      ;['light', 'dark'].forEach((mode) => {
+        if (!themeJson[mode]) report(loc + ' 缺少 "' + mode + '" 一套')
+      })
+      JSON.stringify(appJson).replace(/"@([A-Za-z0-9_]+)"/g, (m, key) => {
+        ;['light', 'dark'].forEach((mode) => {
+          if (!themeJson[mode] || themeJson[mode][key] === undefined) {
+            report('app.json 引用了 @' + key + '，但 ' + loc + ' 的 "' + mode + '" 里没有这个键')
+          }
+        })
+        return m
+      })
+    }
+  }
+}
 
 console.log('== 6. wxss 里用到的 CSS 变量是否定义过 ==')
 /*
@@ -293,6 +331,56 @@ if (fs.existsSync(CHECKIN_JS)) {
   let m
   while ((m = re.exec(src))) {
     report(CHECKIN_JS + ': 残留了切日期方法 ' + m[1] + '(），打卡日期不允许切换')
+  }
+}
+
+console.log('== 11. app.wxss 的深色变量与 utils/theme.js 的 THEMES.dark 必须一致 ==')
+/*
+ * 换肤的实现是「用行内样式覆盖 app.wxss 里 page 上的那批变量」（见 README 决策 25），
+ * 所以这两处是同一个调色板的两份副本：app.wxss 那份是兜底、也是唯一能写注释的地方，
+ * THEMES.dark 那份才是实际生效的值。
+ *
+ * 不一致的后果很隐蔽：往 app.wxss 加一个变量、忘了同步 theme.js，深色下看着一切正常，
+ * 一旦切到浅色，这一处就会悄悄退回 app.wxss 里的深色值 —— 不报错、不白屏，
+ * 只是某一个角落颜色不对。这条把「两份必须逐字相等」变成静态可查。
+ */
+const THEME_JS = 'utils/theme.js'
+if (fs.existsSync('app.wxss') && fs.existsSync(THEME_JS)) {
+  const cssSrc = fs.readFileSync('app.wxss', 'utf8')
+  const pageBlock = cssSrc.match(/^page \{([\s\S]*?)\n\}/m)
+  if (!pageBlock) {
+    report('app.wxss: 找不到 page { } 变量块')
+  } else {
+    const declared = {}
+    pageBlock[1].split('\n').forEach((line) => {
+      const m = line.match(/^\s*(--[a-z0-9-]+):\s*(.+?);\s*$/)
+      if (m) declared[m[1]] = m[2].trim()
+    })
+
+    // 用 node 直接 require 出 THEMES，避免再写一套正则去解析 js 字面量
+    const themePath = path.resolve(__dirname, '..', THEME_JS)
+    let dark = null
+    try {
+      dark = require(themePath).vars('dark')
+    } catch (e) {
+      report(THEME_JS + ': 无法加载（' + e.message + '）')
+    }
+
+    if (dark) {
+      Object.keys(declared).forEach((k) => {
+        // 圆角之类与主题无关，本来就不在 theme.js 里
+        if (k.indexOf('--r-') === 0) return
+        if (!(k in dark)) report('app.wxss 定义了 ' + k + '，但 ' + THEME_JS + ' 的 dark 里没有 —— 浅色主题下这里会退回深色值')
+        else if (dark[k] !== declared[k]) {
+          report(k + ' 两份值不一致：app.wxss = ' + declared[k] + ' / theme.dark = ' + dark[k])
+        }
+      })
+      Object.keys(dark)
+        .filter((k) => k.indexOf('--') === 0)
+        .forEach((k) => {
+          if (!(k in declared)) report(THEME_JS + ' 的 dark 有 ' + k + '，但 app.wxss 里没写兜底值')
+        })
+    }
   }
 }
 

@@ -12,7 +12,8 @@
  *
  *   th:records  { [habitId]: CheckinRecord[] }   打卡记录，按 habitId 分桶
  *
- *   th:settings { haptic:Boolean, confirmDelete:Boolean }  用户偏好
+ *   th:settings { haptic:Boolean, theme:String }  用户偏好
+ *               theme 取值 'light' | 'dark' | 'system'，见 utils/theme.js
  *
  * Habit（习惯）：
  *   {
@@ -377,8 +378,12 @@ function getRecordsOfDate(date) {
 const DEFAULT_SETTINGS = {
   /** 打卡成功时是否震动反馈 */
   haptic: true,
-  /** 删除习惯前是否二次确认 */
-  confirmDelete: true
+  /**
+   * 主题。默认深色：这是应用原本的样子，老用户升级后不该被换掉配色。
+   * 删除习惯的二次确认**不设开关**了 —— 删习惯会级联删掉它全部记录且不可恢复，
+   * 这种事没有「免确认」的合理场景，所以恒定确认（从默认值里删掉了 confirmDelete）。
+   */
+  theme: 'dark'
 }
 
 function getSettings() {

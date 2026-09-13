@@ -3,26 +3,36 @@
  *
  * 包含：
  *   1. 头部信息 + 打卡 / 编辑入口
- *   2. 日历视图（点选日期打卡，完成后打点标记）
+ *   2. 日历视图（只读一览：当月哪几天打了卡、哪几天没打，可往前翻月份，不可翻到未来）
  *   3. 周 / 月 / 年 区间切换的汇总指标
  *   4. 折线图：区间内每日数值变化
  *   5. 柱状图：区间内打卡次数对比
- *   6. 热力点阵：近 26 周完成情况（详情页固定 26 周；首页的总览可滑动看全部）
- *   7. 历史打卡记录（可修改 / 删除）
+ *   6. 热力点阵：完成情况，铺满全部历史，横向可滑动
+ *   7. 历史打卡记录（当天可改可删，过去只读回看）
  */
 const app = getApp()
 const storage = require('../../utils/storage.js')
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
+const pageFade = require('../../utils/page-fade.js')
+const theme = require('../../utils/theme.js')
 
 /** 记录列表一次渲染的条数，避免超长列表卡顿 */
 const HISTORY_PAGE_SIZE = 20
-const HEAT_WEEKS = 26
+/** 热力图最少展示的周数（记录少时不至于只画一小条） */
+const HEAT_MIN_WEEKS = 26
+/** 热力图周数上限（约 5 年）：再多只是把横向滚动条拉得更长，没有信息增量 */
+const HEAT_MAX_WEEKS = 260
 
 Page({
   data: {
+    ...pageFade.data,
     habitId: '',
     habit: null,
+
+    // 主题：themeStyle 供 page-meta 换肤，themeName 给 canvas 图表（它读不到 CSS 变量）
+    themeName: theme.DEFAULT_THEME,
+    themeStyle: '',
 
     // 顶部概览
     todayText: '0',
@@ -48,7 +58,7 @@ Page({
 
     // 热力图
     dayMap: {},
-    heatWeeks: HEAT_WEEKS,
+    heatWeeks: HEAT_MIN_WEEKS,
 
     // 日历
     calCells: [],
@@ -71,13 +81,25 @@ Page({
 
   onLoad(options) {
     const id = (options && options.id) || ''
+    // 先落地主题再渲染：晚一步会先按深色画一帧再跳成浅色
+    this.syncTheme()
     this.setData({ habitId: id, checkinDate: dayjs.today() })
     this.loadHabit()
   },
 
   onShow() {
+    // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
+    this.syncTheme()
     // 从编辑弹层或其它页面返回时刷新
     if (this.data.habitId) this.loadHabit()
+  },
+
+  /** 读取当前主题并落到 page-style；themeName 变化会让图表组件自己重绘 */
+  syncTheme() {
+    const name = theme.current()
+    theme.applyWindow(name)
+    const style = theme.cssVars(name) + ';'
+    if (style !== this.data.themeStyle) this.setData({ themeName: name, themeStyle: style })
   },
 
   onPageScroll(e) {
@@ -117,11 +139,18 @@ Page({
     const dayMap = stats.buildDayMap(records)
     const streak = stats.computeStreak(dayMap, today)
     const todayCell = dayMap[today]
-    const lifetime = stats.summarize(dayMap, records.length ? records[0].d : today, today)
+    const first = records.length ? records[0].d : today
+    const lifetime = stats.summarize(dayMap, first, today)
+
+    // 热力图铺满全部历史：从第一条记录算起，向左能一直滑到头。
+    // 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后，不用转 Date。
+    const spanWeeks = Math.ceil(dayjs.diffDays(first, today) / 7) + 1
+    const heatWeeks = Math.min(HEAT_MAX_WEEKS, Math.max(HEAT_MIN_WEEKS, spanWeeks))
 
     this.records = records
     this.setData({
       dayMap,
+      heatWeeks,
       todayText: stats.fmtNum(todayCell ? todayCell.value : 0),
       todayCount: todayCell ? todayCell.count : 0,
       streak: streak.current,
@@ -172,8 +201,7 @@ Page({
     this.setData({
       anchor: activeAnchor,
       rangeLabel: rangeInfo.label,
-      // 不允许翻到未来区间
-      canNext: dayjs.diffDays(rangeInfo.end, today) < 0,
+      canNext: !!this.shiftedAnchor(1, activeAnchor),
       summary: Object.assign({}, summary, {
         totalValueText: stats.fmtNum(summary.totalValue),
         avgText: stats.fmtNum(summary.avgPerActiveDay),
@@ -195,12 +223,32 @@ Page({
     this.setData({ range, anchor: dayjs.today() }, () => this.refreshRange())
   },
 
+  /**
+   * 按 delta 平移区间，返回新的锚点；越界时返回 null（整段都在今天之后，没有数据可看）。
+   *
+   * 这里的方向曾经写反过，和统计页是同一个 bug：「左」按钮点了没反应，
+   * 只能往「右」翻、还能一直翻到未来去。原来那句是 `diffDays(nextStart, today) > 0`，
+   * 即「区间起点在过去」—— 而上一周 / 上一月 / 上一年的起点**必然**在过去，
+   * 于是往回翻被全线挡死，往未来翻反而没人拦。判据应该是
+   * 「下一段的起点落在今天之后」，也就是这一整段还没发生。
+   *
+   * canNext 也复用同一个判断，避免「箭头亮着但点了没用」这种自相矛盾的状态。
+   *
+   * @param {number} delta -1 往前 / 1 往后
+   * @param {string} [fromAnchor] 以哪个锚点起算，缺省用 data.anchor
+   */
+  shiftedAnchor(delta, fromAnchor) {
+    const { range } = this.data
+    const today = dayjs.today()
+    const anchor = fromAnchor || this.data.anchor || today
+    const next = dayjs.shiftRange(range, anchor, delta)
+    return dayjs.rangeOf(range, next).start > today ? null : next
+  },
+
   onShiftRange(e) {
     const delta = Number(e.currentTarget.dataset.delta)
-    const { range } = this.data
-    const next = dayjs.shiftRange(range, this.data.anchor || dayjs.today(), delta)
-    // 禁止翻到未来
-    if (dayjs.diffDays(dayjs.rangeOf(range, next).start, dayjs.today()) > 0) return
+    const next = this.shiftedAnchor(delta)
+    if (!next) return
     this.setData({ anchor: next }, () => this.refreshRange())
   },
 
@@ -244,23 +292,19 @@ Page({
   },
 
   /**
-   * 点日历某一天 -> 打开该天的打卡弹层。
-   * 打卡只能记在当天，所以过去的日子进去是只读回看（弹层自己按日期判定，见 checkin-sheet）。
+   * 点热力图某一天 -> 打开该天的打卡弹层。
+   *
+   * 和日历保持一致：过去的日子进去是**只读回看**（弹层自己按日期判定，
+   * 见 components/checkin-sheet），未来的日子没有记录也不该点开。
    */
-  onCalDayTap(e) {
-    const { date, future } = e.currentTarget.dataset
+  onHeatDayTap(e) {
+    const date = e.detail.date
     if (!date) return
-    if (future) {
+    // 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后
+    if (date > dayjs.today()) {
       wx.showToast({ title: '还没到的日子', icon: 'none' })
       return
     }
-    this.setData({ showCheckin: true, checkinDate: date })
-  },
-
-  /** 点热力图某一天 -> 同上 */
-  onHeatDayTap(e) {
-    const date = e.detail.date
-    if (!date || dayjs.diffDays(date, dayjs.today()) < 0) return
     this.setData({ showCheckin: true, checkinDate: date })
   },
 
@@ -363,12 +407,8 @@ Page({
       setTimeout(() => wx.navigateBack(), 400)
     }
 
-    // 尊重「删除前二次确认」偏好
-    if (!storage.getSettings().confirmDelete) {
-      doDelete()
-      return
-    }
-
+    // 恒定二次确认，不提供开关：删习惯会级联删掉它全部打卡记录且不可恢复，
+    // 没有「以后别问了」的合理场景
     wx.showModal({
       title: '删除「' + habit.name + '」？',
       content: '该习惯下的全部打卡记录会一并删除，且无法恢复。',
