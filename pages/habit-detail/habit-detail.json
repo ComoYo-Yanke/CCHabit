@@ -1,5 +1,6 @@
 {
   "usingComponents": {
+    "app-bg": "../../components/app-bg/index",
     "nav-bar": "../../components/nav-bar/index",
     "heatmap": "../../components/heatmap/index",
     "habit-editor": "../../components/habit-editor/index",

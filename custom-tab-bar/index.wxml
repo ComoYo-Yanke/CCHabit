@@ -8,19 +8,35 @@
   滑块是为了「拖动时连续跟手」才存在的，拖动已经移除，高亮只在段落之间跳。
   这样也顺带没有了「滑块停在错位置」这类残留状态。
 
-  只有 bindtap，没有任何触摸事件：切页逻辑就是「点一下 → 淡出 → switchTab」。
+  切页逻辑就是「点一下 → 淡出 → switchTab」。判定点没点看的是 touchend 而不是 tap：
+  页面刚滑动过时 tap 会被框架的二次判定吃掉，表现为「滑动之后底栏要点好几次」，
+  tap 只留作兜底（见 index.js 的 onTouchStart / onTouchEnd）。
+
+  catchtouchmove：底栏自己不滚动，从它上面起手的拖动不该漏到下面的页面上去。
 -->
-<view class="tabbar" style="background: {{c.bg}}; border-color: {{c.border}};">
+<view
+  class="tabbar"
+  style="background: {{c.bg}}; border-color: {{c.border}};"
+  catchtouchmove="noop"
+>
   <view
     wx:for="{{list}}"
     wx:key="pagePath"
     class="tab {{selected === index ? 'tab--on' : ''}}"
     style="{{selected === index ? 'background: ' + c.active + ';' : ''}}"
     data-index="{{index}}"
+    bindtouchstart="onTouchStart"
+    bindtouchend="onTouchEnd"
     bindtap="onTap"
   >
     <!-- 只留图标。去掉文字后胶囊矮了一大截，这里的 padding 和 app.wxss 里
-         .page 的 padding-bottom 都是照着这个高度定的，改一处要改两处 -->
-    <view class="tab-icon ic ic-{{item.icon}}-{{selected === index ? 'active' : 'idle'}}"></view>
+         .page 的 padding-bottom 都是照着这个高度定的，改一处要改两处。
+
+         图标不走 icons.wxss（那边颜色烘焙在 base64 里，跟不了主题），
+         由 theme.tabbarVars 按当前配色现拼内联 SVG，理由见 index.js 顶部 -->
+    <view
+      class="tab-icon"
+      style="background-image: {{selected === index ? c.icons[item.icon].on : c.icons[item.icon].idle}};"
+    ></view>
   </view>
 </view>

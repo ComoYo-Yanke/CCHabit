@@ -16,6 +16,9 @@
   去掉 .page--out 是 0→1 的淡入，加上是 1→0 的淡出。
 -->
 <view class="page page--fade {{fading ? 'page--out' : ''}}">
+  <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg -->
+  <app-bg theme-name="{{themeName}}" />
+
   <!-- ============ 顶部问候 ============ -->
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-date">{{dateLabel}}</view>

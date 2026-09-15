@@ -383,11 +383,42 @@ const DEFAULT_SETTINGS = {
    * 删除习惯的二次确认**不设开关**了 —— 删习惯会级联删掉它全部记录且不可恢复，
    * 这种事没有「免确认」的合理场景，所以恒定确认（从默认值里删掉了 confirmDelete）。
    */
-  theme: 'dark'
+  theme: 'dark',
+  /**
+   * 自定义主题的配置（theme === 'custom' 时才起作用），在
+   * pages/theme-editor 里改。只存用户改的那几项，整套色值由 utils/theme.js
+   * 现算 —— 存整套变量的话，以后往调色板里加一个变量，老用户存的旧表就会缺那一项。
+   * 这里是 null 而不是一份默认值：默认值放在 theme.js 的 DEFAULT_CUSTOM
+   * （theme.js 依赖本模块，反向 require 会成环），缺省字段由那边补齐。
+   */
+  customTheme: null
 }
 
 function getSettings() {
   return Object.assign({}, DEFAULT_SETTINGS, safeGet(KEYS.SETTINGS, {}))
+}
+
+/**
+ * 删掉自定义主题用过的那张背景图。
+ *
+ * 背景图存在**本地文件**里，不在 storage 里（相册原图几 MB，storage 只有 10MB），
+ * storage 里只留一个路径。于是「清空数据 / 导入覆盖」这类动作一旦丢掉
+ * customTheme，那份文件就再没人指着它了：空间照占，界面上也没有入口能删它
+ * （编辑页的「移除」按钮读的正是被丢掉的那个路径）。所以每次丢弃设置之前先收掉。
+ */
+function releaseBackgroundImage() {
+  const cfg = getSettings().customTheme
+  const path = cfg && cfg.image
+  if (!path) return
+  try {
+    const fs = wx.getFileSystemManager()
+    // 低版本基础库没有 removeSavedFile，此时只能作罢，不影响清空本身
+    if (typeof fs.removeSavedFile === 'function') {
+      fs.removeSavedFile({ filePath: path, fail: () => {} })
+    }
+  } catch (e) {
+    // 文件本来就不在、或接口不可用，静默即可
+  }
 }
 
 function saveSettings(patch) {
@@ -474,13 +505,24 @@ function importData(text) {
   // 先写记录再写习惯：任一步失败都会抛错，由调用方提示用户
   saveRecordsMap(records)
   saveHabits(habits)
-  if (parsed.settings) saveSettings(parsed.settings)
+  if (parsed.settings) {
+    // 备份里那条背景图路径指的是**导出那台手机**上的文件，换台机器打开就是坏的
+    // （路径形如 wxfile://usr/xxx，每台设备各自一套）。所以只搬颜色、不搬图。
+    // 本机原来那张也要一并收掉：它马上就会被这份设置覆盖成一个失效路径，
+    // 之后编辑页的「移除」就再也删不掉它了
+    releaseBackgroundImage()
+    const next = Object.assign({}, parsed.settings)
+    if (next.customTheme) next.customTheme = Object.assign({}, next.customTheme, { image: '' })
+    saveSettings(next)
+  }
 
   return { habits: habits.length, records: recordCount }
 }
 
 /** 清空全部数据（保留 meta，标记为已使用过） */
 function clearAll() {
+  // 必须在删 SETTINGS 之前：路径就在里面，删完就找不到那张图了
+  releaseBackgroundImage()
   _habitsCache = null
   _recordsCache = null
   wx.removeStorageSync(KEYS.HABITS)

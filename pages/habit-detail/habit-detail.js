@@ -92,12 +92,17 @@ Page({
     pageFade.ready(this)
   },
 
+  /**
+   * 复访。淡入排在数据渲染之后：页面刚被搬上台时是透明的，而 setData 还要过一拍
+   * 才落到视图层 —— 先起动画就会看到「空页面淡入、淡到一半长出内容」。
+   * 所以挂在 loadHabit 的渲染回调里。首访由 onReady 负责。
+   * 详见 pages/index/index.js 里同一处的长注释。
+   */
   onShow() {
-    pageFade.show(this)
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
     this.syncTheme()
     // 从编辑弹层或其它页面返回时刷新
-    if (this.data.habitId) this.loadHabit()
+    if (this.data.habitId) this.loadHabit(() => pageFade.show(this))
   },
 
   /** 读取当前主题并落到 page-style；themeName 变化会让图表组件自己重绘 */
@@ -105,7 +110,10 @@ Page({
     const name = theme.current()
     theme.applyWindow(name)
     const style = theme.cssVars(name) + ';'
-    if (style !== this.data.themeStyle) this.setData({ themeName: name, themeStyle: style })
+    // 两个都得比：themeName 不只是图表的输入，也是 app-bg 判断「还该不该显示背景图」的信号
+    if (style !== this.data.themeStyle || name !== this.data.themeName) {
+      this.setData({ themeName: name, themeStyle: style })
+    }
   },
 
   onPageScroll(e) {
@@ -119,8 +127,11 @@ Page({
     wx.stopPullDownRefresh()
   },
 
-  /** 习惯不存在（被删除 / 链接失效）时的兜底 */
-  loadHabit() {
+  /**
+   * 习惯不存在（被删除 / 链接失效）时的兜底
+   * @param {Function} [done] 本次渲染完成后的回调，见 onShow
+   */
+  loadHabit(done) {
     const habit = storage.getHabit(this.data.habitId)
     if (!habit) {
       wx.showModal({
@@ -132,11 +143,14 @@ Page({
       return
     }
     this.setData({ habit })
-    this.refreshAll()
+    this.refreshAll(done)
   },
 
-  /** 全量重算（数据量小，直接整页刷新最简单也最不容易出错） */
-  refreshAll() {
+  /**
+   * 全量重算（数据量小，直接整页刷新最简单也最不容易出错）
+   * @param {Function} [done] 整串 setData 渲染完成后的回调
+   */
+  refreshAll(done) {
     const { habit } = this.data
     if (!habit) return
 
@@ -167,7 +181,7 @@ Page({
 
     this.refreshRange(dayMap)
     this.refreshCalendar(this.calAnchor || today, dayMap)
-    this.refreshHistory(records)
+    this.refreshHistory(records, done)
   },
 
   /**
@@ -315,7 +329,11 @@ Page({
   },
 
   // ---------------- 历史记录 ----------------
-  refreshHistory(records) {
+  /**
+   * @param {Array}    [records] 已读到的记录，缺省自行读取
+   * @param {Function} [done]    本次渲染完成后的回调（refreshAll 那一串的最后一步）
+   */
+  refreshHistory(records, done) {
     const list = records || storage.getRecords(this.data.habitId)
     const { habit } = this.data
     // 倒序：最新的在前
@@ -336,7 +354,7 @@ Page({
         note: r.n || '',
         time: fmtTime(r.t)
       }))
-    })
+    }, done)
   },
 
   onLoadMoreHistory() {

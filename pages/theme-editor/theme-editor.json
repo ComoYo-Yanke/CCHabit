@@ -1,6 +1,5 @@
 {
   "usingComponents": {
-    "app-bg": "../../components/app-bg/index",
     "nav-bar": "../../components/nav-bar/index"
   },
   "navigationStyle": "custom",

@@ -50,6 +50,13 @@ page {
   --ring: rgba(255, 255, 255, 0.7);
   --nav-bg: rgba(14, 16, 20, 0.92);
 
+  /* 弹层专用的那一套（比上面五个更实，自定义主题下两者才会分道扬镳）：见 .sheet */
+  --popup-surface: #171B24;
+  --popup-surface-2: #1E232E;
+  --popup-surface-3: #262C38;
+  --popup-border: #262C38;
+  --popup-border-soft: #1F242F;
+
   /* 圆角与间距：与主题无关，因此不在 utils/theme.js 里 */
   --r-sm: 12rpx;
   --r-md: 20rpx;
@@ -72,6 +79,19 @@ view, text, scroll-view, button, input, textarea {
 .page {
   min-height: 100vh;
   background: var(--bg);
+  /*
+   * position + z-index 只有一个目的：让 .page 成为一个层叠上下文。
+   * 里面的背景图层（components/app-bg）靠 z-index: -1 压在内容之下，
+   * 而负 z-index 的后代只有在这个元素自己是层叠上下文时，才会画在它的
+   * **背景之上**；否则它会一路落到根层叠上下文里，被 .page 自己的
+   * background 盖住 —— 表现就是「设置了背景图却什么也看不到」。
+   *
+   * 这里没有用 transform：那会让 .page 变成 fixed 后代的包含块
+   * （见 README 决策 15 / 16），底栏、悬浮按钮、弹层全在页面根节点下，
+   * 一旦包含块变了就会跟着页面滚。position 没有这个副作用。
+   */
+  position: relative;
+  z-index: 0;
   /* 底部预留悬浮胶囊导航的高度。胶囊是浮在内容之上的（不占布局），
      所以这里必须把它的高度让出来，否则最后一张卡片会被压在底下。
      高度构成 = 离底 20rpx + 胶囊 108rpx + 24rpx 透气 = 152rpx。
@@ -85,6 +105,43 @@ view, text, scroll-view, button, input, textarea {
 .page--no-tabbar {
   padding-bottom: 40rpx;
   padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* ============ 自定义主题的背景图那一层 ============ */
+/*
+ * 由 components/app-bg 渲染，必须是 `.page` 的第一个子节点：
+ *   - 在 .page 里面，才会跟着页面一起淡出（不然切页时背景图会杵在原地）；
+ *   - fixed 而不是 absolute，是为了让图不跟着内容滚 —— 滚起来图不动才像壁纸；
+ *   - z-index: -1 压在内容之下。这要求 .page 自己是层叠上下文（见上面 .page 的注释），
+ *     否则会被 .page 的背景盖住、整层看不见。
+ * 类名写在全局而不是组件里：「自定义主题」编辑页要实时预览同一层，两边共用一套。
+ */
+.app-bg {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  overflow: hidden;
+  /* 图铺满整屏，挡在下面就等于整页点不动 */
+  pointer-events: none;
+}
+
+.app-bg-img {
+  width: 100%;
+  height: 100%;
+  /* 放大一点，盖掉模糊在四周溢出的半透明边 */
+  transform: scale(1.08);
+}
+
+/* 压在图上的一层底色：越实字越清楚，越透图越明显（在编辑页里可调） */
+.app-bg-scrim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .scroll-body {
@@ -155,6 +212,14 @@ view, text, scroll-view, button, input, textarea {
 .section-sub {
   font-size: 24rpx;
   color: var(--text-3);
+}
+
+/* 列表右侧那枚箭头。设置页的「操作列表」和主题编辑页的颜色行都在用，
+   所以放在全局而不是某一页里 */
+.op-arrow {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.6;
 }
 
 /* ============ 文本 ============ */
@@ -364,8 +429,30 @@ view, text, scroll-view, button, input, textarea {
   opacity: 1;
 }
 
+/*
+ * 弹层就是这里覆写一整套底色变量的地方，**故意不和卡片共用 --surface**。
+ *
+ * 卡片那几层要跟着 surfaceAlpha 变透明 —— 那是自定义主题里「让背景图透上来」的
+ * 唯一途径。弹层跟着一起透就纯粹是坏事：它底下垫着一层 60% 黑的遮罩，
+ * 页面本来就一点看不见，透出来的只有那块黑；同一个 sA 落在弹层上，
+ * 效果是**面板越透越暗**，上面的正文和表单一起糊。滑块是拿来调卡片的，
+ * 不该顺手把弹层里的字也调没。
+ *
+ * 覆写这一套而不是只改 background：弹层内侧的块用的还是 --surface-2 /
+ * --surface-3，不跟着实心的话，它们和面板本身同处一个 sA，叠在同一个背板上
+ * 差值会被 sA 直接压掉 —— 面板里的分区糊成一片，看不出块。
+ * 弹层的后代全都吃这一套，所以只要写在这一个选择器上。
+ *
+ * 三套主题里这五个变量的兜底值见上面的 page { }；自定义主题下由
+ * utils/theme.js 的 buildCustom 算出实心版本。
+ */
 .sheet {
-  background: var(--surface);
+  background: var(--popup-surface);
+  --surface: var(--popup-surface);
+  --surface-2: var(--popup-surface-2);
+  --surface-3: var(--popup-surface-3);
+  --border: var(--popup-border);
+  --border-soft: var(--popup-border-soft);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   border-top: 1rpx solid var(--border);
   transform: translateY(100%);

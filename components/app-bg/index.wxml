@@ -1,0 +1,17 @@
+<!--
+  背景图 + 压在上面的一层底色。
+  两层都是「整屏铺满」，所以宽度用 100% 配 left/top/right/bottom: 0，
+  不用 100vh —— 小程序的 vh 在某些机型上会把状态栏算错。
+
+  模糊用 CSS filter 而不是给 image 加 mode：mode 只管裁剪不管模糊。
+  模糊会让四周溢出一圈半透明的边，所以图本身放大一点点补掉（scale 1.08）。
+-->
+<view class="app-bg">
+  <image
+    class="app-bg-img"
+    src="{{src}}"
+    mode="aspectFill"
+    style="filter: blur({{blur}}px); -webkit-filter: blur({{blur}}px);"
+  />
+  <view class="app-bg-scrim" style="background: {{scrim}};"></view>
+</view>

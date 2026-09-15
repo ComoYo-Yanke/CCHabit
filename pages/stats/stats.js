@@ -46,13 +46,17 @@ Page({
     this.setData({ statusBarHeight: app.globalData.statusBarHeight || 20 })
   },
 
+  /**
+   * 复访。淡入必须排在数据渲染之后：页面刚被搬上台时是透明的，而 setData
+   * 还要过一拍才落到视图层 —— 先起动画就会看到「空页面淡入、淡到一半长出内容」。
+   * 所以挂在 refresh 的渲染回调里。首访由 onReady 负责（此时 _fadeReady 还是 false）。
+   * 详见 pages/index/index.js 里同一处的长注释。
+   */
   onShow() {
-    // 复访：页面早就建好了，直接淡入（首访交给 onReady，见 utils/page-fade.js）
-    pageFade.show(this)
-    this.refresh()
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
     this.syncTheme()
     this.syncTabBar()
+    this.refresh(() => pageFade.show(this))
   },
 
   /**
@@ -74,7 +78,10 @@ Page({
     const name = theme.current()
     theme.applyWindow(name)
     const style = theme.cssVars(name) + ';'
-    if (style !== this.data.themeStyle) this.setData({ themeName: name, themeStyle: style })
+    // 两个都得比：themeName 不只是图表的输入，也是 app-bg 判断「还该不该显示背景图」的信号
+    if (style !== this.data.themeStyle || name !== this.data.themeName) {
+      this.setData({ themeName: name, themeStyle: style })
+    }
   },
 
   syncTabBar() {
@@ -88,7 +95,10 @@ Page({
     wx.stopPullDownRefresh()
   },
 
-  refresh() {
+  /**
+   * @param {Function} [done] 本次渲染完成后的回调 —— onShow 用它把淡入排在内容落定之后
+   */
+  refresh(done) {
     const { range } = this.data
     const today = dayjs.today()
     const anchor = this.data.anchor || today
@@ -174,7 +184,7 @@ Page({
       ranking,
       lineOpts: { xAxis: { labelCount: 5, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } },
       barOpts: { xAxis: { labelCount: 6, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } }
-    })
+    }, done)
   },
 
   onSwitchRange(e) {

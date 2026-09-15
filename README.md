@@ -22,6 +22,7 @@
 - **可视化**：Canvas 2D 折线 / 柱状图 + 纯 WXML 热力图，可横向滑动回看全部历史
 - **快捷打卡**：首页卡片点一下直接记一笔，要填数值 / 备注再进弹层
 - **深浅色主题**：浅色 / 深色 / 跟随系统，一套 CSS 变量换肤，图表一并跟随
+- **自定义主题**：另开一页调五个颜色 + 卡片透明度 + 背景图（模糊 / 淡化），整页实时预览，颜色从底色现推
 - **悬浮胶囊导航**：底栏浮在内容之上、带毛玻璃，只有图标；点击切换，页面之间淡出淡入
 - **零图片资源**：图标全为内联 base64 SVG
 
@@ -59,8 +60,9 @@ node scripts/lint-bindings.js      # WXML 绑定变量与 JS 对应关系
 ├── styles/icons.wxss                内联 base64 SVG 图标
 ├── utils/                           date.js · storage.js · stats.js · theme.js · page-fade.js
 ├── components/                      nav-bar · heatmap · habit-card · habit-editor
-│                                    checkin-sheet · qiun-charts · empty-state
+│                                    checkin-sheet · qiun-charts · empty-state · app-bg
 ├── pages/                           index · habit-detail · stats · settings · about
+│                                    theme-editor（自定义主题，整页即预览）
 └── scripts/                         自测与静态检查（不参与打包）
 ```
 
@@ -73,7 +75,7 @@ node scripts/lint-bindings.js      # WXML 绑定变量与 JS 对应关系
 - **`th:meta`** — `{ version: 1, createdAt, seeded }`
 - **`th:habits`** — 习惯列表（`id / name / unit / icon / color / target / step / enabled / sort`）
 - **`th:records`** — 按习惯分桶的打卡记录，短名压缩：`d` 日期 / `v` 数值 / `n` 备注 / `t` 时间戳；同一天允许多条
-- **`th:settings`** — `{ haptic, theme }`，`theme` 取 `light` / `dark` / `system`
+- **`th:settings`** — `{ haptic, theme, customTheme }`，`theme` 取 `light` / `dark` / `system` / `custom`；`customTheme` 只在 `custom` 时起作用，且**只存用户改的那几项**（五个颜色 / 卡片透明度 / 背景图路径与模糊淡化），整套色值由 `utils/theme.js` 现算（见决策 34）
 
 单条约 70 字节，上限 1MB/key、10MB 总量，约可存 10 万条以上。写入均包 try/catch，配额异常抛 `{ code: 'QUOTA_EXCEEDED' }`，设置页提供用量进度条（≥70% 黄、≥90% 红）与导出 / 导入 / 清空。
 
@@ -93,6 +95,7 @@ node scripts/lint-bindings.js      # WXML 绑定变量与 JS 对应关系
 9. **悬浮按钮加号用 `.ic-plus-white`** — 蓝加号画在蓝底上等于没有。
 10. **自定义 tabBar 必须在根目录，且底色不能靠 CSS 变量** — 它由框架独立挂载，不在页面的节点树里，继承不到 `page` 上的变量。底色 / 描边 / 选中胶囊的填充因此由 JS 用行内样式喂（`utils/theme.js` → `custom-tab-bar` 的 `syncTheme`）。又因为每个 tab 页各有一个自己的实例，主题变了别的实例不会自己更新，所以把「切选中态」和「同步主题」并成同一个入口 `setActive(index)`，页面每次 `onShow` 调一次就都跟上了。形态是**悬浮在底部的胶囊**、点击切换，见第 30 条。
 11. **图标零资源** — 全内联 base64 SVG。代价是**图标颜色烘焙在 SVG 里、不跟主题走**，所以浅色主题下只挑「深色底和白色底上都能看」的中性灰（`#6B7280`），选中态则两套主题共用 `#5B8CFF`，并让文字也跟着用同一个值，避免文字和并排的图标对不上色。
+    **唯一的例外是底栏那三枚图标**：它们既拿不到 CSS 变量（底栏不在页面的节点树里，见第 10 条），又必须跟着走 —— 选中胶囊的填充色就是用户选的主色，图标再固定成 `#5B8CFF`，自定义主题下两者会当场打架。所以这一处由 `utils/theme.js` 的 `iconUrl()` 按颜色现拼一份内联 SVG（URL 编码，比 base64 短且看得懂；idle / active 两个类里的路径本来就逐字相同，只留一份）。深 / 浅色两套取的就是原本那两个烘焙色，因此那两套下的观感与以前一致。
 12. **只能打卡当天** — 弹层无日期切换；`blockedByReadonly()` 不看 `data.readonly`，重新和时钟比对；组件不信任传入日期，未来 / 非法一律夹回今天。
 13. **canvas 是原生组件** — 弹层盖不住，只能 `hidden` 时 `display: none` 让它不渲染；重新显示要重建而非重绘。
 14. **弹层打开要锁页面滚动** — `catchtouchmove` 管触摸，`page-meta` 管滚轮。
@@ -134,7 +137,22 @@ node scripts/lint-bindings.js      # WXML 绑定变量与 JS 对应关系
 
 33. **更新日志只铺最近 3 条，更早的引导去仓库** — 理由是这份列表是给人扫一眼的，铺满就没人看。`about.js` 里 `CHANGELOG` 仍然记全，页面上 `slice(0, CHANGELOG_LIMIT)`，多出来时多一行「更早的版本记录 ›」。这一行**刻意不做展开**（不是「点开看全部」）：既然结论是「条目多了没人看」，展开就把问题原样搬了回来。点了它和开发者那栏一样**复制仓库地址**——小程序打不开外链（`web-view` 只认业务域名，个人开发者一般没有），所以全项目的对外链接只有这一种形态。
 
-29. **日历是只读一览，不绑点击** — 它的职责只是「当月哪几天打了卡、哪几天没打」，打卡入口在页头的「打卡」按钮，看某天明细走下面的历史记录列表。此前格子上绑着 `onCalDayTap`，于是点今天 / 未来会弹出打卡层 —— 一个本不该有写入路径的面板成了写入入口。顺带修掉一个符号错误：`monthCalendar` 里写的是 `isFuture: diff < 0`，而 `diffDays(a, b)` 算的是 `b - a`，所以那个 `diff` 是「日期减今天」，**为正才是未来**。方向一反过来，整月的过去日期全被标成未来 —— 点昨天提示「还没到的日子」，点明天反而能打开弹层，连未来格子压暗的样式也全落在历史日期上。`scripts/test-utils.js` 现在钉住「`isFuture` 必须等于日期直接比较的结果」，且刻意不做时钟相关断言（否则过几个月这条会自己红掉）。同一处还把压暗色从 `--surface-3` 换成 `--text-3`：前者是底色系列，浅色主题下接近纯白，写在白卡片上等于把日期擦掉。
+34. **自定义主题是「几个颜色进、整套变量出」，不存调色板** — 第 25 条把「加主题」的成本压到「加一份变量表」，但那是**开发者**加；让**用户**自己配就不能这么算了：用户改的是背景 / 卡片 / 主色 / 正文 / 次要文字这五个颜色，存储里也只留这五个（外加卡片透明度和背景图那三项），其余三十来个变量由 `buildCustom()` 现推。存整套变量的话，以后往调色板里补一个变量，所有老用户手里那份旧表都会缺那一项 —— 正是第 25 条那个「必须逐字对应」的纪律在用户数据上的翻版，而且这次没人能靠改代码修好它。
+    - **方向由底色亮度定，不由主题名定。** 先看用户选的底色算深还是算浅，再决定「越靠上越亮」还是「越靠上越白」。方向反了卡片会陷进背景里 —— 深色下卡片比底色亮、浅色下卡片比底色白，是同一条规则的两个方向，不是两套规则。
+    - **语义色不推算，直接取现成那两套里对应的一套。** 成功 / 警告 / 危险这三个值需要对比度保证，从用户选的底色推出来的未必达标（浅色底上推出来的黄字可能只有 1.9:1）。热力色阶是另一回事：它必须**在两个方向上都反过来**，否则高频格子会比低频格子还浅。
+    - **卡片透明度是让背景图看得见的前提。** 页面的 `--bg` 始终不透明（背景图是画在它上面、内容下面的一层，见决策 35），所以图能不能透出来，只取决于卡片那几层 `--surface` 有多透。`--border` 比 `--surface` 更实一点：跟着一起透的话卡片边界会先消失。
+    - **弹层不跟着一起透，它另有一整套 `--popup-*`。** 卡片变透明是**目的**，弹层变透明却什么也换不来：它底下垫着一层 60% 黑的遮罩，页面本来就一点看不见，透出来的只有那块黑 —— 同一个透明度落在弹层上，效果是**面板越透越暗**，正文和表单跟着一起糊。滑块是拿来调卡片的，不该顺手把弹层里的字也调没。所以 `.sheet` 就地覆写一整套底色素值（`--surface` / `--surface-2` / `--surface-3` / `--border*` 全指向对应的 `--popup-*`），弹层里的后代全都实心。**覆写的是整套而不是只改 `background`**：内侧那些块用的是 `--surface-2` / `--surface-3`，它们和面板本身同处一个透明度，叠在同一个背板上差值会被透明度直接压掉 —— 只把面板做实心，面板里的分区反而会糊成一片、分不出块。深 / 浅色两套里这五个变量与上面五个逐字相同（那两套的 `surfaceAlpha` 恒为 100%，本来就不透明），所以那两套的观感与以前逐像素一致。
+    - **⚠️ 派生值本身就是最该被校验的输出。** `rgba()` 最初只认 `[r,g,b]` 数组，而 `mix()` 返回的是 `'#RRGGBB'` **字符串** —— 于是 `rgba(mix(...), a)` 取下标拿到的是 `'#'`、`'1'`、`'F'` 三个字符，拼出来是 `rgba(#, 1, F, 1)`，一句**非法 CSS**。小程序不会报错，只会把这条声明丢掉，那些变量就悄悄退回 `app.wxss` 里 page 选择器下的深色默认值。后果是自定义主题**只有一部分生效**，而且症状极具误导性：浅色底上卡片和分段控件还是深色（`--surface-2/3` 没生效），底栏胶囊明明已经是浅色的、描边却是一圈深灰（`tabbarBorder` 走的正是 `lineSoft` 这条路），看着就像「莫名其妙加了个边框」。`rgba()` 现在两种入参都收。这件事的教训不是「小心一点」，而是：**派生出来的值也要拿断言扫一遍**（「每个变量都必须是合法 CSS 颜色」），这一处是靠那条断言扫出来的，肉眼盯着十来行色值只会看漏。
+    - **两套手调值是派生规则的基准，不是参考。** 上面那些系数是拿 `THEMES.dark` / `THEMES.light` 里已有的值**反推**出来的（`--surface-2` 对 `#1E232E`、`--border` 对 `#262C38`……）。凭感觉取的那一版是 0.06 / 0.12 / 0.2，`--border` 出来是 `#454950`，比手调值亮一倍多，卡片全像被框了起来。改系数之前先把对应关系算清楚。
+    - **编辑页单独开一页，因为可调项从 3 个涨到 7 个**，铺在设置页里会把「外观」那一栏撑得比别的栏长出一大截；而**这一页本身就是预览**，比一个小色块直观得多。三条约定：进这一页即写 `theme: 'custom'`（否则会出现「颜色改了、整机还是深色」）；滑块 `changing` 只改界面、`change` 才落盘（拖一次几十个事件，每次同步写存储没有必要）；这一页**不参与页面淡入** —— 页里有 `slider` / `image` 这些原生组件，它们不认祖先的 `opacity`，淡入时会看到「底片全透明、滑块已经杵在那儿」。
+      但「整页就是预览」有个**够不着的地方**：底栏不由页面变量驱动（第 10 条），整页换肤照不到它。而它偏偏是最容易违和的一处 —— 选中胶囊的填充就是主色，图标不跟着变就当场打架。所以预览卡片里**另画了一个胶囊**，数据走 `theme.preview()` 返回的 `tabbar`（和底栏同一个 `tabbarVars()`）。不预览出来就等于闭着眼睛调。
+
+35. **背景图存本地文件，storage 里只留一个路径 —— 于是「谁负责删」成了必须回答的问题** — 那是张相册图，压过一道也常有几百 KB，而 storage 一共只有 10MB（见数据模型），所以走 `saveFile` 存进本地文件，storage 里只留路径。由此推出的四件事：
+    - **它是一层，不是一个页面的样式**，所以做成 `components/app-bg`：五张页面都要有，复制五遍迟早漏一处。没有背景图时它整层不渲染。页面那边只需要把主题名传进来（`theme-name`），组件重读配置一共三个口子，缺一个都会留下一种「图赖着不走」：`attached` 管首访；`pageLifetimes.show` 管复访（在编辑页换完图返回时名字没变，前后都是 `custom`，只有这条路径管得着）；**主题名变化**管「本页正显示着的时候主题被改掉」——「我的」页是唯一能改主题的地方，改完不离开页面，前两条都不会触发，少了它就会在切到跟随系统 / 深浅色之后，让背景图继续盖在已经不透明的页面上。
+    - **它必须在 `.page` 内部、当第一个子节点，且 `position: fixed` + `z-index: -1`。** 在 `.page` 里面才会跟着页面一起淡出（否则切页时背景图杵在原地）；`fixed` 是为了让图不跟着内容滚 —— 滚起来图不动才像壁纸；负 `z-index` 要压在内容之下，**这就要求 `.page` 自己是层叠上下文**，也就是第 15 / 16 条为什么让 `.page` 用 `position` + `z-index` 而不是 `transform`：负 `z-index` 的后代只有在祖先自成层叠上下文时才画在它的背景之上，否则会一路落到根层叠上下文里被 `.page` 自己的背景盖住，表现就是「设了背景图却什么也看不到」。类名写在全局 `app.wxss` 而不是组件里：编辑页要实时预览同一层，两边共用一套。
+    - **路径一旦被丢弃，文件就再没人指着它了。** 界面上唯一能删它的入口（编辑页的「移除」）读的正是配置里那个路径，配置没了按钮也就没了 —— 空间照占，还删不掉。所以「丢弃设置」的三个地方都要先把它收掉：`storage.clearAll()`、导入覆盖、以及编辑页自己的「移除 / 恢复默认」（后两处本来就在做）。`releaseBackgroundImage()` 因此在 `utils/storage.js` 里，而不在页面里 —— 这条不变量属于「数据出入口唯一」（第 2 条）。
+    - **导入时把 `image` 抹掉。** 路径形如 `wxfile://usr/xxx`，每台设备各自一套，备份里那条指的是**导出那台手机**上的文件，换台机器打开就是坏的。所以导入只搬颜色、不搬图；本机原来那张也一并收掉（它马上就会被覆盖成一个失效路径，之后再也删不掉）。
+ — 它的职责只是「当月哪几天打了卡、哪几天没打」，打卡入口在页头的「打卡」按钮，看某天明细走下面的历史记录列表。此前格子上绑着 `onCalDayTap`，于是点今天 / 未来会弹出打卡层 —— 一个本不该有写入路径的面板成了写入入口。顺带修掉一个符号错误：`monthCalendar` 里写的是 `isFuture: diff < 0`，而 `diffDays(a, b)` 算的是 `b - a`，所以那个 `diff` 是「日期减今天」，**为正才是未来**。方向一反过来，整月的过去日期全被标成未来 —— 点昨天提示「还没到的日子」，点明天反而能打开弹层，连未来格子压暗的样式也全落在历史日期上。`scripts/test-utils.js` 现在钉住「`isFuture` 必须等于日期直接比较的结果」，且刻意不做时钟相关断言（否则过几个月这条会自己红掉）。同一处还把压暗色从 `--surface-3` 换成 `--text-3`：前者是底色系列，浅色主题下接近纯白，写在白卡片上等于把日期擦掉。
 
 ---
 
@@ -150,6 +168,14 @@ node scripts/lint-bindings.js      # WXML 绑定变量与 JS 对应关系
 | 补打卡 | 功能已移除，不再提供入口与文案 |
 | 区间翻页 | 周 / 月 / 年不允许翻到未来；判据只有一份（见决策 24） |
 | 切主题 | `app.wxss` 的深色值是兜底，即使 `page-style` 未生效也只是「没换肤」，不会白屏或透明 |
+| 自定义主题配色 | 语义色不推算（取现成那两套）；层级方向跟底色亮度反，不跟主题名（见决策 34） |
+| 自定义主题下调低卡片透明度 | 只影响卡片，弹层不跟着透 —— 它底下垫着遮罩，透了只会变暗、把正文和表单糊掉，所以另有一套实心的 `--popup-*`（见决策 34） |
+| 自定义主题「只生效一部分」 | 派生值必须是合法 CSS：非法声明会被静默丢掉、悄悄退回深色默认值，症状是「卡片还是深色」「胶囊多了一圈边框」（见决策 34） |
+| 底栏图标颜色 | 唯一跟着主题走的图标：它拿不到 CSS 变量，而选中胶囊的填充就是主色，固定色会和它打架（见决策 11） |
+| 背景图占空间 | 存本地文件而非 storage，storage 只留路径；换图 / 移除 / 恢复默认 / 清空数据 / 导入覆盖都会删掉旧文件（见决策 35） |
+| 背景图看不见 | 依赖 `.page` 自成层叠上下文（`position` + `z-index`，不用 `transform`）；卡片那几层跟着 `surfaceAlpha` 变透才有图透上来（见决策 34 / 35） |
+| 导入含背景图的备份 | 只搬颜色不搬图：路径是导出那台手机的，本机打开是坏的（见决策 35） |
+| 切走自定义主题后背景图还在 | 背景图只在 `theme === 'custom'` 时该出现，所以组件还得盯着主题名：「我的」页是本页改主题、不离开页面，`attached` / `show` 都等不到（见决策 35） |
 | 跟随系统 | 系统一切换即实时重画；`app.json` 的 `darkmode` 若被去掉会静默退化成「永远深色」（见决策 27） |
 | 点的是当前这一页 | 撤销待执行的切换、把淡出到一半的页面拉回来，不切页（见决策 32） |
 | 切 tab 的高亮 | 只在「这一页已经显示出来」时被画，第一帧就不可能画错；拖动没了，也就没有残留要擦（见决策 30 / 32） |
@@ -204,6 +230,7 @@ Copyright (c) 2026 **CoMoYo-Yanke**. All rights reserved.
 - **Visuals**: Canvas 2D line / column charts + pure WXML heatmap, scrollable back through the full history
 - **Quick check-in**: tap a home-screen card to record once; open the sheet when you need values or notes
 - **Light / dark theme**: light, dark, or follow system; one set of CSS variables reskins everything, charts included
+- **Custom theme**: a dedicated page for five colors plus card alpha and a background image (blur / dim); the page is the live preview, and the rest of the palette is derived from the background color
 - **Floating capsule nav**: the tab bar hovers above the content with a frosted-glass fill and icons only; tap to switch, with a fade out / fade in between pages
 - **Zero image assets**: all icons are inline base64 SVG
 
@@ -241,8 +268,9 @@ node scripts/lint-bindings.js      # Cross-checks WXML bindings against JS
 ├── styles/icons.wxss                Inline base64 SVG icons
 ├── utils/                           date.js · storage.js · stats.js · theme.js · page-fade.js
 ├── components/                      nav-bar · heatmap · habit-card · habit-editor
-│                                    checkin-sheet · qiun-charts · empty-state
+│                                    checkin-sheet · qiun-charts · empty-state · app-bg
 ├── pages/                           index · habit-detail · stats · settings · about
+│                                    theme-editor (custom theme; the page is the preview)
 └── scripts/                         Self-tests & static checks (not bundled)
 ```
 
@@ -255,7 +283,7 @@ All keys use the `th:` prefix.
 - **`th:meta`** — `{ version: 1, createdAt, seeded }`
 - **`th:habits`** — habit list (`id / name / unit / icon / color / target / step / enabled / sort`)
 - **`th:records`** — check-ins bucketed by habit, short keys: `d` date / `v` value / `n` note / `t` timestamp; multiple per day allowed
-- **`th:settings`** — `{ haptic, theme }` where `theme` is `light` / `dark` / `system`
+- **`th:settings`** — `{ haptic, theme, customTheme }` where `theme` is `light` / `dark` / `system` / `custom`; `customTheme` only applies when `custom` and stores **only what the user changed** (five colors, card alpha, background image path/blur/dim), with the full token set derived at runtime by `utils/theme.js` (see #34)
 
 ~70 bytes per record; 1MB/key and 10MB total → 100,000+ records. Writes are wrapped in try/catch; quota errors throw `{ code: 'QUOTA_EXCEEDED' }`. Settings page shows a usage bar (≥70% yellow, ≥90% red) plus export / import / clear.
 
@@ -275,6 +303,7 @@ All keys use the `th:` prefix.
 9. **Floating button plus uses `.ic-plus-white`** — a blue plus on blue is no plus.
 10. **The custom tabBar must live at the root, and its background cannot come from CSS variables** — the framework mounts it separately, outside the page's node tree, so it inherits nothing from `page`. Background, border and the selected capsule's fill are therefore fed as inline styles from JS (`utils/theme.js` → the tab bar's `syncTheme`). And since each tab page owns its own instance, a theme change doesn't reach the others on its own — so "switch selection" and "sync theme" are merged into one entry point, `setActive(index)`, which every page calls from `onShow`. Its shape is a **floating capsule at the bottom**, switched by tapping — see #30.
 11. **Zero icon assets** — all inline base64 SVG. The price is that **icon colours are baked into the SVG and don't follow the theme**, so the light theme only uses neutral greys (`#6B7280`) that read on both dark and white, and the active state shares `#5B8CFF` across both themes with the adjacent text set to the same value so text and icon can't drift apart.
+    **The one exception is the tab bar's three icons.** They can neither read CSS variables (the tab bar isn't in the page's node tree, see #10) nor stay fixed: the active pill is filled with the user's accent, so an icon hardcoded to `#5B8CFF` fights it outright under a custom theme. So `iconUrl()` in `utils/theme.js` builds an inline SVG per color here (URL-encoded — shorter than base64 and legible; and since the paths are identical between the idle and active classes, only one copy is kept). The light and dark palettes use the two original baked colors, so those two themes look exactly as before.
 12. **Check-in only for today** — no date switcher; `blockedByReadonly()` ignores `data.readonly` and re-compares against the clock; caller dates clamped to today.
 13. **canvas is a native component** — sheets can't cover it; toggle `display: none` via `hidden`, and recreate (not redraw) on show.
 14. **Lock page scroll when a sheet opens** — `catchtouchmove` for touch, `page-meta` for wheel.
@@ -316,6 +345,22 @@ All keys use the `th:` prefix.
 
 29. **The calendar is a read-only overview with no tap target at all** — its only job is "which days this month have a check-in and which don't". The write entry point is the "打卡" button in the page header, and a single day's detail lives in the history list below. The cells used to carry `onCalDayTap`, so tapping today or a future day popped the check-in sheet — a panel that should have had no write path was acting as one. This also fixes a sign error: `monthCalendar` computed `isFuture: diff < 0`, but `diffDays(a, b)` returns `b - a`, so that `diff` is "date minus today" and **positive means future**. Inverted, every past day in the month was flagged as future — tapping yesterday said "还没到的日子" while tapping tomorrow opened the sheet, and the dimming style meant for future cells landed on historical dates instead. `scripts/test-utils.js` now pins "`isFuture` must equal a direct date comparison", deliberately with no clock-dependent assertion (which would go red on its own in a few months). The same cell's dim colour moved from `--surface-3` to `--text-3`: the former belongs to the background ramp and is near-white in the light theme, so on a white card it erased the date.
 
+34. **The custom theme takes a few colors in and produces the whole token set; the palette itself is never stored** — #25 pushed the cost of *adding a theme* down to "add one token table", but that is the **developer** adding one. Letting the **user** configure it can't work the same way: they pick five colors (background, card, accent, body text, secondary text) and the store keeps exactly those five, plus card alpha and the three background-image fields. The other ~30 tokens are derived by `buildCustom()`. Storing the derived set instead would mean that the day a token is added to the palette, every existing user's saved table is missing it — the "must correspond word for word" rule from #25, transplanted onto user data, where this time no code change can repair it.
+    - **Direction comes from the background's brightness, not from the theme's name.** Compute whether the chosen background is dark or light first, then decide "lighter as it stacks up" versus "whiter as it stacks up". Get the direction wrong and cards sink into the background — a card brighter than its background (dark theme) and a card whiter than its background (light theme) are two directions of one rule, not two rules.
+    - **Semantic colors are not derived; they are taken from whichever of the two existing sets matches.** Success / warning / danger need guaranteed contrast, and values derived from an arbitrary background may not clear the bar (a yellow derived for a white background can land at 1.9:1). The heat ramp is the other case: it must **invert in both directions**, or high-frequency cells come out lighter than low-frequency ones.
+    - **Card alpha is the precondition for the background image being visible at all.** The page's `--bg` stays opaque (the image is a layer painted above it and below the content, see #35), so whether the image shows through depends entirely on how transparent the `--surface` ramp is. `--border` is kept more solid than `--surface`: letting it fade along with them makes card edges disappear first.
+    - **Sheets do not fade along with the cards; they have their own `--popup-*` set.** Translucent cards are the **goal** — a translucent sheet buys nothing: it sits on a 60%-black scrim, so the page behind it is invisible anyway and the only thing showing through is that black. The same alpha therefore reads as **the panel darkening as it gets more transparent**, taking the body text and form controls with it. The slider is there to tune the cards; it should not quietly erase the text inside a sheet. So `.sheet` overrides the whole surface ramp locally (`--surface` / `--surface-2` / `--surface-3` / `--border*` all point at their `--popup-*` counterparts) and everything inside it stays solid. **The whole ramp is overridden, not just `background`**: the inner blocks use `--surface-2` / `--surface-3`, and at one shared alpha over one shared backdrop their differences get scaled away by that alpha — solidifying only the panel would flatten the sections *inside* it into one indistinct block. In the dark and light sets these five are word-for-word identical to the five above (their `surfaceAlpha` is always 100%, so they were never translucent), which keeps those two themes pixel-identical to before.
+    - **⚠️ The derived values are themselves the output most worth validating.** `rgba()` originally accepted only an `[r,g,b]` array, while `mix()` returns a `'#RRGGBB'` **string** — so `rgba(mix(...), a)` indexed into that string and read back the three characters `'#'`, `'1'`, `'F'`, producing `rgba(#, 1, F, 1)`: **invalid CSS**. A mini program reports nothing; it simply drops the declaration, and those variables quietly fall back to the dark defaults under `page` in `app.wxss`. The result was a custom theme that **only partly applied**, with a thoroughly misleading symptom: on a light background the cards and segmented controls stayed dark (`--surface-2/3` never took effect), and the tab bar capsule was plainly light yet ringed with dark grey (`tabbarBorder` travels this exact path through `lineSoft`) — which reads as "why did a border appear?". `rgba()` now takes either form. The lesson isn't "be careful", it's that **derived output deserves its own assertion** ("every token must be a valid CSS color"); this one was caught by that check, not by reading a dozen color values by eye.
+    - **The two hand-tuned palettes are the baseline for the derivation, not a reference.** Those factors are reverse-engineered from the values already in `THEMES.dark` / `THEMES.light` (`--surface-2` against `#1E232E`, `--border` against `#262C38`, and so on). The earlier, guessed set was 0.06 / 0.12 / 0.2, which put `--border` at `#454950` — over twice as bright as the hand-tuned value, making every card look outlined. Work out the mapping before changing a coefficient.
+    - **The editor is its own page because the adjustable surface grew from 3 items to 7**, and stacking that into the settings page would stretch the "Appearance" section far past every other one. It also means **the page is the preview**, which is far more direct than a small swatch. Three rules it follows: entering the page writes `theme: 'custom'` immediately (otherwise "I changed the colors but the app is still dark" reads as broken); a slider's `changing` event updates the view only while `change` persists (one drag fires dozens of events, and writing storage synchronously each time buys nothing); and **the page takes no part in the page fade** — it contains native components (`slider`, `image`) that ignore an ancestor's `opacity`, so fading it in would show a fully transparent page with the slider already sitting there.
+      "The page is the preview" has **one blind spot**, though: the tab bar isn't driven by page variables (#10), so a whole-page reskin never reaches it — and it is precisely the surface most likely to look wrong, since the active pill is filled with the accent and an icon that doesn't follow it fights it on sight. So the preview card **draws a capsule of its own**, fed from the `tabbar` that `theme.preview()` returns (the same `tabbarVars()` the real bar uses). Leaving it unpreviewed amounts to tuning with your eyes shut.
+
+35. **The background image lives in a local file and storage holds only a path — which turns "who deletes it" into a question that must be answered** — it is a photo from the album, still a few hundred KB after compression, and storage is 10MB total (see Data Model), so it goes through `saveFile` into a local file with only the path kept in storage. Four consequences:
+    - **It is a layer, not a per-page style**, so it became `components/app-bg`: all five pages need it and copying it five times would eventually miss one. With no image set, it renders nothing. The page-side cost is one attribute (`theme-name`). The component re-reads the config through three doors, and missing any one leaves a way for the image to linger: `attached` covers the first visit; `pageLifetimes.show` covers revisits (returning from the editor after changing the image, where the name did not change — `custom` both times — is reachable only this way); and **a change in the theme name** covers the theme being switched *while the page is on screen* — Settings is the only place that can switch it, and switching does not leave the page, so neither of the first two fires, and without the third the image keeps covering an opaque page after a switch to follow-system / light / dark.
+    - **It must be inside `.page` as the first child, and `position: fixed` with `z-index: -1`.** Inside `.page` so it fades out with the page (otherwise the image sits there while pages switch); `fixed` so the image doesn't scroll with the content — a wallpaper holds still when you scroll; and the negative `z-index` is what needs **`.page` itself to be a stacking context**, which is why #15 / #16 give `.page` `position` + `z-index` rather than `transform`. A negative-`z-index` descendant only paints above its ancestor's background when that ancestor forms a stacking context; otherwise it falls through to the root stacking context and is covered by `.page`'s own background — the symptom being "I set a background image and see nothing". The class names live in the global `app.wxss` rather than the component: the editor previews the same layer, so the two share one set of rules.
+    - **Once the path is discarded, nothing points at the file any more.** The only UI that can delete it (the editor's "remove") reads that path out of the config, so when the config goes the button goes with it — the space stays occupied and there is no way left to reclaim it. So all three places that discard settings must collect it first: `storage.clearAll()`, an import overwrite, and the editor's own remove / reset (the latter two already did). That's why `releaseBackgroundImage()` sits in `utils/storage.js` and not in a page — the invariant belongs to "single data gateway" (#2).
+    - **An import blanks out `image`.** Paths look like `wxfile://usr/xxx` and are per-device, so the one in a backup refers to a file on **the phone that exported it** and is broken on any other. An import therefore carries colors across but not the image; any local image is collected too, since it is about to be overwritten by a dead path and would then be undeletable.
+
 ---
 
 ## 🛡️ Edge Cases
@@ -330,6 +375,14 @@ All keys use the `th:` prefix.
 | Back-filling | Removed; no entry point or caption left |
 | Period paging | Week / month / year can't page into the future; one shared predicate (see #24) |
 | Theme switch | The dark tokens in `app.wxss` are the fallback, so even if `page-style` didn't apply the result is "no reskin", never a blank or transparent screen |
+| Custom theme colors | Semantic colors are not derived (taken from the two existing sets); the ramp direction follows the background's brightness, not the theme's name (see #34) |
+| Lowering card alpha under a custom theme | Cards only — sheets do not fade with them: a sheet sits on a scrim, so transparency just darkens it and blurs the text and controls, hence its own solid `--popup-*` set (see #34) |
+| A custom theme "only partly applying" | Derived values must be valid CSS: an invalid declaration is dropped in silence and quietly falls back to the dark default, so the symptom is "the cards are still dark" / "the capsule grew a border" (see #34) |
+| Tab bar icon color | The only icons that follow the theme: they can't read CSS variables, and the active pill is filled with the accent, which a fixed color would fight (see #11) |
+| Background image footprint | Stored as a local file with only a path in storage; changing / removing / resetting it, clearing data and importing all delete the old file (see #35) |
+| Background image not visible | Depends on `.page` forming a stacking context (`position` + `z-index`, never `transform`); the card ramp has to fade with `surfaceAlpha` before the image shows through (see #34 / #35) |
+| Background image lingers after leaving the custom theme | The image belongs to `theme === 'custom'` only, so the component also watches the theme name: Settings switches the theme on its own page without leaving it, and `attached` / `show` never get a chance to fire (see #35) |
+| Importing a backup that has one | Colors travel, the image doesn't: the path belongs to the exporting phone and is broken here (see #35) |
 | Follow system | Repaints the moment the system switches; dropping `darkmode` from `app.json` degrades silently to "always dark" (see #27) |
 | Tapping the current tab | Fades back in and switches nothing; an in-flight fade-out is cancelled rather than left half done (see #32) |
 | Tab highlight | Only ever painted on a page that is already showing, so it can't be wrong on the first frame; drag removed, so there is no leftover state to restore (see #30 / #32) |

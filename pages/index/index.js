@@ -71,13 +71,23 @@ Page({
     })
   },
 
+  /**
+   * 复访。这里只有一件事要小心：**淡入必须排在数据渲染之后**。
+   *
+   * 页面刚被搬上台时是透明的（fading 默认 true），setData 还要过一拍才落到视图层。
+   * 如果在 refresh 之前就起动画，用户看到的是「空页面淡入 → 淡到一半数据突然长出来」，
+   * 观感就是闪了一下。所以淡入挂在 refresh 的渲染回调里（setData 的回调就是
+   * 「这批数据渲染完毕」），代价是淡入晚一两帧，换来的是动画全程内容都在。
+   *
+   * 首访不用管这里：onShow 时 _fadeReady 还是 false，show() 什么也不做，
+   * 首访的淡入由 onReady 负责（见 utils/page-fade.js）。
+   */
   onShow() {
-    // 复访：页面早就建好了，直接淡入（首访交给 onReady，见 utils/page-fade.js）
-    pageFade.show(this)
-    this.refresh()
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统），每次回来重新解析
     this.syncTheme()
     this.syncTabBar()
+    // 复访的淡入排在 refresh 的渲染回调里，也就是内容全部落定之后
+    this.refresh(() => pageFade.show(this))
     // 从「我的 / 统计」页点「新建习惯」跳过来时，把编辑弹层直接打开，
     // 否则用户切到首页后只看到一个 + 按钮，会以为功能坏了
     if (app.consumePendingAction() === 'newHabit') this.onAddHabit()
@@ -102,7 +112,11 @@ Page({
     const name = theme.current()
     theme.applyWindow(name)
     const style = theme.cssVars(name) + ';'
-    if (style !== this.data.themeStyle) this.setData({ themeName: name, themeStyle: style })
+    // 两个都得比：themeName 不只是图表的输入，也是 app-bg 判断「还该不该显示背景图」的信号。
+    // 只看 style 的话，万一某次换主题风格串恰好没变，名字的变化就被这次提前返回吞掉了。
+    if (style !== this.data.themeStyle || name !== this.data.themeName) {
+      this.setData({ themeName: name, themeStyle: style })
+    }
   },
 
   /** tabBar 不在页面的节点树里，配色要由页面推过去（见 custom-tab-bar/index.js） */
@@ -136,8 +150,10 @@ Page({
   /**
    * 汇总全部数据：今日概览 + 合并热力图 + 每张卡片的数据。
    * 一次性算完再 setData，避免多次渲染。
+   *
+   * @param {Function} [done] 本次渲染完成后的回调 —— onShow 用它把淡入排在内容落定之后
    */
-  refresh() {
+  refresh(done) {
     const today = dayjs.today()
     const habits = storage.getEnabledHabits()
     const recordsMap = storage.getRecordsMap()
@@ -207,7 +223,7 @@ Page({
       todayPercent: items.length ? Math.round((todayDone / items.length) * 100) : 0,
       maxStreak,
       dateLabel: this.buildDateLabel()
-    })
+    }, done)
   },
 
   /** 记录里最早的日期，用于「累计」统计的起点；无记录时退回今天 */

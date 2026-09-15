@@ -6,8 +6,14 @@
 -->
 <page-meta page-style="{{themeStyle}}{{showImport ? 'overflow: hidden;' : ''}}"></page-meta>
 
-<!-- 首次进入时淡入一次（时机在 onReady，见 utils/page-fade.js）；切 tab 不再有任何过渡 -->
+<!--
+  淡出淡入全靠 fading 这一个布尔量（机制见 utils/page-fade.js）：
+  true = 本页必须是透明的。去掉 .page--out 是淡入，加上是淡出。
+-->
 <view class="page page--fade {{fading ? 'page--out' : ''}}">
+  <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg -->
+  <app-bg theme-name="{{themeName}}" />
+
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-title">我的</view>
     <view class="hero-date">数据只保存在这台手机上</view>
@@ -134,6 +140,36 @@
           data-key="{{item.key}}"
           bindtap="onPickTheme"
         >{{item.label}}</view>
+        <!-- 自定义：圆圈里三段色，就是编辑页里可调的那几个 -->
+        <view
+          class="segment-item segment-item--dot {{settings.theme === 'custom' ? 'segment-item--on' : ''}}"
+          data-key="custom"
+          bindtap="onPickTheme"
+        >
+          <view class="theme-dot">
+            <view class="theme-dot-part" style="background: {{custom.bg}};"></view>
+            <view class="theme-dot-part" style="background: {{custom.surface}};"></view>
+            <view class="theme-dot-part" style="background: {{custom.accent}};"></view>
+          </view>
+        </view>
+      </view>
+
+      <!--
+        自定义主题的编辑入口。颜色 / 透明度 / 背景图有十来项，铺在这一栏里
+        会把「外观」撑得比别的栏长出一大截，所以单独开了一页；
+        那一页本身就是预览（见 pages/theme-editor）。
+      -->
+      <view class="op" bindtap="onEditTheme">
+        <view class="theme-dot theme-dot--lg">
+          <view class="theme-dot-part" style="background: {{custom.bg}};"></view>
+          <view class="theme-dot-part" style="background: {{custom.surface}};"></view>
+          <view class="theme-dot-part" style="background: {{custom.accent}};"></view>
+        </view>
+        <view class="flex-1">
+          <view class="op-title">自定义主题</view>
+          <view class="op-desc">颜色、透明度、背景图都能改</view>
+        </view>
+        <view class="ic ic-right-idle op-arrow"></view>
       </view>
     </view>
   </view>
@@ -147,8 +183,8 @@
     <view class="card" style="padding: 8rpx 28rpx;">
       <view class="sw-item sw-item--last">
         <view class="flex-1">
-          <view class="sw-title">打卡震动反馈</view>
-          <view class="sw-desc">打卡成功时轻微震动</view>
+          <view class="sw-title">震动反馈</view>
+          <view class="sw-desc">打卡成功、切换页面时轻微震动</view>
         </view>
         <switch
           checked="{{settings.haptic}}"

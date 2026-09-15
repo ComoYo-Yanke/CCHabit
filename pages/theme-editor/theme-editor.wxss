@@ -1,0 +1,242 @@
+/* 自定义主题编辑页。整页就是预览，所以这里的样式规则很少：
+   颜色全部走 CSS 变量，页面一动变量整页跟着变（见 utils/theme.js 的 preview） */
+
+/* ============ 预览卡片 ============ */
+.pv-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pv-desc {
+  font-size: 23rpx;
+  color: var(--text-3);
+  margin-top: 8rpx;
+  line-height: 1.6;
+}
+
+.pv-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 24rpx;
+}
+
+/* 按钮和标签的颜色由行内样式给（就是用户选的主色），文字颜色反过来用卡片底色，
+   这样浅色主色和深色主色都能看清 */
+.pv-btn {
+  padding: 16rpx 34rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--surface);
+}
+
+.pv-chip {
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid;
+  font-size: 24rpx;
+}
+
+.pv-note {
+  font-size: 22rpx;
+  color: var(--text-2);
+  margin-top: 22rpx;
+}
+
+/* 底栏胶囊的预览。形状比着 custom-tab-bar 来，但那一套是 fixed + 居中 + 安全区，
+   这里只是卡片里的一个静态示意，所以尺寸收紧、去掉定位 */
+.pv-tabbar {
+  display: inline-flex;
+  align-items: center;
+  padding: 8rpx;
+  margin-top: 26rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid;
+}
+
+.pv-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84rpx;
+  height: 64rpx;
+  border-radius: 999rpx;
+}
+
+.pv-tab-icon {
+  width: 40rpx;
+  height: 40rpx;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+
+/* ============ 背景图 ============ */
+.bg-pick {
+  display: flex;
+  gap: 24rpx;
+  align-items: flex-start;
+}
+
+.bg-thumb {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1rpx solid var(--border);
+  flex-shrink: 0;
+}
+
+.bg-thumb-img {
+  width: 100%;
+  height: 100%;
+}
+
+.bg-thumb-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bg-thumb-icon {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+.bg-title {
+  font-size: 28rpx;
+  color: var(--text);
+}
+
+.bg-desc {
+  font-size: 22rpx;
+  color: var(--text-3);
+  margin-top: 8rpx;
+  line-height: 1.6;
+}
+
+.bg-ops {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.bg-op {
+  height: 60rpx;
+  padding: 0 28rpx;
+  font-size: 24rpx;
+}
+
+/* ============ 滑块行 ============ */
+.sl-row {
+  margin-top: 26rpx;
+}
+
+/* 卡片里的第一行不用再空一截 */
+.sl-row--first {
+  margin-top: 0;
+}
+
+.sl-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 26rpx;
+  color: var(--text);
+}
+
+.sl-val {
+  font-size: 24rpx;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-tip {
+  font-size: 21rpx;
+  color: var(--text-3);
+  line-height: 1.6;
+  /* 抵消 slider 自身带的左右留白，让提示和标题对齐 */
+  margin-top: -6rpx;
+}
+
+/* slider 是原生组件，左右自带的留白在这里统一收掉，不然和卡片边框对不齐 */
+.sl-row slider {
+  margin: 0 -8rpx;
+}
+
+/* ============ 颜色项 ============ */
+.cl-item + .cl-item {
+  border-top: 1rpx solid var(--border-soft);
+}
+
+.cl-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 22rpx 0;
+}
+
+.cl-dot {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 16rpx;
+  /* 白色系的色点在没有描边时和卡片糊在一起 */
+  box-shadow: 0 0 0 1rpx var(--border);
+  flex-shrink: 0;
+}
+
+.cl-name {
+  font-size: 27rpx;
+  color: var(--text);
+}
+
+.cl-desc {
+  font-size: 21rpx;
+  color: var(--text-3);
+  margin-top: 4rpx;
+}
+
+.cl-hex {
+  font-size: 22rpx;
+  color: var(--text-3);
+  /* 色值等宽，切换时不会左右抖 */
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-arrow--open {
+  transform: rotate(90deg);
+}
+
+.cl-body {
+  padding: 4rpx 0 26rpx;
+}
+
+.cl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 10rpx;
+}
+
+.cl-chip {
+  width: 62rpx;
+  height: 62rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 0 0 1rpx var(--border);
+  transition: transform 0.14s ease;
+}
+
+.cl-chip--on {
+  transform: scale(1.16);
+  /* 选中环用文字色：浅色块在浅色底上全靠这一圈才看得出来 */
+  box-shadow: 0 0 0 4rpx var(--text);
+}
+
+.list-bottom-gap {
+  height: 40rpx;
+}

@@ -1,5 +1,7 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "app-bg": "../../components/app-bg/index"
+  },
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "light",

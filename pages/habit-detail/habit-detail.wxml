@@ -18,6 +18,10 @@
 </nav-bar>
 
 <view class="page page--no-tabbar page--fade {{fading ? 'page--out' : ''}}" wx:if="{{habit}}">
+  <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg。
+       放在 wx:if 里面：习惯还没读出来时整页都不渲染，背景图跟着一起等 -->
+  <app-bg theme-name="{{themeName}}" />
+
   <!-- ============ 头部信息 ============ -->
   <view class="section">
     <!-- 渐变底色写 var(--surface) 而不是字面色值：浅色主题下这里要跟着变白 -->

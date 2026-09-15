@@ -91,11 +91,6 @@
   margin-top: 6rpx;
 }
 
-.op-arrow {
-  width: 32rpx;
-  height: 32rpx;
-  opacity: 0.6;
-}
 
 /* ============ 习惯管理 ============ */
 .mg-item {
@@ -197,3 +192,34 @@
 .list-bottom-gap {
   height: 40rpx;
 }
+
+/* ============ 外观 · 自定义主题 ============ */
+/* 圆圈里三段色：底色 / 卡片色 / 按钮色。不用 conic-gradient（小程序里支持不稳），
+   三分竖条在 44rpx 的圆里已经能看清 */
+.theme-dot {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  /* 白色系的段落在浅色底/深色底上都可能糊掉，加一圈描边把它拎出来 */
+  box-shadow: 0 0 0 1rpx var(--border);
+  flex-shrink: 0;
+}
+
+.theme-dot-part {
+  flex: 1;
+  height: 100%;
+}
+
+/* 编辑入口那枚：和文字并排，比分段里的大一圈才不至于显得空 */
+.theme-dot--lg {
+  width: 68rpx;
+  height: 68rpx;
+}
+
+.segment-item--dot {
+  /* 圆比分段里的文字窄，别跟着 flex:1 撑满 */
+  flex: 0 0 76rpx;
+}
+

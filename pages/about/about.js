@@ -15,13 +15,22 @@
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 
-const APP_VERSION = '1.0.4'
+const APP_VERSION = '1.0.5'
 
 /**
  * 更新日志：新的在最上面，版本号与 APP_VERSION 对得上即可。
  * 每条只留一句人话，说清「用户能感知到什么变了」，不写实现细节。
  */
 const CHANGELOG = [
+  {
+    version: '1.0.5',
+    date: '2026-09-15',
+    items: [
+      '外观新增「自定义」主题：另开一页调颜色、卡片透明度与背景图，整页实时预览',
+      '底栏点击加震动反馈；修复页面滑动后底栏点不动',
+      '修复切换页面时的闪烁'
+    ]
+  },
   {
     version: '1.0.4',
     date: '2026-09-15',
@@ -71,6 +80,8 @@ Page({
     version: APP_VERSION,
     changelog: CHANGELOG.slice(0, CHANGELOG_LIMIT),
     hasMoreLog: CHANGELOG.length > CHANGELOG_LIMIT,
+    // 主题：themeStyle 供 page-meta 换肤，themeName 是 app-bg 判断「还该不该显示背景图」的信号
+    themeName: theme.DEFAULT_THEME,
     themeStyle: '',
     developer: {
       name: 'CoMoYo-Yanke',
@@ -105,7 +116,11 @@ Page({
     const name = theme.current()
     theme.applyWindow(name)
     const style = theme.cssVars(name) + ';'
-    if (style !== this.data.themeStyle) this.setData({ themeStyle: style })
+    // 两个都得比：themeName 是 app-bg 判断「还该不该显示背景图」的信号，
+    // 只看 style 的话名字的变化会被这次提前返回吞掉
+    if (style !== this.data.themeStyle || name !== this.data.themeName) {
+      this.setData({ themeName: name, themeStyle: style })
+    }
   },
 
   /** 复制开发者邮箱，方便反馈问题 */

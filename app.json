@@ -4,6 +4,7 @@
     "pages/stats/stats",
     "pages/settings/settings",
     "pages/habit-detail/habit-detail",
+    "pages/theme-editor/theme-editor",
     "pages/about/about"
   ],
   "window": {

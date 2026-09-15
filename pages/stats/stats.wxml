@@ -1,8 +1,14 @@
 <!-- 换肤靠它：把当前主题的 CSS 变量写成 page 的行内样式（见 utils/theme.js） -->
 <page-meta page-style="{{themeStyle}}"></page-meta>
 
-<!-- 首次进入时淡入一次（时机在 onReady，见 utils/page-fade.js）；切 tab 不再有任何过渡 -->
+<!--
+  淡出淡入全靠 fading 这一个布尔量（机制见 utils/page-fade.js）：
+  true = 本页必须是透明的。去掉 .page--out 是淡入，加上是淡出。
+-->
 <view class="page page--fade {{fading ? 'page--out' : ''}}">
+  <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg -->
+  <app-bg theme-name="{{themeName}}" />
+
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-title">统计</view>
     <view class="hero-date">{{rangeLabel}}</view>

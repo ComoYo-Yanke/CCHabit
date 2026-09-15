@@ -18,6 +18,11 @@ const theme = require('../../utils/theme.js')
 /** 导入弹层的退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
 const SHEET_LEAVE_MS = 260
 
+/**
+ * 自定义主题里可改的那一堆（颜色 / 透明度 / 背景图）全部在
+ * pages/theme-editor 那一页里，这一栏只留一个预览色点和入口。
+ */
+
 Page({
   data: {
     ...pageFade.data,
@@ -33,13 +38,19 @@ Page({
     settings: { haptic: true, theme: theme.DEFAULT_THEME },
 
     // ---- 外观 ----
-    themeOptions: theme.OPTIONS,
-    /** 解析后的实际主题名 'dark' | 'light'，也是给图表组件传的值 */
+    // 「自定义」不在这里：它在分段里是那枚三色圆点，由 wxml 单独渲染。
+    // OPTIONS 本身仍要留着 custom —— labelOf('custom') 得能取出「自定义」三个字
+    themeOptions: theme.OPTIONS.filter((o) => o.key !== 'custom'),
+    /** 解析后的实际主题名 'dark' | 'light' | 'custom'，也是给图表组件传的值 */
     themeName: theme.DEFAULT_THEME,
     /** 给 page-meta 的 page-style，整页换肤靠它（见 wxml 顶部注释） */
     themeStyle: '',
     /** 段落右上角的状态说明 */
     themeHint: '',
+
+    // ---- 外观 · 自定义 ----
+    /** 只为了画那枚三色圆点，真正可调的东西都在 pages/theme-editor 里 */
+    custom: theme.DEFAULT_CUSTOM,
 
     habits: [],
 
@@ -51,12 +62,10 @@ Page({
     /** 弹层是否已展开（驱动入场 / 退场过渡） */
     importActive: false,
 
-    version: '1.0.4'
+    version: '1.0.5'
   },
 
   onLoad() {
-    // 先把设置读进来再落地主题：syncTheme 读的是 data.settings.theme，
-    // 而 onLoad 时 data 里还只是默认值。顺序反了就会先按深色画一帧再跳成浅色。
     this.setData({ settings: storage.getSettings() })
     this.syncTheme()
     this.setData({ statusBarHeight: app.globalData.statusBarHeight || 20 })
@@ -66,13 +75,17 @@ Page({
     clearTimeout(this._unmountTimer)
   },
 
+  /**
+   * 复访。淡入必须排在数据渲染之后：页面刚被搬上台时是透明的，而 setData
+   * 还要过一拍才落到视图层 —— 先起动画就会看到「空页面淡入、淡到一半长出内容」。
+   * 所以挂在 refresh 的渲染回调里。首访由 onReady 负责（此时 _fadeReady 还是 false）。
+   * 详见 pages/index/index.js 里同一处的长注释。
+   */
   onShow() {
-    // 复访：页面早就建好了，直接淡入（首访交给 onReady，见 utils/page-fade.js）
-    pageFade.show(this)
-    this.refresh()
     // 系统主题可能在离开期间变过，「跟随系统」要重新解析一次
     this.syncTheme()
     this.syncTabBar()
+    this.refresh(() => pageFade.show(this))
   },
 
   /**
@@ -103,28 +116,45 @@ Page({
    *   themeHint  —— 段落右上角的状态文案。
    */
   syncTheme() {
-    const setting = this.data.settings.theme || theme.DEFAULT_THEME
+    // 从 storage 读而不是从 data.settings 读。主题能在这一页之外被改 ——
+    // 主题编辑页一进去就把 theme 写成 'custom' —— 而回到本页时 onShow 排在
+    // refresh 前面，那一刻 data.settings 还是上一次的旧值，照着它会先按旧主题
+    // 画一帧、之后也没人再纠正（refresh 只更新数据，不重算主题）。
+    const setting = storage.getSettings().theme || theme.DEFAULT_THEME
     const name = theme.resolve(setting, theme.system())
-    // labelOf 取的是选项文案；解析出来的 'light' / 'dark' 恰好也是这两个选项，
+    // labelOf 取的是选项文案；解析出来的 'light' / 'dark' / 'custom' 恰好也是选项名，
     // 所以同一个函数两处都能用，不必再维护第二份中英对照
     const cn = theme.labelOf(name)
     theme.applyWindow(name)
     this.setData({
       themeName: name,
       themeStyle: theme.cssVars(name) + ';',
-      themeHint: setting === 'system' ? theme.labelOf(setting) + ' · 当前' + cn : '始终' + cn
+      themeHint: this.hintOf(setting, cn)
     })
+  },
+
+  /** 段落右上角那句状态说明 */
+  hintOf(setting, cn) {
+    if (setting === 'system') return theme.labelOf(setting) + ' · 当前' + cn
+    // 「始终自定义」读着别扭，而且自定义本来就是「你自己定的那套」，
+    // 这里改成提示它可调，比报一遍主题名有用
+    if (setting === 'custom') return '自定义 · 颜色与背景图可调'
+    return '始终' + cn
   },
 
   onPickTheme(e) {
     const key = e.currentTarget.dataset.key
     if (key === this.data.settings.theme) return
     storage.saveSettings({ theme: key })
-    // 先改设置再 syncTheme：后者读的是 data 里的值
-    this.setData({ 'settings.theme': key }, () => {
-      this.syncTheme()
-      this.syncTabBar()
-    })
+    // settings.theme 决定分段高亮，syncTheme 决定整页配色，两者各管各的
+    this.setData({ 'settings.theme': key })
+    this.syncTheme()
+    this.syncTabBar()
+  },
+
+  /** 去自定义主题编辑页（颜色 / 透明度 / 背景图都在那边，见 pages/theme-editor） */
+  onEditTheme() {
+    wx.navigateTo({ url: '/pages/theme-editor/theme-editor' })
   },
 
   onPullDownRefresh() {
@@ -132,7 +162,10 @@ Page({
     wx.stopPullDownRefresh()
   },
 
-  refresh() {
+  /**
+   * @param {Function} [done] 本次渲染完成后的回调 —— onShow 用它把淡入排在内容落定之后
+   */
+  refresh(done) {
     const habits = storage.getHabits()
     const recordsMap = storage.getRecordsMap()
     const usage = storage.getUsage()
@@ -163,8 +196,9 @@ Page({
       usedDays,
       usage,
       usageText: usage.currentSize + ' KB / ' + (usage.limitSize / 1024).toFixed(0) + ' MB',
-      settings
-    })
+      settings,
+      custom: theme.customConfig()
+    }, done)
   },
 
   // ---------------- 存储管理 ----------------

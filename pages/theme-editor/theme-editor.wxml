@@ -1,0 +1,206 @@
+<!--
+  page-meta 必须是页面第一个节点。
+  themeStyle 里的变量由**本地**配置现算（见 theme.preview），不是从 storage 读的 ——
+  滑块还在拖的时候配置还没落盘，但整页得立刻跟着变。
+-->
+<page-meta page-style="{{themeStyle}}"></page-meta>
+
+<nav-bar title="自定义主题" back="{{true}}" fixed="{{true}}" />
+
+<!--
+  背景图预览层。跟 components/app-bg 用的是同一套类名（样式在 app.wxss），
+  区别只在于这里的数据来自本地配置而不是 storage，这样调模糊 / 淡化时能实时看到。
+  整页就是预览：调什么颜色，这一页立刻变成什么样。
+-->
+<view class="page page--no-tabbar">
+  <view wx:if="{{bg}}" class="app-bg">
+    <image
+      class="app-bg-img"
+      src="{{bg.src}}"
+      mode="aspectFill"
+      style="filter: blur({{bg.blur}}px); -webkit-filter: blur({{bg.blur}}px);"
+    />
+    <view class="app-bg-scrim" style="background: {{bg.scrim}};"></view>
+  </view>
+
+  <!-- ============ 预览卡片 ============ -->
+  <view class="section">
+    <view class="card">
+      <view class="pv-title">预览</view>
+      <view class="pv-desc">这一页本身就是预览，下面动什么，这里就变什么</view>
+      <view class="pv-row">
+        <view class="pv-btn" style="background: {{cfg.accent}};">主按钮</view>
+        <view class="pv-chip" style="background: {{cfg.accent}}22; border-color: {{cfg.accent}}55; color: {{cfg.accent}};">标签</view>
+      </view>
+      <view class="pv-note">单位、说明这类次要文字用的是次要文字颜色</view>
+
+      <!--
+        底栏胶囊：整页换肤**照不到它**（它由框架独立挂载、拿不到 CSS 变量，
+        配色是靠 JS 喂进去的，见 custom-tab-bar/index.js），所以这里单独画一个。
+        偏偏它是自定义主题下最容易违和的一处 —— 选中胶囊的填充就是主色，
+        图标不跟着变就会和它打架 —— 不预览出来等于闭着眼睛调。
+      -->
+      <view class="pv-tabbar" style="background: {{tabbar.bg}}; border-color: {{tabbar.border}};">
+        <view class="pv-tab">
+          <view class="pv-tab-icon" style="background-image: {{tabbar.icons.home.idle}};"></view>
+        </view>
+        <!-- 中间这段是「选中态」：填充就是主色，和底栏里一样走行内样式，
+             所以没有配套的类 -->
+        <view class="pv-tab" style="background: {{tabbar.active}};">
+          <view class="pv-tab-icon" style="background-image: {{tabbar.icons.chart.on}};"></view>
+        </view>
+        <view class="pv-tab">
+          <view class="pv-tab-icon" style="background-image: {{tabbar.icons.user.idle}};"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 背景图 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">背景图</text>
+      <text class="section-sub">{{cfg.image ? '已设置' : '未设置'}}</text>
+    </view>
+    <view class="card">
+      <view class="bg-pick">
+        <view class="bg-thumb press" bindtap="onPickImage">
+          <image wx:if="{{cfg.image}}" class="bg-thumb-img" src="{{cfg.image}}" mode="aspectFill" />
+          <view wx:else class="bg-thumb-empty">
+            <view class="ic ic-plus-idle bg-thumb-icon"></view>
+          </view>
+        </view>
+        <view class="flex-1">
+          <view class="bg-title">{{cfg.image ? '换一张' : '选择图片'}}</view>
+          <view class="bg-desc">从相册或相机选，会自动压缩后存在本机（不上传）</view>
+          <view class="bg-ops">
+            <view class="btn btn--ghost bg-op press" bindtap="onPickImage">选择图片</view>
+            <view wx:if="{{cfg.image}}" class="btn btn--ghost bg-op press" bindtap="onRemoveImage">移除</view>
+          </view>
+        </view>
+      </view>
+
+      <block wx:if="{{cfg.image}}">
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>模糊</text>
+            <text class="sl-val">{{cfg.imageBlur}}</text>
+          </view>
+          <slider
+            min="0"
+            max="30"
+            step="1"
+            value="{{cfg.imageBlur}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-ch="blur"
+            bindchanging="onImageBlurChanging"
+            bindchange="onImageBlurChange"
+          />
+        </view>
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>淡化</text>
+            <text class="sl-val">{{cfg.imageDim}}%</text>
+          </view>
+          <slider
+            min="0"
+            max="100"
+            step="1"
+            value="{{cfg.imageDim}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-ch="dim"
+            bindchanging="onImageDimChanging"
+            bindchange="onImageDimChange"
+          />
+          <view class="sl-tip">越高图越淡、字越清楚；调到 0 就是原图</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- ============ 颜色 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">颜色</text>
+      <text class="section-sub">点色块展开调色</text>
+    </view>
+    <view class="card">
+      <view class="cl-item" wx:for="{{fields}}" wx:key="key">
+        <view class="cl-row press" data-key="{{item.key}}" bindtap="onToggleField">
+          <view class="cl-dot" style="background: {{cfg[item.key]}};"></view>
+          <view class="flex-1">
+            <view class="cl-name">{{item.label}}</view>
+            <view class="cl-desc">{{item.desc}}</view>
+          </view>
+          <text class="cl-hex">{{cfg[item.key]}}</text>
+          <view class="ic ic-right-idle op-arrow {{activeField === item.key ? 'cl-arrow--open' : ''}}"></view>
+        </view>
+
+        <view wx:if="{{activeField === item.key}}" class="cl-body">
+          <!-- 预设色：想省事的直接点 -->
+          <view class="cl-chips">
+            <view
+              wx:for="{{palettes[item.key]}}"
+              wx:for-item="color"
+              wx:key="*this"
+              class="cl-chip {{cfg[item.key] === color ? 'cl-chip--on' : ''}}"
+              style="background: {{color}};"
+              data-color="{{color}}"
+              bindtap="onPickColor"
+            ></view>
+          </view>
+
+          <!-- 三根滑块：想调准的拖到任意值 -->
+          <view class="sl-row">
+            <view class="sl-label"><text>R</text><text class="sl-val">{{rgb.r}}</text></view>
+            <slider min="0" max="255" step="1" value="{{rgb.r}}" activeColor="#E04A4A" block-size="18" data-ch="r" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+          </view>
+          <view class="sl-row">
+            <view class="sl-label"><text>G</text><text class="sl-val">{{rgb.g}}</text></view>
+            <slider min="0" max="255" step="1" value="{{rgb.g}}" activeColor="#2FA85F" block-size="18" data-ch="g" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+          </view>
+          <view class="sl-row">
+            <view class="sl-label"><text>B</text><text class="sl-val">{{rgb.b}}</text></view>
+            <slider min="0" max="255" step="1" value="{{rgb.b}}" activeColor="#3B7BE0" block-size="18" data-ch="b" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 透明度 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">透明度</text>
+      <text class="section-sub">让背景图透上来</text>
+    </view>
+    <view class="card">
+      <view class="sl-row sl-row--first">
+        <view class="sl-label">
+          <text>卡片</text>
+          <text class="sl-val">{{cfg.surfaceAlpha}}%</text>
+        </view>
+        <slider
+          min="0"
+          max="100"
+          step="1"
+          value="{{cfg.surfaceAlpha}}"
+          activeColor="{{cfg.accent}}"
+          block-size="20"
+          data-ch="alpha"
+          bindchanging="onSurfaceAlphaChanging"
+          bindchange="onSurfaceAlphaChange"
+        />
+        <view class="sl-tip">调低之后卡片半透明，背景图会从卡片里透出来；弹层不受影响，始终不透明</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="btn btn--ghost" bindtap="onReset">恢复默认配色</view>
+  </view>
+
+  <view class="list-bottom-gap"></view>
+</view>
