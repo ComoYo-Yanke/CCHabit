@@ -1,20 +1,26 @@
 <!--
-  自定义底部导航栏。
-  底色/描边走行内样式而不是 wxss：tabBar 由框架独立挂载，继承不到 page 上的
-  CSS 变量，颜色只能从 JS 喂进来（见 index.js 的 syncTheme）。
+  自定义底部导航栏 —— 悬浮胶囊（只有图标）。
+
+  底色 / 描边 / 选中态填充走行内样式而不是 wxss：tabBar 由框架独立挂载，
+  继承不到 page 上的 CSS 变量，颜色只能从 JS 喂进来（见 index.js 的 syncTheme）。
+
+  选中高亮就是当前那一段自己的背景色（`tab--on`），没有独立的滑块图层 ——
+  滑块是为了「拖动时连续跟手」才存在的，拖动已经移除，高亮只在段落之间跳。
+  这样也顺带没有了「滑块停在错位置」这类残留状态。
+
+  只有 bindtap，没有任何触摸事件：切页逻辑就是「点一下 → 淡出 → switchTab」。
 -->
-<view class="tabbar" style="background: {{c.bg}}; border-top-color: {{c.border}};">
-  <view class="tabbar-inner">
-    <view
-      wx:for="{{list}}"
-      wx:key="pagePath"
-      class="tab {{selected === index ? 'tab--on' : ''}}"
-      data-index="{{index}}"
-      bindtap="onTap"
-    >
-      <view class="tab-icon ic ic-{{item.icon}}-{{selected === index ? 'active' : 'idle'}}"></view>
-      <view class="tab-text">{{item.text}}</view>
-    </view>
+<view class="tabbar" style="background: {{c.bg}}; border-color: {{c.border}};">
+  <view
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    class="tab {{selected === index ? 'tab--on' : ''}}"
+    style="{{selected === index ? 'background: ' + c.active + ';' : ''}}"
+    data-index="{{index}}"
+    bindtap="onTap"
+  >
+    <!-- 只留图标。去掉文字后胶囊矮了一大截，这里的 padding 和 app.wxss 里
+         .page 的 padding-bottom 都是照着这个高度定的，改一处要改两处 -->
+    <view class="tab-icon ic ic-{{item.icon}}-{{selected === index ? 'active' : 'idle'}}"></view>
   </view>
-  <view class="tabbar-safe"></view>
 </view>

@@ -87,7 +87,13 @@ Page({
     this.loadHabit()
   },
 
+  /** 首访的淡入时机：等初次渲染完成再起动画（见 utils/page-fade.js） */
+  onReady() {
+    pageFade.ready(this)
+  },
+
   onShow() {
+    pageFade.show(this)
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
     this.syncTheme()
     // 从编辑弹层或其它页面返回时刷新

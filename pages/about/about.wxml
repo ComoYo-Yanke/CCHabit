@@ -6,7 +6,7 @@
 
 <nav-bar title="关于" back="{{true}}" fixed="{{true}}" />
 
-<view class="page page--no-tabbar page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
+<view class="page page--no-tabbar page--fade {{fading ? 'page--out' : ''}}">
   <!-- ============ 应用标识 ============ -->
   <view class="section">
     <view class="app-hero card">
@@ -79,6 +79,15 @@
           <text class="log-dot">·</text>
           <text class="log-text">{{line}}</text>
         </view>
+      </view>
+
+      <!--
+        更早的版本不在这里铺开，也不做「点开看全部」，而是把人送去仓库看详情
+        （和开发者那栏一样走「复制地址」，小程序打不开外链，见文件头注释）。
+      -->
+      <view wx:if="{{hasMoreLog}}" class="log-more press" bindtap="onMoreLog">
+        <text class="log-more-text">更早的版本记录</text>
+        <text class="log-more-go">GitHub 仓库查看 ›</text>
       </view>
     </view>
   </view>

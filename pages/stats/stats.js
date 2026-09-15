@@ -47,11 +47,26 @@ Page({
   },
 
   onShow() {
-    pageFade.play(this)
+    // 复访：页面早就建好了，直接淡入（首访交给 onReady，见 utils/page-fade.js）
+    pageFade.show(this)
     this.refresh()
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
     this.syncTheme()
     this.syncTabBar()
+  },
+
+  /**
+   * 首访的淡入时机：等初次渲染完成再起动画。
+   * onShow 早于布局落定，页面还在做第一轮重活（读数据、图表初始化），
+   * 动画叠在上面就是「闪」（见 utils/page-fade.js 的「触发时机」）。
+   */
+  onReady() {
+    pageFade.ready(this)
+  },
+
+  /** 离开时必须把自己变透明，否则下次被搬上台的那一帧会整页闪一下（见 utils/page-fade.js） */
+  onHide() {
+    pageFade.leave(this)
   },
 
   /** 读取当前主题并落到 page-style；themeName 变化会让图表组件自己重绘 */

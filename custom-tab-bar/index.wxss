@@ -1,65 +1,56 @@
 /*
- * 自定义 tabBar。
- * 注意：自定义 tabBar 由框架独立挂载，继承不到 page 上的 CSS 变量，
- * 所以底色与描边由 index.js 用行内样式写（跟主题走），
- * 这里保留的深色值只是行内样式缺失时的兜底，不是唯一来源。
+ * 自定义 tabBar —— 悬浮在底部的胶囊。
  *
- * 文字与图标不带主题：置灰态 #6B7280 在深色和白色底上都有 4.6:1 以上对比度，
- * 选中态的 #5B8CFF 正是所有 *-active 图标的烘焙色（SVG 里写死的），
- * 换掉它反而会让文字和旁边的图标对不上。
+ * 注意：自定义 tabBar 由框架独立挂载，继承不到 page 上的 CSS 变量，
+ * 所以底色 / 描边 / 选中态填充由 index.js 用行内样式写（跟主题走），
+ * 这里保留的值只是行内样式缺失时的兜底，不是唯一来源。
+ *
+ * 胶囊是**浮在内容之上**的，不占布局 —— 页面底部要让出它的高度，
+ * 那份 padding 写在 app.wxss 的 .page 里，两处改一处就得改另一处。
+ * 当前高度：离底 20rpx + 胶囊 108rpx（10rpx 内边距 ×2 + tab 86rpx + 描边 2rpx）。
+ *
+ * 图标不带主题：置灰态的内联 SVG 用 currentColor 之外的固定色，
+ * 深色和白色底上都有 4.6:1 以上对比度；选中态正是所有 *-active 图标的烘焙色，
+ * 换掉它反而会让图标和别的页面里同名图标对不上。
  */
 .tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 50%;
+  /* 定宽由内容决定，所以要自己居中。transform 落在这个 fixed 元素**自身**上没问题：
+     它内部没有别的 fixed 后代，不会凭空多出一个包含块（对比 README 决策 15） */
+  transform: translateX(-50%);
+  /* 离底距离。先写兜底值再写 calc：env() 参与 calc 若解析失败整条声明会被丢弃，
+     那样胶囊会贴到屏幕最下沿，在全面屏上正好压住 home indicator */
+  bottom: 20rpx;
+  bottom: calc(20rpx + env(safe-area-inset-bottom));
   z-index: 900;
-  background: #161A22;
-  border-top: 1rpx solid #1F242F;
-}
 
-.tabbar-inner {
   display: flex;
   align-items: center;
-  height: 106rpx;
-}
-
-.tabbar-safe {
-  /* 同上：env() 解析失败时退化为 0，至少不会把 tabBar 撑坏 */
-  height: 0;
-  height: env(safe-area-inset-bottom);
+  padding: 10rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid #1F242F;
+  background: #161A22;
+  box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.16), 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+  /* 底下透出来一点才像「浮着」。不支持 backdrop-filter 的机型退化成半透明底，
+     可读性不受影响，所以不做能力检测 */
+  backdrop-filter: blur(20rpx);
+  -webkit-backdrop-filter: blur(20rpx);
 }
 
 .tab {
-  flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6rpx;
+  padding: 20rpx 36rpx;
+  border-radius: 999rpx;
+  /* 选中态的背景色由行内样式给（颜色跟主题走，见 index.js 的 syncTheme）。
+     这里只负责让它跳得软一点 —— 切换时页面在淡出，高亮跟着一起换段，
+     eased 一下比硬切自然。 */
+  transition: background-color 0.18s ease;
 }
 
 .tab-icon {
   width: 46rpx;
   height: 46rpx;
-  transition: transform 0.18s ease;
-}
-
-.tab-text {
-  font-size: 20rpx;
-  color: #6B7280;
-  transition: color 0.18s ease;
-}
-
-.tab--on .tab-text {
-  color: #5B8CFF;
-  font-weight: 600;
-}
-
-.tab--on .tab-icon {
-  transform: translateY(-2rpx);
-}
-
-.tab:active {
-  opacity: 0.6;
 }

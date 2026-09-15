@@ -6,7 +6,8 @@
 -->
 <page-meta page-style="{{themeStyle}}{{showImport ? 'overflow: hidden;' : ''}}"></page-meta>
 
-<view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
+<!-- 首次进入时淡入一次（时机在 onReady，见 utils/page-fade.js）；切 tab 不再有任何过渡 -->
+<view class="page page--fade {{fading ? 'page--out' : ''}}">
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-title">我的</view>
     <view class="hero-date">数据只保存在这台手机上</view>

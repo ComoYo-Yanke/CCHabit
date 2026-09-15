@@ -13,7 +13,7 @@
  * 有两处**不跟随** page 变量，必须单独处理，本模块同时是它们的取值来源：
  *   1. custom-tab-bar —— 由框架独立挂载，不在页面的节点树里（见其 wxss 顶部注释）；
  *   2. canvas 图表 —— 颜色写在 uCharts 的配置对象里，走 JS 而不是 CSS。
- * 前者只用到底色/描边，后者由 opts.js 读取同一份变量表装配。
+ * 前者用到底色 / 描边 / 选中态填充三个值，后者由 opts.js 读取同一份变量表装配。
  *
  * 本模块刻意保持「纯数据 + 纯函数」：唯一的运行期依赖是 storage.getSettings()，
  * 且 wx 缺失时（Node 里跑 scripts/*）自动退回默认主题，不影响脚本。
@@ -95,8 +95,12 @@ const THEMES = {
     '--nav-bg': 'rgba(14, 16, 20, 0.92)',
 
     // 非 CSS 变量：只有 custom-tab-bar 用得到（它拿不到 page 的变量）
-    tabbarBg: '#161A22',
-    tabbarBorder: '#1F242F'
+    // 底栏是悬浮胶囊，压在内容之上，所以底色留一点透明度让底下透出来才像「浮着」，
+    // 配合 backdrop-filter 做毛玻璃（不支持该属性的机型退化成半透明底，不影响可读性）
+    tabbarBg: 'rgba(22, 26, 34, 0.88)',
+    tabbarBorder: '#1F242F',
+    /** 选中项那枚胶囊的填充色 */
+    tabbarActiveBg: 'rgba(91, 140, 255, 0.18)'
   },
 
   light: {
@@ -135,8 +139,9 @@ const THEMES = {
     '--ring': 'rgba(18, 21, 28, 0.55)',
     '--nav-bg': 'rgba(243, 244, 247, 0.92)',
 
-    tabbarBg: '#FFFFFF',
-    tabbarBorder: '#E5E7EB'
+    tabbarBg: 'rgba(255, 255, 255, 0.88)',
+    tabbarBorder: '#E5E7EB',
+    tabbarActiveBg: 'rgba(91, 140, 255, 0.14)'
   }
 }
 

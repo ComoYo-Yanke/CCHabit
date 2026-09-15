@@ -17,7 +17,7 @@
   </view>
 </nav-bar>
 
-<view class="page page--no-tabbar page--fade" style="animation-name: pageFadeIn{{fadeKey}}" wx:if="{{habit}}">
+<view class="page page--no-tabbar page--fade {{fading ? 'page--out' : ''}}" wx:if="{{habit}}">
   <!-- ============ 头部信息 ============ -->
   <view class="section">
     <!-- 渐变底色写 var(--surface) 而不是字面色值：浅色主题下这里要跟着变白 -->

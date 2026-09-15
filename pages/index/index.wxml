@@ -10,7 +10,12 @@
 -->
 <page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin) ? 'overflow: hidden;' : ''}}"></page-meta>
 
-<view class="page page--fade" style="animation-name: pageFadeIn{{fadeKey}}">
+<!--
+  淡出淡入全靠 fading 这一个布尔量（机制见 utils/page-fade.js）：
+  true = 本页必须是透明的，页面看起来是空的（首次进入还没渲染完、以及切走之后）。
+  去掉 .page--out 是 0→1 的淡入，加上是 1→0 的淡出。
+-->
+<view class="page page--fade {{fading ? 'page--out' : ''}}">
   <!-- ============ 顶部问候 ============ -->
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-date">{{dateLabel}}</view>
@@ -105,7 +110,9 @@
 </view>
 
 <!-- ============ 悬浮新建按钮 ============ -->
-<view class="fab" bindtap="onAddHabit">
+<!-- 悬浮按钮是 .page 的**兄弟节点**（不是子节点），不会跟着 .page 的透明度走，
+     所以自己挂一套等效的类，跟着页面一起淡出 / 淡入（见 index.wxss 的 .fab--out） -->
+<view class="fab {{fading ? 'fab--out' : ''}}" bindtap="onAddHabit">
   <!-- 必须用白色加号：ic-plus-active 是蓝色描边，和按钮底色一样，会完全看不见 -->
   <view class="ic ic-plus-white fab-icon"></view>
 </view>

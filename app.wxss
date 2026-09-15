@@ -72,11 +72,14 @@ view, text, scroll-view, button, input, textarea {
 .page {
   min-height: 100vh;
   background: var(--bg);
-  /* 底部预留自定义 tabBar 高度。
+  /* 底部预留悬浮胶囊导航的高度。胶囊是浮在内容之上的（不占布局），
+     所以这里必须把它的高度让出来，否则最后一张卡片会被压在底下。
+     高度构成 = 离底 20rpx + 胶囊 108rpx + 24rpx 透气 = 152rpx。
+     胶囊去掉了文字，比原来矮了约 20rpx（构成见 custom-tab-bar/index.wxss）。
      先写不带 env() 的兜底值：env() 参与 calc 若解析失败整条声明会被丢弃，
-     那样底部内容就会被 tabBar 压住。第二行生效时以后者为准。 */
-  padding-bottom: 150rpx;
-  padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
+     那样底部内容就会被胶囊压住。第二行生效时以后者为准。 */
+  padding-bottom: 152rpx;
+  padding-bottom: calc(152rpx + env(safe-area-inset-bottom));
 }
 
 .page--no-tabbar {
@@ -286,43 +289,35 @@ view, text, scroll-view, button, input, textarea {
 }
 
 /*
- * 页面淡入（底部 tab 切换用）。
+ * 页面切换的淡出 / 淡入（见 utils/page-fade.js 的机制与不变量）。
  *
- * 为什么是两个内容一模一样的动画：switchTab 是同步切页，目标页面的 DOM 一直
- * 活着，只是从幕后被搬到台前。给 .page 挂一个固定的 animation 只会播第一次，
- * 之后再切都不会动 —— 同一个 animation-name，浏览器认为「还是那个动画」，
- * 不会重头开始。名字换一下才会当作新动画重播，所以这里备了 A / B 两个，
- * 页面每次 onShow 由 utils/page-fade.js 在两者之间翻一次。
+ * 一个布尔量翻两个方向、两条曲线：
+ *   去掉 .page--out → 0 过渡到 1，0.26s 对称 ease-in-out（进场）
+ *   加上 .page--out → 1 过渡到 0，0.14s ease-in（退场）
+ * 曲线的取向：进场「浮上来」，起步慢、收尾也慢；退场是离开，起步干脆，
+ * 拖泥带水反而显得卡。所以退场更短、用 ease-in。
  *
- * 只动 opacity，不碰 transform：.page 里可能挂着 position: fixed 的弹层，
- * 祖先一旦有 transform 就会变成它的包含块，fixed 立刻失效（见设计决策 15）。
- * opacity 只产生层叠上下文，不会变成包含块，是安全的。
+ * **不用 @keyframes**，只用 transition。省掉的是这一串坑：
+ *   - 同一属性上动画优先级高于过渡 —— 退场想用 transition 就得先把动画撤掉
+ *     （`.page--leaving { animation: none }`），否则页面根本淡不下去；
+ *   - animation-fill-mode: forwards 会把 opacity 钉死，同样让退场失效；
+ *   - switchTab 的页面一直活着、DOM 不重建，固定 animation-name 不会重播，
+ *     于是还得备两份关键帧换名字（pageFadeInA / B + fadeKey）。
+ * 现在只需要一个类在不在，浏览器自己就知道该往哪个方向过渡。
  *
- * 也只有「入场」没有「退场」：switchTab 切页是同步的，旧页面当场就没了，
- * 没有能播退场动画的时间。淡入已经足够抹掉切换的突兀感。
- */
-@keyframes pageFadeInA {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes pageFadeInB {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/*
- * 时长与曲线：0.24s / ease 观感偏「一顿」—— ease 前段太慢，深色底上会先愣一下再亮起来。
- * 换成前快后缓的曲线（0.25 处就走过 60%），一秒内就完成主要变化，
- * 收尾再慢慢贴合，读起来是「稳稳定住」而不是「突然出现」。
  * 只动 opacity，**不要加 transform**：那会让 .page 变成 fixed 子元素的包含块，
  * 页面里的固定定位元素会跟着跑（README 决策 15）。
+ *
+ * ⚠️ 两条的顺序不能调：元素上两个类同时存在时要靠后面的 .page--out 赢。
  */
 .page--fade {
-  animation-duration: 0.28s;
-  animation-timing-function: cubic-bezier(0.25, 0.8, 0.35, 1);
-  animation-fill-mode: both;
-  will-change: opacity;
+  opacity: 1;
+  transition: opacity 0.26s cubic-bezier(0.42, 0, 0.58, 1);
+}
+
+.page--out {
+  opacity: 0;
+  transition: opacity 0.14s ease-in;
 }
 
 /* ============================================================

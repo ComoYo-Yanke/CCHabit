@@ -128,7 +128,17 @@
   justify-content: center;
   z-index: 890;
   box-shadow: 0 12rpx 32rpx rgba(91, 140, 255, 0.4);
-  transition: transform 0.15s ease;
+  /* 两个过渡写在一起：opacity 跟着页面淡入（去掉 .fab--out 那一下），
+     transform 是按压反馈。分开写会互相覆盖 */
+  transition: opacity 0.26s cubic-bezier(0.42, 0, 0.58, 1), transform 0.15s ease;
+}
+
+/* 切换时跟着页面一起淡出（机制见 utils/page-fade.js）。
+   不复用 .page--out：上面 .fab 自己的 transition 还管着 transform（按压反馈），
+   两个 transition 简写会互相覆盖，所以这里把两条都写全。 */
+.fab--out {
+  opacity: 0;
+  transition: opacity 0.14s ease-in, transform 0.15s ease;
 }
 
 .fab:active {

@@ -159,6 +159,27 @@
   line-height: 1.6;
 }
 
+/* 「更早的版本记录」入口。分隔线的画法与 .log + .log 保持一致 */
+.log-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26rpx;
+  padding-top: 26rpx;
+  border-top: 1rpx solid var(--border-soft);
+}
+
+.log-more-text {
+  font-size: 25rpx;
+  color: var(--text-2);
+}
+
+.log-more-go {
+  font-size: 24rpx;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ============ 隐私说明 ============ */
 .privacy-row {
   display: flex;

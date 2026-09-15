@@ -51,7 +51,7 @@ Page({
     /** 弹层是否已展开（驱动入场 / 退场过渡） */
     importActive: false,
 
-    version: '1.0.3'
+    version: '1.0.4'
   },
 
   onLoad() {
@@ -67,11 +67,26 @@ Page({
   },
 
   onShow() {
-    pageFade.play(this)
+    // 复访：页面早就建好了，直接淡入（首访交给 onReady，见 utils/page-fade.js）
+    pageFade.show(this)
     this.refresh()
     // 系统主题可能在离开期间变过，「跟随系统」要重新解析一次
     this.syncTheme()
     this.syncTabBar()
+  },
+
+  /**
+   * 首访的淡入时机：等初次渲染完成再起动画。
+   * onShow 早于布局落定，页面还在做第一轮重活（读数据、重绘），
+   * 动画叠在上面就是「闪」（见 utils/page-fade.js 的「触发时机」）。
+   */
+  onReady() {
+    pageFade.ready(this)
+  },
+
+  /** 离开时必须把自己变透明，否则下次被搬上台的那一帧会整页闪一下（见 utils/page-fade.js） */
+  onHide() {
+    pageFade.leave(this)
   },
 
   /** tabBar 在页面的节点树之外，主题得由页面主动推过去（见 custom-tab-bar/index.js） */
