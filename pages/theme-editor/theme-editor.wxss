@@ -132,6 +132,61 @@
   font-size: 24rpx;
 }
 
+/* ============ 取景台（结构见 wxml 的注释） ============ */
+.fx {
+  margin-top: 26rpx;
+}
+
+/*
+ * 舞台：整张图。高度用 padding-bottom 撑成原图宽高比（百分比按**宽度**解析），
+ * 自己 height: 0 —— 这是为了不量 DOM 就能画：小窗和窗里的图全靠百分比定位，
+ * 而绝对定位元素的百分比 top/height 解析的是包含块的**padding box**，
+ * 所以 padding 撑出来的高度是算数的。
+ * overflow: hidden 是必需的：模糊会让图往外溢出一圈，不裁会糊到卡片外面。
+ *
+ * 代价是**瘦高的图舞台也会很高**（1:3 的图 = 卡片宽的 3 倍）：这是有意的，取景就得
+ * 看得见整张图。要压下来只能把舞台按比例缩窄，而舞台一窄，padding-bottom 按祖上宽度
+ * 解析的规矩就变了味（得改成「父宽 × 比例」，多一层嵌套），不值得为罕见的长图换。
+ */
+.fx-stage {
+  position: relative;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--inset-bg);
+}
+
+.fx-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 窗外那层（糊 + 压暗）：只是给眼睛一个「这块不显示」的印象 */
+.fx-dim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+/*
+ * 小窗：屏幕比例，窗里那张图是清晰的（也就是最终会显示的那块）。
+ * 描边用 box-shadow 而不是 border —— border 会占掉内容盒，窗里的图就会整体偏一像素，
+ * 而这里「窗子边界 = 图上那一格的边界」是要精确对上的。
+ */
+.fx-win {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 4rpx;
+  box-shadow: 0 0 0 2rpx var(--accent);
+}
+
 /* ============ 滑块行 ============ */
 .sl-row {
   margin-top: 26rpx;

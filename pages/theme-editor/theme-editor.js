@@ -3,15 +3,18 @@
  *
  * 为什么单独开一页而不是塞在「我的」里面：
  *   1. 这一页本身就是预览 —— 整页实时按你调的颜色重绘，比一个小色块直观得多；
- *   2. 可调项从三个涨到「五个颜色 + 卡片透明度 + 背景图五项（取景 / 缩放 / 模糊 / 淡化）」，
+ *   2. 可调项从三个涨到「五个颜色 + 卡片透明度与毛玻璃 + 背景图取景」，
  *      铺在设置页里会把「外观」那一栏撑得比别的栏长出一大截。
  *
- * 三条约定：
+ * 四条约定：
  *   - **进这一页就等于选了自定义主题**（onLoad 里把 theme 写过去）。
  *     否则会出现「颜色改了、整机还是深色」，看着像没生效。
- *   - **改动即时生效**：调色板点一下、滑块松手，立刻写 storage。
- *     滑块拖动过程中（changing）只改本地预览不落盘，松手（change）才写 ——
+ *   - **改动即时生效**：调色板点一下、滑块松手、窗子拖完，立刻写 storage。
+ *     拖动过程中（changing / touchmove）只改本地预览不落盘，松手才写 ——
  *     拖一次会触发几十次事件，每次都同步写一遍存储没有必要。
+ *   - **取景是「挪窗子」，不是「调三个数」**：整张图摊开当舞台，上面盖一个屏幕比例的
+ *     小窗，窗里的就是会显示的那块（见 utils/theme.js 的 frame）。拖动改 imagePosX/Y，
+ *     旁边的滑块改 imageZoom —— 存的还是那三个老字段，所以真实页面的渲染一行没动。
  *   - 这一页**不参与页面淡入**（没有 page--fade / onShow / onHide 那套）。
  *     页面里有原生组件（slider / image），它们不认祖先的 opacity，
  *     淡入时会出现「底片全透明、滑块已经杵在那儿」的怪相。
@@ -50,6 +53,11 @@ Page({
     themeStyle: '',
     /** 背景图那一层；没图时为 null，整层不渲染 */
     bg: null,
+    /**
+     * 取景台的几何（舞台 + 小窗），由 theme.frame 算好。没图、或原图宽高还不知道时
+     * 为 null，那一段不渲染 —— 见 utils/theme.js 的 frame
+     */
+    frame: null,
     /**
      * 底栏胶囊的预览数据。它不出现在这份 page-style 里 —— 底栏由框架独立挂载、
      * 拿不到 CSS 变量，是靠 JS 喂色才活着的，所以整页换肤预览不到它，
@@ -104,12 +112,29 @@ Page({
    */
   apply(cfg) {
     const p = theme.preview(cfg)
+    // 取景台刚出现时量一次舞台（见 measureStage）。量到之前拖动是不会动的，
+    // 所以这里挂一次；量不到（还没渲染出来）下一次 apply 还会再挂
+    if (p.frame && !this._stageW) wx.nextTick(() => this.measureStage())
     this.setData({
       cfg,
       themeStyle: p.style + ';',
       bg: p.bg,
+      frame: p.frame,
       tabbar: p.tabbar
     })
+  },
+
+  /**
+   * 拖动取景小窗时走这条：只推和取景有关的那几项。
+   *
+   * 不直接调 apply 是因为它连着 themeStyle 和 tabbar 一起 setData —— 底栏那份
+   * 带三枚内联 SVG（好几 KB），拖一次会推几十遍，手感会发飘。调色板这几项在
+   * 拖动期间根本不会变（笔在动的是窗子，不是颜色），松手后 persist 会把整套补齐。
+   * 几何仍然只有一个来源（theme.preview），这里只是少推几个字段。
+   */
+  dragApply(cfg) {
+    const p = theme.preview(cfg)
+    this.setData({ cfg, frame: p.frame, bg: p.bg })
   },
 
   /** 写 storage + 刷新界面。theme 也一并写：能改到这里了，就是要在用 */
@@ -187,19 +212,19 @@ Page({
   },
 
   /**
-   * 背景图那五根滑块（取景三项 + 模糊 / 淡化）共用的入口。
-   * 改哪一项由 data-field 带过来 —— 五项的形状完全一样，为每项各写一对 handler
-   * 只是把同一段代码抄五遍。
+   * 数值型滑块共用的入口：背景图那三项（取景缩放 / 模糊 / 淡化）+ 卡片毛玻璃。
+   * 改哪一项由 data-field 带过来 —— 它们形状完全一样，为每项各写一对 handler
+   * 只是把同一段代码抄好几遍。
    */
-  onImageNumChanging(e) {
-    this.onImageNum(e, false)
+  onNumChanging(e) {
+    this.onNum(e, false)
   },
 
-  onImageNumChange(e) {
-    this.onImageNum(e, true)
+  onNumChange(e) {
+    this.onNum(e, true)
   },
 
-  onImageNum(e, persistIt) {
+  onNum(e, persistIt) {
     const field = e.currentTarget.dataset.field
     if (!field) return
     const raw = e.detail.value
@@ -207,6 +232,66 @@ Page({
     const cfg = Object.assign({}, this.data.cfg, { [field]: Number(value) || 0 })
     if (persistIt) this.persist(cfg)
     else this.apply(cfg)
+  },
+
+  // ---------------- 取景台 ----------------
+
+  /**
+   * 量一次舞台的宽度，缓存起来。**只有拖动需要它** —— 手指走的是 px，而配置里存的是
+   * 百分比，换算要一个真实的长度。舞台的尺寸由 CSS 撑（padding-bottom = 原图宽高比），
+   * 其中宽度就是卡片的内容宽，跟图无关，所以一台设备量一次就够。
+   *
+   * 量的是宽度，高度按 frame.pad 折算 —— 省一次测量，也免得两处分头算高度。
+   */
+  measureStage() {
+    wx.createSelectorQuery()
+      .select('.fx-stage')
+      .boundingClientRect((r) => {
+        if (r && r.width) this._stageW = r.width
+      })
+      .exec()
+  },
+
+  onFrameStart(e) {
+    const t = e.touches && e.touches[0]
+    if (!t || !this._stageW) return
+    // 记住手指和小窗的起点，之后按位移量推窗子（而不是让窗子跳到手指下面 ——
+    // 那样一按下去窗子就飞了）
+    this._drag = {
+      x: t.clientX,
+      y: t.clientY,
+      posX: this.data.cfg.imagePosX,
+      posY: this.data.cfg.imagePosY
+    }
+  },
+
+  onFrameMove(e) {
+    const d = this._drag
+    const f = this.data.frame
+    const t = e.touches && e.touches[0]
+    if (!d || !f || !t || !this._stageW) return
+
+    // 窗子能走的行程 = 舞台里没被它占掉的那部分。某一轴上窗子已经占满
+    // （横屏图调左右那种「拉不动」的情况）时行程是 0，除法得挡住
+    const stageH = this._stageW * f.pad / 100
+    const travelX = (100 - f.win.width) / 100 * this._stageW
+    const travelY = (100 - f.win.height) / 100 * stageH
+    const posX = travelX > 0 ? d.posX + (t.clientX - d.x) / travelX * 100 : d.posX
+    const posY = travelY > 0 ? d.posY + (t.clientY - d.y) / travelY * 100 : d.posY
+
+    // 拖动中只改界面，松手才落盘（和滑块一个规矩：拖一次几十个事件）
+    this.dragApply(
+      Object.assign({}, this.data.cfg, {
+        imagePosX: Math.round(clamp(posX, 0, 100)),
+        imagePosY: Math.round(clamp(posY, 0, 100))
+      })
+    )
+  },
+
+  onFrameEnd() {
+    if (!this._drag) return
+    this._drag = null
+    this.persist(this.data.cfg)
   },
 
   // ---------------- 背景图 ----------------
@@ -294,6 +379,11 @@ Page({
 
   noop() {}
 })
+
+function clamp(n, lo, hi) {
+  const v = Number(n)
+  return Math.max(lo, Math.min(hi, isNaN(v) ? lo : v))
+}
 
 /** '#RRGGBB' -> { r, g, b }，认不出来时返回黑色 */
 function toRgb(hex) {

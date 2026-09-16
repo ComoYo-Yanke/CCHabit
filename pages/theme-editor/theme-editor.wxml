@@ -78,46 +78,42 @@
 
       <block wx:if="{{cfg.image}}">
         <!--
-          取景三项。横屏图铺满竖屏时总有溢出的一边（溢出的通常是左右），
-          这两个位置滑块决定**露出来的是哪一块**；缩放再决定露多大一片。
-          滑块的值就是最终几何的输入，编辑页和真实页面用同一个 bgLayer 算，所见即所得。
-          拉不动是正常的：只有溢出的一边有行程，另一边（比如竖屏图上的左右）本来就没得挪。
+          取景台。整张图按原比例摊开当舞台，上面盖一个**屏幕比例**的小窗 ——
+          窗里的就是真机上会显示的那一块，窗外压暗加糊表示「看不到」。
+          几何全部来自 theme.frame（和真实那一层的 bgLayer 出自同一份配置），
+          所以窗里看到的和真机上看到的是一回事，不存在「预览对、真机偏」。
+          窗子用百分比定位（舞台高度由 padding-bottom 撑成原图宽高比），
+          因此这一整块不需要量 DOM 就能画出来；量一次只是为了把手指的 px 换算成百分比。
         -->
-        <view class="sl-row">
-          <view class="sl-label">
-            <text>左右取景</text>
-            <text class="sl-val">{{cfg.imagePosX}}%</text>
+        <view wx:if="{{frame}}" class="fx">
+          <view class="fx-stage" style="padding-bottom: {{frame.pad}}%;">
+            <!-- 窗外那层：和窗里是同一张图，只是多糊一档（几何一样，所以不用另起类名） -->
+            <image
+              class="fx-img"
+              src="{{cfg.image}}"
+              mode="scaleToFill"
+              style="filter: blur({{frame.outBlur}}px); -webkit-filter: blur({{frame.outBlur}}px);"
+            />
+            <view class="fx-dim"></view>
+            <view
+              class="fx-win"
+              style="left: {{frame.win.left}}%; top: {{frame.win.top}}%; width: {{frame.win.width}}%; height: {{frame.win.height}}%;"
+              bindtouchstart="onFrameStart"
+              catchtouchmove="onFrameMove"
+              bindtouchend="onFrameEnd"
+              bindtouchcancel="onFrameEnd"
+            >
+              <image
+                class="fx-img"
+                src="{{cfg.image}}"
+                mode="scaleToFill"
+                style="left: {{frame.inner.left}}%; top: {{frame.inner.top}}%; width: {{frame.inner.width}}%; height: {{frame.inner.height}}%; filter: blur({{cfg.imageBlur}}px); -webkit-filter: blur({{cfg.imageBlur}}px);"
+              />
+            </view>
           </view>
-          <slider
-            min="0"
-            max="100"
-            step="1"
-            value="{{cfg.imagePosX}}"
-            activeColor="{{cfg.accent}}"
-            block-size="20"
-            data-field="imagePosX"
-            bindchanging="onImageNumChanging"
-            bindchange="onImageNumChange"
-          />
+          <view class="sl-tip">按住小窗拖到你想要的画面，窗外那块不会显示</view>
         </view>
-        <view class="sl-row">
-          <view class="sl-label">
-            <text>上下取景</text>
-            <text class="sl-val">{{cfg.imagePosY}}%</text>
-          </view>
-          <slider
-            min="0"
-            max="100"
-            step="1"
-            value="{{cfg.imagePosY}}"
-            activeColor="{{cfg.accent}}"
-            block-size="20"
-            data-field="imagePosY"
-            bindchanging="onImageNumChanging"
-            bindchange="onImageNumChange"
-          />
-          <view class="sl-tip">横屏图调左右、竖屏图调上下，50% 是居中</view>
-        </view>
+
         <view class="sl-row">
           <view class="sl-label">
             <text>取景缩放</text>
@@ -131,9 +127,10 @@
             activeColor="{{cfg.accent}}"
             block-size="20"
             data-field="imageZoom"
-            bindchanging="onImageNumChanging"
-            bindchange="onImageNumChange"
+            bindchanging="onNumChanging"
+            bindchange="onNumChange"
           />
+          <view class="sl-tip">越大越近，也就是小窗越小；拉不动的那一轴说明本来就没得挪</view>
         </view>
         <view class="sl-row">
           <view class="sl-label">
@@ -148,8 +145,8 @@
             activeColor="{{cfg.accent}}"
             block-size="20"
             data-field="imageBlur"
-            bindchanging="onImageNumChanging"
-            bindchange="onImageNumChange"
+            bindchanging="onNumChanging"
+            bindchange="onNumChange"
           />
         </view>
         <view class="sl-row">
@@ -165,8 +162,8 @@
             activeColor="{{cfg.accent}}"
             block-size="20"
             data-field="imageDim"
-            bindchanging="onImageNumChanging"
-            bindchange="onImageNumChange"
+            bindchanging="onNumChanging"
+            bindchange="onNumChange"
           />
           <view class="sl-tip">越高图越淡、字越清楚；调到 0 就是原图</view>
         </view>
@@ -224,16 +221,16 @@
     </view>
   </view>
 
-  <!-- ============ 透明度 ============ -->
+  <!-- ============ 卡片 ============ -->
   <view class="section">
     <view class="section-head">
-      <text class="section-title">透明度</text>
-      <text class="section-sub">让背景图透上来</text>
+      <text class="section-title">卡片</text>
+      <text class="section-sub">透明度与毛玻璃</text>
     </view>
     <view class="card">
       <view class="sl-row sl-row--first">
         <view class="sl-label">
-          <text>卡片</text>
+          <text>透明度</text>
           <text class="sl-val">{{cfg.surfaceAlpha}}%</text>
         </view>
         <slider
@@ -248,6 +245,25 @@
           bindchange="onSurfaceAlphaChange"
         />
         <view class="sl-tip">调低之后卡片半透明，背景图会从卡片里透出来；弹层不受影响，始终不透明</view>
+      </view>
+
+      <view class="sl-row">
+        <view class="sl-label">
+          <text>毛玻璃</text>
+          <text class="sl-val">{{cfg.cardBlur}}</text>
+        </view>
+        <slider
+          min="0"
+          max="40"
+          step="1"
+          value="{{cfg.cardBlur}}"
+          activeColor="{{cfg.accent}}"
+          block-size="20"
+          data-field="cardBlur"
+          bindchanging="onNumChanging"
+          bindchange="onNumChange"
+        />
+        <view class="sl-tip">卡片背后那层糊多少。只在上面那根透明度调低、卡片真的半透明时才看得出来；调到 0 就只是一层不糊的透明卡片</view>
       </view>
     </view>
   </view>

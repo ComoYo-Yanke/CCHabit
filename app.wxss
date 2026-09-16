@@ -57,6 +57,10 @@ page {
   --popup-border: #262C38;
   --popup-border-soft: #1F242F;
 
+  /* 卡片毛玻璃的模糊半径（见 .card）。这里给的是深 / 浅色那两套用的值：
+     它们的卡片不透明，糊不出任何效果，只有自定义主题才真的会用到 */
+  --card-blur: 16px;
+
   /* 圆角与间距：与主题无关，因此不在 utils/theme.js 里 */
   --r-sm: 12rpx;
   --r-md: 20rpx;
@@ -188,7 +192,8 @@ view, text, scroll-view, button, input, textarea {
  * 基础库不支持时会静默忽略这一条，卡片就退回现在这样（看得出图、不糊），
  * 所以这是一条**只有加分项**的声明，不需要按平台判断。
  *
- * 半径取 16px：大到能读出「糊了」，又不至于把背后的图糊成一片纯色而失去质感。
+ * 半径默认 16px（--card-blur，编辑页有滑块的：大到能读出「糊了」，又不至于把背后的图
+ * 糊成一片纯色而失去质感；调到 0 就是一层不糊的半透明卡片）。
  * 别指望加在 .sheet 上 —— 弹层底下垫着遮罩（见 .sheet），糊一块黑色什么也换不来。
  */
 .card {
@@ -196,8 +201,8 @@ view, text, scroll-view, button, input, textarea {
   border-radius: var(--r-lg);
   padding: 28rpx;
   border: 1rpx solid var(--border-soft);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--card-blur, 16px)) saturate(140%);
+  backdrop-filter: blur(var(--card-blur, 16px)) saturate(140%);
 }
 
 .card + .card {

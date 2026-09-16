@@ -64,6 +64,10 @@ const THEMES = {
     '--border': '#262C38',
     '--border-soft': '#1F242F',
 
+    // 卡片毛玻璃的模糊半径（见 .card）。深 / 浅色两套的卡片是不透明的，
+    // 所以这个值看不出来，写 16px 只是为了三套主题形状一致 —— 和 --popup-* 同理
+    '--card-blur': '16px',
+
     '--text': '#EDF1F7',
     '--text-2': '#98A2B3',
     '--text-3': '#667085',
@@ -135,6 +139,9 @@ const THEMES = {
     '--surface-3': '#E5E7EB',
     '--border': '#E5E7EB',
     '--border-soft': '#ECEEF1',
+
+    // 见深色那份的注释
+    '--card-blur': '16px',
 
     '--text': '#12151C',
     '--text-2': '#4A5261',
@@ -256,6 +263,9 @@ function cssKeys(name) {
  *   bg / surface / accent / text / text2  五个颜色，其余色值由它们推
  *   surfaceAlpha  卡片的透明度（%）—— 调低了背景图能透上来。弹层不吃这一项，
  *                 它始终实心（见 buildCustom 里 --popup-* 那段）
+ *   cardBlur      卡片毛玻璃的模糊半径（px），0 = 不糊。它和 surfaceAlpha 是一对：
+ *                 深 / 浅色两套里卡片本来就不透明，糊的是它自己已经盖住的底色，
+ *                 所以只有自定义主题把卡片调透了，这个值才看得出来
  *   image         背景图本地路径，空串表示没有
  *   imageW/H      原图宽高（px，选图时问出来的）。**只用来算「铺满」要多大** ——
  *                 想选择显示范围就得把整张没裁过的图装进盒子，而那需要知道宽高比
@@ -274,6 +284,7 @@ const DEFAULT_CUSTOM = {
   text: '#EDF1F7',
   text2: '#98A2B3',
   surfaceAlpha: 100,
+  cardBlur: 16,
   image: '',
   imageW: 0,
   imageH: 0,
@@ -476,6 +487,10 @@ function buildCustom(raw) {
     '--border': line,
     '--border-soft': lineSoft,
 
+    // 卡片毛玻璃：用户直接调半径，不推算（它是观感项，不是配色项）。
+    // 上限 40px 再往上就整块糊成一片纯色，还不如把卡片调实一点
+    '--card-blur': clamp(cfg.cardBlur, 0, 40) + 'px',
+
     // 弹层那一套：同样的推导，只是不吃 sA（见上）
     '--popup-surface': pSurf,
     '--popup-surface-2': pSurf2,
@@ -545,7 +560,9 @@ function customConfig() {
 /** 按当前配置算出整套变量（带缓存） */
 function customVars() {
   const c = customConfig()
-  const key = [c.bg, c.surface, c.accent, c.text, c.text2, c.surfaceAlpha, c.image ? 1 : 0].join('|')
+  // 进 key 的必须是**所有**会影响 buildCustom 输出的字段，漏一个就会命中旧缓存：
+  // 滑块拖到新值、界面却还是上一个值的样子（cardBlur 就是这种，很容易漏）
+  const key = [c.bg, c.surface, c.accent, c.text, c.text2, c.surfaceAlpha, c.cardBlur, c.image ? 1 : 0].join('|')
   if (key !== _customKey) {
     _customVars = buildCustom(c)
     _customKey = key
@@ -633,14 +650,95 @@ function bgLayer(c) {
 }
 
 /**
+ * 取景台：编辑页里那套「整张图摊开 + 一个屏幕比例的小窗」的几何。
+ *
+ * 为什么要有它：两个位置滑块只能表达「往左一点」，说不出「露出来的是哪一块」。
+ * 这里把整张图按原比例摊开当舞台，再盖一个**屏幕比例**的小窗 —— 窗里就是最终会
+ * 显示的那一块，窗外压暗加糊表示看不到。小窗能拖（改 imagePosX / imagePosY）、
+ * 能缩（改 imageZoom），于是取景变成「挪窗子」而不是「调三个数」。
+ *
+ * ⚠️ 它和 bgLayer 必须给出同一个答案，否则编辑页就是在骗人。两者吃同一份配置，
+ * 只是各算各的那一半：bgLayer 算「图要放大到多大、摆在屏幕哪儿」，frame 算
+ * 「铺满时露出来的是图上哪一块」。小窗的宽高比 = 屏幕宽高比，所以窗里看到的
+ * 逐像素等于真机上看到的 —— 这不是巧合，是那个「最大内接矩形」的定义。
+ * （唯一的差是真实那层多乘了一个 BLUR_BLEED 出血，所以真机上会比你框的稍微多露
+ * 一点点；那是防模糊露边用的，不是这里算错。）
+ *
+ * 返回值全是**百分比**，因为舞台的尺寸交给 CSS 撑（padding-bottom 写成原图宽高比），
+ * 于是整个取景台不需要量 DOM 就能画出来：
+ *   pad      舞台高度，直接当 padding-bottom 的百分比用（= 原图高 / 宽）
+ *   outBlur  窗外那层额外的模糊（px），叠在用户设的 imageBlur 之上
+ *   win      小窗在舞台里的位置与大小。left / width 是舞台**宽**的百分比，
+ *            top / height 是舞台**高**的百分比（CSS 的百分比偏移就是这么解析的）
+ *   inner    窗里那张图的位置与大小，相对**小窗**自身 —— 靠负偏移把该露的那一格挪进窗子
+ *
+ * 拿不到原图宽高（老配置还没问出来）时返回 null，编辑页不画取景台、只留滑块：
+ * 没有宽高比，任何一格都算不出来。
+ */
+function frame(c) {
+  const cfg = Object.assign({}, DEFAULT_CUSTOM, c || {})
+  const iw = Number(cfg.imageW) || 0
+  const ih = Number(cfg.imageH) || 0
+  if (!iw || !ih) return null
+
+  const view = viewSize()
+  // 屏幕宽高比。量不到时按 1:2 走：这一页只跑在真机上，这里只要别算出 0 或负数，
+  // 让 Node 里跑 scripts/* 的那点调用不至于炸就行
+  const r = view.width && view.height ? view.width / view.height : 0.5
+
+  // 小窗最大能多大 = 图里能装下的最大的屏幕比例矩形。这一步和 bgLayer 里
+  // `Math.max(view.width / iw, view.height / ih)` 是同一件事的两面：
+  // 那边问「图要放大几倍才铺满屏幕」，这边问「铺满时屏幕上露出来的是图上的哪块」
+  const maxW = Math.min(iw, ih * r)
+  const maxH = maxW / r
+  const zoom = clamp(cfg.imageZoom, 100, 300) / 100
+  const winW = maxW / zoom
+  const winH = maxH / zoom
+
+  // 舞台：整张图。宽取 100 个单位、高按原图比例折算，于是舞台自身也是一个
+  // 「原图比例」的盒子，图 mode 用 scaleToFill 铺进去不会变形
+  const SW = 100
+  const SH = 100 * ih / iw
+
+  // 小窗能挪的行程 = 溢出舞台的那部分。只有一边会有（横屏图溢左右、竖屏图溢上下），
+  // 另一边恒为 0，所以 50% 永远等于居中；和 bgLayer 的 ox / oy 是同一个量
+  const ox = Math.max(0, iw - winW)
+  const oy = Math.max(0, ih - winH)
+  const left = ox * clamp(cfg.imagePosX, 0, 100) / 100 / iw * SW
+  const top = oy * clamp(cfg.imagePosY, 0, 100) / 100 / ih * SH
+  const ww = winW / iw * SW
+  const wh = winH / ih * SH
+
+  const pct = (n) => Number(n.toFixed(3))
+  return {
+    pad: pct(SH),
+    // 窗外比窗内多糊一档：窗里是「会显示的那块」，窗外只是给眼睛一个「这块不要」的印象
+    outBlur: clamp(cfg.imageBlur, 0, 40) + 8,
+    win: {
+      left: pct(left / SW * 100),
+      top: pct(top / SH * 100),
+      width: pct(ww / SW * 100),
+      height: pct(wh / SH * 100)
+    },
+    inner: {
+      left: pct(-left / ww * 100),
+      top: pct(-top / wh * 100),
+      width: pct(SW / ww * 100),
+      height: pct(SH / wh * 100)
+    }
+  }
+}
+
+/**
  * 用一份**还没落盘**的配置算出渲染要用的东西，不读 storage。
  * 「自定义主题」编辑页靠它做实时预览：滑块还在拖的时候配置还没存，
  * 但页面得立刻跟着变。
  *
- * @returns {{style:string, bg:Object|null, tabbar:Object}}
+ * @returns {{style:string, bg:Object|null, frame:Object|null, tabbar:Object}}
  *   style  可直接塞进 page-style；
  *   bg     给背景图层，没设图时为 null。`style` / `mode` 一并给全：**编辑页的预览层和
  *          各页面上的真实图层用的是同一份**，两边不各算各的，也就不会「预览里对、真机上偏」
+ *   frame  取景台的几何（见 frame）。没图或尺寸未知时为 null，编辑页据此决定画不画
  *   tabbar 底栏胶囊那几项 —— 它不在页面节点树里，上面那份 style 照不到它，
  *          所以单独给出来（编辑页的胶囊预览要用，见 tabbarVars）
  */
@@ -661,7 +759,7 @@ function preview(cfg) {
       scrim: rgba(toRgb(c.bg, DEFAULT_CUSTOM.bg), clamp(c.imageDim, 0, 100) / 100)
     }
     : null
-  return { style, bg, tabbar: tabbarVars(vars) }
+  return { style, bg, frame: frame(c), tabbar: tabbarVars(vars) }
 }
 
 /**
@@ -802,6 +900,8 @@ module.exports = {
   customConfig,
   background,
   preview,
+  // 拖动取景小窗时只推它，不重算整套配色（见 theme-editor 的 dragApply）
+  frame,
   tabbarVars,
   chartVars,
   vars,
