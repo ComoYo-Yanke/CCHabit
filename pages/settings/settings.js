@@ -62,7 +62,8 @@ Page({
     /** 弹层是否已展开（驱动入场 / 退场过渡） */
     importActive: false,
 
-    version: '1.0.5'
+    /** 与 pages/about 的 APP_VERSION 是同一份定义，改一处记得同步另一处 */
+    version: '1.1.1'
   },
 
   onLoad() {

@@ -257,8 +257,15 @@ function cssKeys(name) {
  *   surfaceAlpha  卡片的透明度（%）—— 调低了背景图能透上来。弹层不吃这一项，
  *                 它始终实心（见 buildCustom 里 --popup-* 那段）
  *   image         背景图本地路径，空串表示没有
+ *   imageW/H      原图宽高（px，选图时问出来的）。**只用来算「铺满」要多大** ——
+ *                 想选择显示范围就得把整张没裁过的图装进盒子，而那需要知道宽高比
  *   imageBlur     背景图模糊（px）
  *   imageDim      底色压在背景图上的强度（%），越高图越淡、字越清楚
+ *   imagePosX/Y   取景位置（%）。图按「铺满」缩放后总有溢出的一边（横屏图在竖屏上
+ *                 溢出的是左右，竖屏图在横屏上溢出的是上下），这两个值决定**露出来的是
+ *                 哪一块** —— 也就是用户说的「框选范围」。50 / 50 就是居中，和这一版
+ *                 之前的表现完全一致，所以没动过它的人观感不会变
+ *   imageZoom     取景缩放（%），100 = 刚铺满。用来把图推近一点，配合上面两个值取更小的范围
  */
 const DEFAULT_CUSTOM = {
   bg: '#0E1014',
@@ -268,8 +275,13 @@ const DEFAULT_CUSTOM = {
   text2: '#98A2B3',
   surfaceAlpha: 100,
   image: '',
+  imageW: 0,
+  imageH: 0,
   imageBlur: 0,
-  imageDim: 60
+  imageDim: 60,
+  imagePosX: 50,
+  imagePosY: 50,
+  imageZoom: 100
 }
 
 /** '#RRGGBB' / '#RGB' -> [r,g,b]；认不出来时退回 fallback（同样接受 hex 串） */
@@ -310,6 +322,79 @@ function rgba(color, alpha) {
 /** 感知亮度 0~1，只用来判定「用户选的这个底色算深还是算浅」 */
 function luminance(rgb) {
   return (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255
+}
+
+/**
+ * 解析**本模块自己吐出去**的颜色串：'#RRGGBB' 或 'rgba(r, g, b, a)'。
+ *
+ * 和 toRgb 的分工要说清楚：toRgb 认的是**用户输入**（编辑页里那五个颜色，一定是 hex），
+ * 这里认的是**变量表里的值**（可能是 hex，也可能是 rgba() —— 凡是跟透明度沾边的都是）。
+ * 早先想直接拿 toRgb 处理后者，那是行不通的：它只认 hex，喂给它 'rgba(...)' 会**静默**
+ * 返回黑色，而不是报错。
+ *
+ * @returns {{rgb:number[], a:number}} a 认不出来时按 1 算
+ */
+function parseColor(color) {
+  const s = String(color || '').trim()
+  const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(s)
+  if (m) {
+    return {
+      rgb: [Number(m[1]), Number(m[2]), Number(m[3])],
+      a: m[4] === undefined ? 1 : Number(m[4])
+    }
+  }
+  return { rgb: toRgb(s), a: 1 }
+}
+
+/**
+ * 把一个带透明度的颜色**压平**成六位十六进制：按 base 底色合成后的等效不透明色。
+ *
+ * 合成公式就是 mix(base, c, a) —— 颜色 c 以 alpha a 盖在 base 上，混出来的正是这个值。
+ * 不认识 alpha 的场景（见 chartVars）需要一个确定的颜色，而「先丢掉 alpha 留 rgb」
+ * 是错的：那不叫压平，叫把描边 / 网格线凭空加深，浅色主题上会突然冒出一堆深灰线。
+ */
+function flatten(color, baseRgb) {
+  const c = parseColor(color)
+  if (c.a >= 1) return hex(c.rgb)
+  return mix(baseRgb, c.rgb, c.a)
+}
+
+/**
+ * 给图表用的色值，**一律是六位十六进制**。
+ *
+ * 为什么不能直接把 vars() 丢给 uCharts：它内部有个 hexToRgb()，只认 3 / 6 位十六进制，
+ * 而且匹配失败时不做任何校验 —— 直接 `rgb[1]`，喂进 'rgba(31, 35, 44, 1)' 会先 exec 出
+ * null 再取下标，**抛 TypeError**。偏偏提示框的底色和描边（bgColor / borderColor）、
+ * 面积图的描边与填充、柱状图的渐变全都走这条路。
+ *
+ * 深 / 浅色两套里这些值本来就都是十六进制，所以一直没暴露；自定义主题的派生值
+ * 只要跟透明度沾边就是 rgba()，一换过去**提示框就整个画不出来** —— 不是颜色不对，
+ * 是那一下直接抛错。（同样是「喂给外部库的值也要当输出校验」，见决策 34 那一串。）
+ *
+ * base 取卡片 / 弹层的实心底色（--popup-surface）：图表都画在卡片里，
+ * 那个颜色才是网格线、次要文字真正的背板 —— 拿页面底色压平会偏一档。
+ */
+function chartVars(name) {
+  const v = vars(name)
+  const base = parseColor(v['--popup-surface']).rgb
+  const solid = (c) => flatten(c, base)
+  return {
+    /**
+     * 多系列时的兜底调色板（本项目的图表每种只有一个系列，且页面大多会自己指定颜色）。
+     * 只取语义色，不自己造颜色：uCharts 取色是 `config.color[index % length]`，
+     * 越界会绕回来，所以少给几个也不会崩。
+     */
+    series: ['--accent', '--success', '--warn', '--danger'].map((k) => solid(v[k])),
+    text: solid(v['--text']),
+    text2: solid(v['--text-2']),
+    text3: solid(v['--text-3']),
+    accent: solid(v['--accent']),
+    /** 网格线 / 坐标轴描边 / 提示框描边 */
+    grid: solid(v['--border']),
+    /** 提示框底色：用实心的那层，不能跟着 surfaceAlpha 一起透，否则读数看不清 */
+    tooltipBg: solid(v['--popup-surface']),
+    tooltipBorder: solid(v['--border'])
+  }
 }
 
 /**
@@ -474,13 +559,88 @@ function clamp(n, lo, hi) {
 }
 
 /**
+ * 背景图的基础放大倍数。
+ *
+ * 模糊（filter: blur）会让图四周溢出一圈半透明的边，图本身放大一点点把它推到屏幕外，
+ * 靠 .app-bg 的 overflow: hidden 裁掉。1.08 是原 image + scale 那版就在用的值。
+ */
+const BLUR_BLEED = 1.08
+
+/** 屏幕逻辑尺寸（px）。wx 缺失时（Node 里跑 scripts/*）给 0，由调用方走降级分支 */
+function viewSize() {
+  if (typeof wx === 'undefined' || typeof wx.getWindowInfo !== 'function') return { width: 0, height: 0 }
+  try {
+    const w = wx.getWindowInfo()
+    return { width: w.windowWidth || 0, height: w.windowHeight || 0 }
+  } catch (e) {
+    return { width: 0, height: 0 }
+  }
+}
+
+/**
+ * 背景图那一层的**几何**：图放多大、摆在哪儿。
+ *
+ * 为什么不能简单让 `<image mode="aspectFill">` 铺满整屏：那样图会被**居中裁切**，
+ * 露出来的永远是正中那一块。裁切在元素自己绘制的这一步就发生了，之后无论怎么
+ * translate / scale 都只是搬动、放大那块已经裁好的图 —— 横屏图的两侧永远看不到。
+ * 想「选择显示范围」，元素里就必须装着**整张没裁过的图**，再靠外层裁出要看的那一段。
+ * 而「整张图」装进一个盒子，前提是知道图的宽高比 —— 于是尺寸得存在配置里
+ * （imageW / imageH，选图时用 wx.getImageInfo 问出来）。
+ *
+ * ⚠️ 不能改用 background-image + background-size: cover 那套写法（那样一行 CSS 就能
+ * 盖住并取景，根本不用算）：**小程序里 background-image 不认 wxfile:// 这类本地路径**，
+ * 行内 style 也照样不认（WXSS 的 url() 是编译期解析的），真机上就是一片空白。
+ * 这条踩过一次就够，别走回头路。
+ *
+ * 尺寸未知时（老配置里的图，或导入来的）退回「铺满 + 居中」：和这一版之前的表现一致，
+ * 宁可不给取景，也不能拿猜的比例去拉图（猜错就是拉伸或留白，而且说不清是谁的错）。
+ */
+function bgLayer(c) {
+  const blur = clamp(c.imageBlur, 0, 40)
+  // 模糊写在图自己身上（不能写在外层，否则压在图上的那层底色也跟着糊）
+  const filter = 'filter: blur(' + blur + 'px); -webkit-filter: blur(' + blur + 'px)'
+
+  const view = viewSize()
+  const iw = Number(c.imageW) || 0
+  const ih = Number(c.imageH) || 0
+  if (!iw || !ih || !view.width || !view.height) {
+    return {
+      mode: 'aspectFill',
+      style: 'left: 0; top: 0; width: 100%; height: 100%; ' + filter
+    }
+  }
+
+  // 「铺满」= 两个方向上都要至少盖住屏幕，取较大的那个倍数；用户的缩放乘在它上面。
+  // 于是总有**且只有一边**溢出（横屏图溢出左右、竖屏图溢出上下），溢出的那条边就是
+  // 取景的可用行程，另一边只能是 0 —— 所以 50% 永远等于居中。
+  const zoom = clamp(c.imageZoom, 100, 300) / 100
+  const s = Math.max(view.width / iw, view.height / ih) * zoom * BLUR_BLEED
+  const boxW = iw * s
+  const boxH = ih * s
+  const ox = Math.max(0, boxW - view.width)
+  const oy = Math.max(0, boxH - view.height)
+
+  // 盒子的宽高比 = 原图宽高比，所以 mode 用 scaleToFill 也不会变形 ——
+  // 它就是「把整张图原样画进这个盒子」，裁切留给外层。
+  return {
+    mode: 'scaleToFill',
+    style:
+      'left: ' + (-ox * clamp(c.imagePosX, 0, 100) / 100).toFixed(1) + 'px; ' +
+      'top: ' + (-oy * clamp(c.imagePosY, 0, 100) / 100).toFixed(1) + 'px; ' +
+      'width: ' + boxW.toFixed(1) + 'px; ' +
+      'height: ' + boxH.toFixed(1) + 'px; ' + filter
+  }
+}
+
+/**
  * 用一份**还没落盘**的配置算出渲染要用的东西，不读 storage。
  * 「自定义主题」编辑页靠它做实时预览：滑块还在拖的时候配置还没存，
  * 但页面得立刻跟着变。
  *
  * @returns {{style:string, bg:Object|null, tabbar:Object}}
  *   style  可直接塞进 page-style；
- *   bg     给背景图层，没设图时为 null；
+ *   bg     给背景图层，没设图时为 null。`style` / `mode` 一并给全：**编辑页的预览层和
+ *          各页面上的真实图层用的是同一份**，两边不各算各的，也就不会「预览里对、真机上偏」
  *   tabbar 底栏胶囊那几项 —— 它不在页面节点树里，上面那份 style 照不到它，
  *          所以单独给出来（编辑页的胶囊预览要用，见 tabbarVars）
  */
@@ -491,10 +651,12 @@ function preview(cfg) {
     .filter((k) => k.indexOf('--') === 0)
     .map((k) => k + ':' + vars[k])
     .join(';')
-  const bg = c.image
+  const layer = c.image ? bgLayer(c) : null
+  const bg = layer
     ? {
       src: c.image,
-      blur: clamp(c.imageBlur, 0, 40),
+      mode: layer.mode,
+      style: layer.style,
       // 压在图上的是**底色**：dim 越高图越淡、字越清楚
       scrim: rgba(toRgb(c.bg, DEFAULT_CUSTOM.bg), clamp(c.imageDim, 0, 100) / 100)
     }
@@ -641,6 +803,7 @@ module.exports = {
   background,
   preview,
   tabbarVars,
+  chartVars,
   vars,
   cssVars,
   system,

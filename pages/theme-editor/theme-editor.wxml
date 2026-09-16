@@ -8,18 +8,14 @@
 <nav-bar title="自定义主题" back="{{true}}" fixed="{{true}}" />
 
 <!--
-  背景图预览层。跟 components/app-bg 用的是同一套类名（样式在 app.wxss），
-  区别只在于这里的数据来自本地配置而不是 storage，这样调模糊 / 淡化时能实时看到。
+  背景图预览层。跟 components/app-bg 用的是同一套类名**和同一个 geometry**
+  （bg.style / bg.mode 也来自 theme.preview，两边不各算各的），区别只在于这里的数据
+  来自本地配置而不是 storage，这样换图 / 调模糊 / 调取景时能实时看到。
   整页就是预览：调什么颜色，这一页立刻变成什么样。
 -->
 <view class="page page--no-tabbar">
   <view wx:if="{{bg}}" class="app-bg">
-    <image
-      class="app-bg-img"
-      src="{{bg.src}}"
-      mode="aspectFill"
-      style="filter: blur({{bg.blur}}px); -webkit-filter: blur({{bg.blur}}px);"
-    />
+    <image class="app-bg-img" src="{{bg.src}}" mode="{{bg.mode}}" style="{{bg.style}}" />
     <view class="app-bg-scrim" style="background: {{bg.scrim}};"></view>
   </view>
 
@@ -81,6 +77,64 @@
       </view>
 
       <block wx:if="{{cfg.image}}">
+        <!--
+          取景三项。横屏图铺满竖屏时总有溢出的一边（溢出的通常是左右），
+          这两个位置滑块决定**露出来的是哪一块**；缩放再决定露多大一片。
+          滑块的值就是最终几何的输入，编辑页和真实页面用同一个 bgLayer 算，所见即所得。
+          拉不动是正常的：只有溢出的一边有行程，另一边（比如竖屏图上的左右）本来就没得挪。
+        -->
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>左右取景</text>
+            <text class="sl-val">{{cfg.imagePosX}}%</text>
+          </view>
+          <slider
+            min="0"
+            max="100"
+            step="1"
+            value="{{cfg.imagePosX}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-field="imagePosX"
+            bindchanging="onImageNumChanging"
+            bindchange="onImageNumChange"
+          />
+        </view>
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>上下取景</text>
+            <text class="sl-val">{{cfg.imagePosY}}%</text>
+          </view>
+          <slider
+            min="0"
+            max="100"
+            step="1"
+            value="{{cfg.imagePosY}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-field="imagePosY"
+            bindchanging="onImageNumChanging"
+            bindchange="onImageNumChange"
+          />
+          <view class="sl-tip">横屏图调左右、竖屏图调上下，50% 是居中</view>
+        </view>
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>取景缩放</text>
+            <text class="sl-val">{{cfg.imageZoom}}%</text>
+          </view>
+          <slider
+            min="100"
+            max="300"
+            step="5"
+            value="{{cfg.imageZoom}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-field="imageZoom"
+            bindchanging="onImageNumChanging"
+            bindchange="onImageNumChange"
+          />
+        </view>
         <view class="sl-row">
           <view class="sl-label">
             <text>模糊</text>
@@ -93,9 +147,9 @@
             value="{{cfg.imageBlur}}"
             activeColor="{{cfg.accent}}"
             block-size="20"
-            data-ch="blur"
-            bindchanging="onImageBlurChanging"
-            bindchange="onImageBlurChange"
+            data-field="imageBlur"
+            bindchanging="onImageNumChanging"
+            bindchange="onImageNumChange"
           />
         </view>
         <view class="sl-row">
@@ -110,9 +164,9 @@
             value="{{cfg.imageDim}}"
             activeColor="{{cfg.accent}}"
             block-size="20"
-            data-ch="dim"
-            bindchanging="onImageDimChanging"
-            bindchange="onImageDimChange"
+            data-field="imageDim"
+            bindchanging="onImageNumChanging"
+            bindchange="onImageNumChange"
           />
           <view class="sl-tip">越高图越淡、字越清楚；调到 0 就是原图</view>
         </view>

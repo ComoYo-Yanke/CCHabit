@@ -128,11 +128,14 @@ view, text, scroll-view, button, input, textarea {
   pointer-events: none;
 }
 
+/*
+ * 图那一层。要裁出「用户选的那一段」，所以它**不是**铺满屏幕的：
+ * 它是一张比屏幕大的整图，尺寸 / left / top 全由 utils/theme.js 的 bgLayer 算好
+ * 写在行内 style 上，这儿只负责把它绝对定位到 .app-bg 里、被 .app-bg 裁掉溢出部分。
+ * 宽高这里一个字都不写死 —— 写死就会盖掉行内样式里的实际几何。
+ */
 .app-bg-img {
-  width: 100%;
-  height: 100%;
-  /* 放大一点，盖掉模糊在四周溢出的半透明边 */
-  transform: scale(1.08);
+  position: absolute;
 }
 
 /* 压在图上的一层底色：越实字越清楚，越透图越明显（在编辑页里可调） */
@@ -173,11 +176,28 @@ view, text, scroll-view, button, input, textarea {
 }
 
 /* ============ 卡片 ============ */
+/*
+ * 毛玻璃。两层意思：卡片底色本来就是半透明的（自定义主题里那根「卡片透明度」滑块，
+ * 见 utils/theme.js 的 buildCustom），再加上把**卡片背后**的内容糊掉 ——
+ * 少了后面这步，背景图会清清楚楚地映在卡片里，字压在上面反而更难读。
+ *
+ * 深 / 浅色两套里看不出来：它们的 --surface 恒为不透明，背后什么都没有。
+ * 它正是在「自定义主题 + 背景图 + 调低卡片透明度」那一档才生效的。生效需要
+ * 背景图层和卡片在同一个层叠上下文里 —— 它们都在 .page 内（见 .app-bg 的注释）。
+ *
+ * 基础库不支持时会静默忽略这一条，卡片就退回现在这样（看得出图、不糊），
+ * 所以这是一条**只有加分项**的声明，不需要按平台判断。
+ *
+ * 半径取 16px：大到能读出「糊了」，又不至于把背后的图糊成一片纯色而失去质感。
+ * 别指望加在 .sheet 上 —— 弹层底下垫着遮罩（见 .sheet），糊一块黑色什么也换不来。
+ */
 .card {
   background: var(--surface);
   border-radius: var(--r-lg);
   padding: 28rpx;
   border: 1rpx solid var(--border-soft);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 
 .card + .card {

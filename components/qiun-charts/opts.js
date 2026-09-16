@@ -4,9 +4,15 @@
  * 之所以单独成文件：默认配置里少一个 `extra.column` 就会让柱状图整个抛错，
  * 这类问题必须在 Node 里能跑测试才守得住。
  *
- * 颜色一律从 utils/theme.js 的变量表里取，不写字面量 —— 图表画在 canvas 上，
- * 读不到 CSS 变量，只能由 JS 喂；从同一份表里取色才能保证它和周围的卡片、
- * 文字属于同一套主题，不会出现「页面切成浅色了，图表还是深色底」。
+ * 颜色一律从 utils/theme.js 取，不写字面量 —— 图表画在 canvas 上，读不到 CSS 变量，
+ * 只能由 JS 喂；从同一份表里取色才能保证它和周围的卡片、文字属于同一套主题，
+ * 不会出现「页面切成浅色了，图表还是深色底」。
+ *
+ * ⚠️ 取的是 **chartVars() 而不是 vars()**：uCharts 内部那个 hexToRgb() 只认 3 / 6 位
+ * 十六进制，而且匹配失败时直接取下标、**抛 TypeError**（提示框的底色 / 描边、
+ * 面积图的描边与填充、柱状的渐变都走它）。自定义主题的派生值只要带透明度就是
+ * `rgba(...)`，用 vars() 喂进去的表现是「一换成自定义主题，点图表就没有小提示框了」。
+ * chartVars 把带 alpha 的值按卡片底色压平成十六进制，同时保留原来的观感。
  */
 
 const theme = require('../../utils/theme.js')
@@ -69,25 +75,28 @@ function xCategoryFormatter(val, index, opts) {
  * 而 fixColumeData() 是直接读 `opts.extra.column.seriesGap` 的，
  * 缺了 extra.column 会抛 TypeError，柱状图直接白屏。
  *
- * @param {string} [themeName] 'dark' | 'light'，缺省走深色
+ * @param {string} [themeName] 'dark' | 'light' | 'custom'，缺省走深色
  */
 function defaultOpts(themeName) {
-  const t = theme.vars(themeName)
+  const c = theme.chartVars(themeName)
   return {
     background: 'transparent',
     padding: [16, 16, 0, 8],
     fontSize: 11,
-    fontColor: t['--text-2'],
+    fontColor: c.text2,
     legend: { show: false },
     dataLabel: false,
     dataPointShape: false,
     animation: true,
     duration: 600,
-    color: ['#5B8CFF', '#37D0A0', '#FFB020', '#FF6B8A', '#A78BFA'],
+    // 让图表跟着主题走的**兜底**调色板：页面通常会给每个系列自己指定颜色
+    // （见 utils/stats.js 的 lineChartData / barChartData），这里管的是没指定的情况。
+    // 取语义色而不是写死一串，否则「自定义主题改成暖色调、图上还是一片蓝」。
+    color: c.series,
     xAxis: {
       disableGrid: true,
       axisLine: false,
-      fontColor: t['--text-3'],
+      fontColor: c.text3,
       fontSize: 10,
       scrollShow: false,
       rotateLabel: false,
@@ -104,8 +113,8 @@ function defaultOpts(themeName) {
     yAxis: {
       gridType: 'dash',
       dashLength: 3,
-      gridColor: t['--border'],
-      fontColor: t['--text-3'],
+      gridColor: c.grid,
+      fontColor: c.text3,
       fontSize: 10,
       data: [{ min: 0 }],
       showTitle: false
@@ -137,7 +146,7 @@ function defaultOpts(themeName) {
         // 不能用八位色值：uCharts 的 hexToRgb 只认 3 / 6 位，
         // 传 '#00000000' 会让它的正则匹配失败、rgb 为 null，再取 rgb[1] 直接抛错。
         // 「透明」一律用六位色值 + Opacity 表达。
-        meterFillColor: t['--border'],
+        meterFillColor: c.grid,
         barBorderCircle: false,
         barBorderRadius: [],
         linearType: 'custom',
@@ -169,12 +178,14 @@ function defaultOpts(themeName) {
         showCategory: true,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: t['--border'],
-        bgColor: t['--surface-2'],
+        // 这三个（bgColor / borderColor）单独走 hexToRgb，必须是十六进制，
+        // 见文件头那段注释 —— 它们就是「自定义主题下提示框不见了」的那一处
+        borderColor: c.tooltipBorder,
+        bgColor: c.tooltipBg,
         bgOpacity: 1,
-        fontColor: t['--text'],
-        labelFontColor: t['--accent'],
-        gridColor: t['--border'],
+        fontColor: c.text,
+        labelFontColor: c.accent,
+        gridColor: c.grid,
         dashLength: 3,
         boxPadding: 6,
         fontSize: 11,

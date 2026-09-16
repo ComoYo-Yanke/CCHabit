@@ -121,6 +121,11 @@ Page({
 
     const summary = stats.summarize(merged, rangeInfo.start, rangeInfo.end)
 
+    // 图表颜色跟着主题走。这里不能再写 '#5B8CFF' 这种字面量 ——
+    // canvas 读不到 CSS 变量，颜色全靠 JS 喂，写死了就永远不跟主题变
+    // （见 utils/theme.js 的 chartVars，取的是十六进制，uCharts 只认这个）
+    const chart = theme.chartVars(this.data.themeName)
+
     // ---- 折线：每日打卡次数（跨习惯合计） ----
     const series = stats.dailySeries(merged, rangeInfo.days)
     const lineSource =
@@ -133,7 +138,7 @@ Page({
 
     const lineData = {
       categories: lineSource.map((p) => p.label),
-      series: [{ name: '打卡次数', color: '#5B8CFF', data: lineSource.map((p) => p.count) }]
+      series: [{ name: '打卡次数', color: chart.accent, data: lineSource.map((p) => p.count) }]
     }
 
     // ---- 逐习惯明细 ----
@@ -163,7 +168,7 @@ Page({
       series: [
         {
           name: '打卡次数',
-          color: '#37D0A0',
+          color: chart.success,
           data: ranking.map((r) => r.count)
         }
       ]

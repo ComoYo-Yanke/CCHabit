@@ -3,7 +3,7 @@
  *
  * 为什么单独开一页而不是塞在「我的」里面：
  *   1. 这一页本身就是预览 —— 整页实时按你调的颜色重绘，比一个小色块直观得多；
- *   2. 可调项从三个涨到「五个颜色 + 两个透明度 + 背景图（模糊 / 淡化）」，
+ *   2. 可调项从三个涨到「五个颜色 + 卡片透明度 + 背景图五项（取景 / 缩放 / 模糊 / 淡化）」，
  *      铺在设置页里会把「外观」那一栏撑得比别的栏长出一大截。
  *
  * 三条约定：
@@ -44,7 +44,7 @@ const PALETTES = {
 
 Page({
   data: {
-    /** 当前配置（含背景图那三项），改一次存一次 */
+    /** 当前配置（含背景图那几项），改一次存一次 */
     cfg: theme.DEFAULT_CUSTOM,
     /** 给 page-meta 的行内变量，由本地配置现算（滑块拖动时也要立刻变） */
     themeStyle: '',
@@ -68,7 +68,34 @@ Page({
   onLoad() {
     // 进这一页 = 要用自定义主题（理由见文件头）
     storage.saveSettings({ theme: 'custom' })
-    this.apply(theme.customConfig())
+    const cfg = theme.customConfig()
+    this.apply(cfg)
+    // 老配置（这一版之前设的图）没有尺寸，补问一次，取景滑块才有得算
+    this.probeImageSize(cfg)
+  },
+
+  /**
+   * 问出原图的宽高，补进配置。
+   *
+   * 为什么非要尺寸：「选择显示范围」要求元素里装的是**整张没裁过的图**，而那要按原图
+   * 宽高比算「铺满」要多大（见 theme.bgLayer）。新选的图在 saveImage 里就问过了，
+   * 这里管的是这一版之前设的图 —— 打开这一页补一次，之后不会再缺。
+   *
+   * 拿不到就保持 0：图层会退回「铺满 + 居中」，也就是这一版之前的表现，
+   * 不会因为问不到尺寸就把图拉歪。
+   */
+  probeImageSize(cfg) {
+    if (!cfg.image || cfg.imageW) return
+    wx.getImageInfo({
+      src: cfg.image,
+      success: (r) => {
+        if (!r || !r.width || !r.height) return
+        // 问的这段时间里用户可能又换了一张，那就别把旧图的尺寸写进去
+        if (this.data.cfg.image !== cfg.image) return
+        this.persist(Object.assign({}, this.data.cfg, { imageW: r.width, imageH: r.height }))
+      },
+      fail: () => {}
+    })
   },
 
   /**
@@ -159,23 +186,22 @@ Page({
     else this.apply(cfg)
   },
 
-  onImageBlurChanging(e) {
-    this.onImageNum(e, 'imageBlur', false)
+  /**
+   * 背景图那五根滑块（取景三项 + 模糊 / 淡化）共用的入口。
+   * 改哪一项由 data-field 带过来 —— 五项的形状完全一样，为每项各写一对 handler
+   * 只是把同一段代码抄五遍。
+   */
+  onImageNumChanging(e) {
+    this.onImageNum(e, false)
   },
 
-  onImageBlurChange(e) {
-    this.onImageNum(e, 'imageBlur', true)
+  onImageNumChange(e) {
+    this.onImageNum(e, true)
   },
 
-  onImageDimChanging(e) {
-    this.onImageNum(e, 'imageDim', false)
-  },
-
-  onImageDimChange(e) {
-    this.onImageNum(e, 'imageDim', true)
-  },
-
-  onImageNum(e, field, persistIt) {
+  onImageNum(e, persistIt) {
+    const field = e.currentTarget.dataset.field
+    if (!field) return
     const raw = e.detail.value
     const value = typeof raw === 'object' && raw !== null ? raw.value : raw
     const cfg = Object.assign({}, this.data.cfg, { [field]: Number(value) || 0 })
@@ -217,7 +243,10 @@ Page({
       tempFilePath,
       success: (r) => {
         const old = this.data.cfg.image
-        this.persist(Object.assign({}, this.data.cfg, { image: r.savedFilePath }))
+        // 尺寸先清零：换图之后旧图的尺寸就不再成立了，取景必须重新算。
+        // 新尺寸由紧随其后的 probeImageSize 补上（问的是文件所在的路径）
+        this.persist(Object.assign({}, this.data.cfg, { image: r.savedFilePath, imageW: 0, imageH: 0 }))
+        this.probeImageSize(this.data.cfg)
         // 换完再删旧的：先删万一保存失败，用户就两头空了
         if (old && old !== r.savedFilePath) this.removeFile(old)
         wx.showToast({ title: '背景已设置', icon: 'none' })
@@ -234,7 +263,8 @@ Page({
 
   onRemoveImage() {
     const old = this.data.cfg.image
-    this.persist(Object.assign({}, this.data.cfg, { image: '' }))
+    // 尺寸跟着图一起清掉，免得留下的两个数字被下一张图误用
+    this.persist(Object.assign({}, this.data.cfg, { image: '', imageW: 0, imageH: 0 }))
     this.removeFile(old)
   },
 

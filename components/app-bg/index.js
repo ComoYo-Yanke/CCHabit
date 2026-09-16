@@ -42,7 +42,10 @@ Component({
 
   data: {
     src: '',
-    blur: 0,
+    /** <image> 的 mode。取景算得出几何时是 scaleToFill（盒子就是原图比例），未知时退回 aspectFill */
+    mode: 'aspectFill',
+    /** 图那一层的几何（尺寸 / 位置 / 模糊），由 utils/theme.js 的 bgLayer 算好 */
+    imgStyle: '',
     scrim: ''
   },
 
@@ -69,13 +72,19 @@ Component({
     sync() {
       const bg = theme.background()
       if (!bg) {
-        if (this.data.src) this.setData({ src: '', blur: 0, scrim: '' })
+        if (this.data.src) this.setData({ src: '', mode: 'aspectFill', imgStyle: '', scrim: '' })
         return
       }
       // 逐项比较：这个组件挂在每张页面上，onShow 每次都会走到这里，
-      // 没有变化时不该产生任何渲染
-      if (bg.src !== this.data.src || bg.blur !== this.data.blur || bg.scrim !== this.data.scrim) {
-        this.setData({ src: bg.src, blur: bg.blur, scrim: bg.scrim })
+      // 没有变化时不该产生任何渲染。
+      // imgStyle 里带着尺寸和位移，所以这里比一次字符串就等于比了整套取景参数
+      if (
+        bg.src !== this.data.src ||
+        bg.mode !== this.data.mode ||
+        bg.style !== this.data.imgStyle ||
+        bg.scrim !== this.data.scrim
+      ) {
+        this.setData({ src: bg.src, mode: bg.mode, imgStyle: bg.style, scrim: bg.scrim })
       }
     }
   }
