@@ -150,6 +150,58 @@
   height: 52rpx;
 }
 
+/* 习惯卡片的两列栅格。
+   列宽必须减去 gap 再对半分：50% 是「容器的一半」，两列各占一半之后
+   中间还有 20rpx 的缝，加起来超过 100%，第二列会被挤到下一行。
+   卡片的高度由它自己的 padding-bottom: 100% 跟着这个宽度算出来（见 habit-card 的 .hc） */
+.habit-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.habit-cell {
+  width: calc((100% - 20rpx) / 2);
+}
+
+/* ---------- 更新提示弹窗（面板本体在 app.wxss 的 .modal） ---------- */
+.upd-label {
+  font-size: 24rpx;
+  color: var(--text-3);
+  margin-bottom: 14rpx;
+}
+
+.upd-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+/* 小圆点当项目符号：比「·」对齐得准，也不用管字体 */
+.upd-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  /* 和首行文字视觉居中（文字 26rpx、行高 1.7 → 首行约 44rpx） */
+  margin-top: 17rpx;
+}
+
+.upd-item-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+
+/* 正文只垫一点点底：下面紧跟着尾部按钮，垫多了面板中间会空出一块 */
+.upd-body {
+  padding-bottom: 6rpx;
+}
+
 .list-bottom-gap {
   height: 40rpx;
 }

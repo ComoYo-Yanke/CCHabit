@@ -14,6 +14,7 @@ const storage = require('../../utils/storage.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
+const { APP_VERSION } = require('../../utils/version.js')
 
 /** 导入弹层的退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
 const SHEET_LEAVE_MS = 260
@@ -62,8 +63,8 @@ Page({
     /** 弹层是否已展开（驱动入场 / 退场过渡） */
     importActive: false,
 
-    /** 与 pages/about 的 APP_VERSION 是同一份定义，改一处记得同步另一处 */
-    version: '1.1.1'
+    /** 与 pages/about 读的是同一份定义，见 utils/version.js */
+    version: APP_VERSION
   },
 
   onLoad() {

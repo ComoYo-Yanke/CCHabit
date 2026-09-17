@@ -147,7 +147,8 @@ RANGES.forEach((range) => {
   const h = habits[0]
   const dmap = stats.buildDayMap(recordsMap[h.id] || [])
   const sum = stats.summarize(dmap, ri.start, ri.end)
-  const gran = range === 'week' ? 'day' : range === 'month' ? 'weekOfMonth' : 'year'
+  // 出桶单位就是区间本身（见 utils/stats.js 的 RANGE_GRAN）
+  const gran = range
   const buckets = stats.bucketSeries(dmap, gran, ri.start, ri.end)
   const bar = stats.barChartData(buckets, { field: 'count' })
   const line = range === 'year'

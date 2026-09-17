@@ -469,8 +469,11 @@ function buildCustom(raw) {
   const pLine = rgba(mix(surface, step, 0.075 * k), 1)
   const pLineSoft = rgba(mix(surface, step, 0.04 * k), 1)
 
-  // 三级文字：用户给两级，最淡的一级由次要文字再往底色退一点
-  const text3 = mix(text2, bg, 0.34)
+  // 三级文字：用户给两级，最淡的一级由次要文字再往底色退一点。
+  // 往底色退的比例（0.24）比深 / 浅色那两套反推出来的（0.34）小一档：
+  // 这一级管的是说明文字、单位、滑块读数，退太多在真机上就是「看得见但读不清」。
+  // 用户改不了它（编辑页只给到次要文字那一级），所以偏暗只能在这里调。
+  const text3 = mix(text2, bg, 0.24)
 
   // 热力色阶：0 是「没有记录」的格子（贴着底色），4 是最密的
   const heat0 = rgba(mix(surface, step, 0.045 * k), Math.max(sA, 0.5))

@@ -5,8 +5,10 @@
  *
  * 存储 key（统一 `th:` 前缀，避免与第三方 SDK 冲突）：
  *
- *   th:meta     { version:Number, createdAt:Number, seeded:Boolean }
- *               存储结构版本号，用于后续数据迁移；createdAt 为首次使用时间。
+ *   th:meta     { version:Number, createdAt:Number, seeded:Boolean, appVersion:String }
+ *               存储结构版本号，用于后续数据迁移；createdAt 为首次使用时间；
+ *               appVersion 是用户**上次见过的**小程序版本号，用来判断「这是升级后第一次进入」，
+ *               见 lastVersion / markVersion。
  *
  *   th:habits   Habit[]   习惯（打卡项）列表
  *
@@ -52,6 +54,7 @@
  */
 
 const dayjs = require('./date.js')
+const version = require('./version.js')
 
 const KEYS = {
   META: 'th:meta',
@@ -135,13 +138,33 @@ function ensureInit() {
     safeSet(KEYS.META, {
       version: SCHEMA_VERSION,
       createdAt: Date.now(),
-      seeded: false
+      seeded: false,
+      // 全新安装直接记成当前版本：这样「已更新至 vX」的弹窗只对**升级**上来的
+      // 用户弹一次，第一次装的人一进来就被祝贺一遍「已更新」是很奇怪的
+      appVersion: version.APP_VERSION
     })
     safeSet(KEYS.HABITS, [])
     safeSet(KEYS.RECORDS, {})
     return
   }
   migrate(meta)
+}
+
+/**
+ * 用户上次见过的小程序版本号；从没有过（本版之前装的机子）时返回 null。
+ *
+ * 返回 null 而不是当前版本：老用户升上来正是**该**看到一次更新提示的那批人。
+ */
+function lastVersion() {
+  const meta = safeGet(KEYS.META, null)
+  return meta && meta.appVersion ? meta.appVersion : null
+}
+
+/** 记下「这个版本用户已经见过了」，下次进入不再弹更新提示 */
+function markVersion(v) {
+  const meta = safeGet(KEYS.META, { version: SCHEMA_VERSION, createdAt: Date.now() })
+  meta.appVersion = v
+  safeSet(KEYS.META, meta)
 }
 
 /** 版本迁移：低版本数据补齐新字段 */
@@ -614,5 +637,7 @@ module.exports = {
   importData,
   clearAll,
   hasSeeded,
+  lastVersion,
+  markVersion,
   seedDemoData
 }

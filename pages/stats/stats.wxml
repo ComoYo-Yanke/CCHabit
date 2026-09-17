@@ -17,6 +17,7 @@
   <!-- ============ 维度切换 ============ -->
   <view class="section">
     <view class="segment">
+      <view class="segment-item {{range === 'day' ? 'segment-item--on' : ''}}" data-range="day" bindtap="onSwitchRange">日</view>
       <view class="segment-item {{range === 'week' ? 'segment-item--on' : ''}}" data-range="week" bindtap="onSwitchRange">周</view>
       <view class="segment-item {{range === 'month' ? 'segment-item--on' : ''}}" data-range="month" bindtap="onSwitchRange">月</view>
       <view class="segment-item {{range === 'year' ? 'segment-item--on' : ''}}" data-range="year" bindtap="onSwitchRange">年</view>
@@ -79,10 +80,11 @@
     <!-- ============ 趋势折线 ============ -->
     <view class="section">
       <view class="section-head">
-        <text class="section-title">{{range === 'year' ? '月度打卡趋势' : '每日打卡趋势'}}</text>
-        <text class="section-sub">全部习惯合计</text>
+        <text class="section-title">{{lineTitle}}</text>
+        <text class="section-sub">全部习惯合计 · 左右滑动</text>
       </view>
       <view class="card chart-card">
+        <!-- scroll：时间轴铺满整个窗口，一屏画不下，横向滑动回看 -->
         <qiun-charts
           canvasId="statsLine"
           type="line"
@@ -91,6 +93,7 @@
           theme="{{themeName}}"
           height="{{420}}"
           unit=" 次"
+          scroll="{{true}}"
         />
       </view>
     </view>

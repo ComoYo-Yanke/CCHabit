@@ -45,6 +45,18 @@ Component({
     theme: { type: String, value: 'dark' },
     /** 是否开启触摸提示 */
     touch: { type: Boolean, value: true },
+    /**
+     * 时间轴图表是否横向滚动（选日 / 周 / 月 / 年铺开的那几张）。
+     *
+     * 开启后必须由页面在 opts 里配好 xAxis.itemCount（一屏几格），否则
+     * uCharts 算出的每格宽度是 Infinity（见 opts.js 里那条警告）。
+     * 初始位置固定在**最右**（最新那一格）—— 见 render 里的 scrollAlign。
+     *
+     * 为什么用 uCharts 自带的滚动，而不是把 canvas 套进 <scroll-view>：
+     * scroll-view 是把整张画布（连 Y 轴、刻度一起）推走，滑到中间就看不见刻度了；
+     * uCharts 的滚动只对绘图区做一次 context.translate，Y 轴和轴线始终钉在原地。
+     */
+    scroll: { type: Boolean, value: false },
     /** 提示框数值单位后缀 */
     unit: { type: String, value: '' },
     /**
@@ -223,7 +235,12 @@ Component({
                 width: size.width,
                 height: size.height,
                 rotate: false,
-                enableScroll: false,
+                enableScroll: !!this.data.scroll,
+                // 滚动图表初始停在最右（最新一格）。uCharts 只在 xAxis.scrollAlign
+                // 为 'right' 且 _scrollDistance_ 还是 undefined 时（也就是首次绘制）
+                // 自己算出这个偏移量；后续重画得靠 updateData 的 scrollPosition
+                // 参数再算一次（见 render）
+                xAxis: this.data.scroll ? { scrollAlign: 'right' } : {},
                 categories: d.categories || [],
                 series: d.series || []
               })
@@ -287,13 +304,18 @@ Component({
         width: size.width,
         height: size.height,
         rotate: false,
-        enableScroll: false,
+        enableScroll: !!this.data.scroll,
+        xAxis: this.data.scroll ? { scrollAlign: 'right' } : {},
         categories: d.categories || [],
         series: d.series || []
       })
       // context 必须沿用首次创建的绘图上下文，不能被 mergeDeep 产生的副本覆盖，
       // 否则 uCharts 会对着一个没有绑定 canvas 的上下文绘制（图表全白）
       chartOpts.context = this.chart.opts.context
+      // 滚动图表每次重画都回到最右（最新那一格）：切区间、换主题、打完卡重算都会
+      // 走到这里，停在上一段停留的位置会让人以为「数据没跟着变」。
+      // 只能走这个参数 —— scrollAlign 是**构造时**读的，重画时再传没人看
+      if (this.data.scroll) chartOpts.scrollPosition = 'right'
       this.chart.updateData(chartOpts)
     },
 
@@ -321,6 +343,9 @@ Component({
       if (!this.chart || !this.data.touch || !this.data.hasData) return
       const ev = this.normalizeTouch(e)
       if (!ev) return
+      // 滚动图表记下手指落点，后面每一帧的位移都是相对它算的。
+      // 提示框照样弹：uCharts 按当前偏移量折算命中哪一格，点一下看数值不受影响
+      if (this.data.scroll) this.chart.scrollStart(ev)
       this.chart.touchLegend(ev)
       this.showTip(ev)
     },
@@ -329,11 +354,20 @@ Component({
       if (!this.chart || !this.data.touch || !this.data.hasData) return
       const ev = this.normalizeTouch(e)
       if (!ev) return
+      // 滚动图表里横向拖动是翻数据，不能再跟着弹提示框 ——
+      // 否则提示框会一路粘着手指闪，还挡住正在看的那一格
+      if (this.data.scroll) {
+        this.chart.scroll(ev)
+        return
+      }
       this.showTip(ev)
     },
 
     onTouchEnd() {
-      // 未开启滚动（enableScroll: false）时无需 scrollEnd
+      // 滚动图表要把这一段的位移落到 currentOffset 上（scroll 过程中只是临时值），
+      // 不然松手再按会从起点重算，图会跳一下
+      if (!this.chart || !this.data.scroll) return
+      this.chart.scrollEnd()
     },
 
     showTip(ev) {

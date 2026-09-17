@@ -53,9 +53,11 @@ eq('summary days', sum.totalDays, 7)
 eq('summary maxDay', sum.maxDay.date, '2026-09-11')
 const ds = s.dailySeries(dm, ['2026-09-09','2026-09-10','2026-09-11'])
 eq('dailySeries fill', ds.map(x=>x.value), [0,20,80])
-const yb = s.bucketSeries(dm, 'year', '2026-01-01', '2026-12-31')
-eq('year buckets', yb.length, 12)
-eq('year bucket sep', yb[8].value, 100)
+// 'year' 是桶的单位（一年一桶），不是「把这一年拆成 12 个月」——
+// 窗口由 date.windowOf 铺开，年月视图都是 5 年
+const yb = s.bucketSeries(dm, 'year', '2022-01-01', '2026-12-31')
+eq('year buckets', yb.length, 5)
+eq('year bucket sep', yb[4].value, 100)
 
 // --- heatmap ---
 const hm = s.heatmapData(dm, '2026-09-11', 4, 100)

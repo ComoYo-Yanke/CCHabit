@@ -105,6 +105,7 @@
   <!-- ============ 区间统计 ============ -->
   <view class="section">
     <view class="segment">
+      <view class="segment-item {{range === 'day' ? 'segment-item--on' : ''}}" data-range="day" bindtap="onSwitchRange">日</view>
       <view class="segment-item {{range === 'week' ? 'segment-item--on' : ''}}" data-range="week" bindtap="onSwitchRange">周</view>
       <view class="segment-item {{range === 'month' ? 'segment-item--on' : ''}}" data-range="month" bindtap="onSwitchRange">月</view>
       <view class="segment-item {{range === 'year' ? 'segment-item--on' : ''}}" data-range="year" bindtap="onSwitchRange">年</view>
@@ -155,13 +156,14 @@
     </view>
   </view>
 
-  <!-- ============ 折线图：每日数值 ============ -->
+  <!-- ============ 折线图：每格（天/周/月/年）的数值合计 ============ -->
   <view class="section">
     <view class="section-head">
-      <text class="section-title">{{range === 'year' ? '月度数值趋势' : '每日数值趋势'}}</text>
-      <text class="section-sub">点击图表查看具体数值</text>
+      <text class="section-title">{{lineTitle}}</text>
+      <text class="section-sub">点击看数值 · 左右滑动</text>
     </view>
     <view class="card chart-card">
+      <!-- scroll：时间轴铺满整个窗口，一屏画不下，横向滑动回看 -->
       <qiun-charts
         canvasId="lineChart"
         type="line"
@@ -170,16 +172,17 @@
         theme="{{themeName}}"
         height="{{420}}"
         unit="{{habit.unit}}"
+        scroll="{{true}}"
         hidden="{{showCheckin || showEditor}}"
       />
     </view>
   </view>
 
-  <!-- ============ 柱状图：打卡次数 ============ -->
+  <!-- ============ 柱状图：同一批格子的打卡次数 ============ -->
   <view class="section">
     <view class="section-head">
       <text class="section-title">打卡次数对比</text>
-      <text class="section-sub">{{range === 'week' ? '按天' : range === 'month' ? '按周' : '按月'}}</text>
+      <text class="section-sub">{{granSub}} · 左右滑动</text>
     </view>
     <view class="card chart-card">
       <qiun-charts
@@ -190,6 +193,7 @@
         theme="{{themeName}}"
         height="{{400}}"
         unit=" 次"
+        scroll="{{true}}"
         hidden="{{showCheckin || showEditor}}"
       />
     </view>

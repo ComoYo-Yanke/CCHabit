@@ -156,68 +156,118 @@ function dailySeries(dayMap, days) {
 }
 
 /**
- * 把区间按粒度分桶，用于柱状图对比。
+ * 把窗口按**单位**分桶：选日就是一天一桶、选周一周一桶、选月一月一桶、选年一年一桶。
  *
- * gran 取值：
- *   'day'         按天出桶（周视图：7 根柱子）
- *   'weekOfMonth' 按「本月第 N 周」出桶（月视图：约 5 根柱子）
- *   'year'        按月份出桶（年视图：12 根柱子）
+ * 这里原来是一把「比区间细一档」的梯子（周里看天、月里看周、年里看月），
+ * 理由是「区间就是一整个该单位，用区间名出桶只会得到一根柱子」。理由成立，
+ * 解法却把图和控件说拧了：用户点的是「周」，横轴上却是一天一根柱子，
+ * 一排 7 根柱子全落在同一个区间里，翻一页也说不清是第几周。
+ * 现在粒度**就是**区间本身 —— 单位与区间一一对应，图上每一格 = 一次翻页 ——
+ * 而「只有一根柱子」的问题改由 windowOf 铺一串同类单位解决（见 utils/date.js）。
  *
  * @param {Object} dayMap
- * @param {'day'|'weekOfMonth'|'year'} gran 桶粒度
- * @param {string} start 区间起点
- * @param {string} end 区间终点
+ * @param {'day'|'week'|'month'|'year'} gran 桶的单位
+ * @param {string} start 窗口起点（落在单位边界上，见 date.windowOf）
+ * @param {string} end 窗口终点
  * @returns {Array<{label:string, value:Number, count:Number, activeDays:Number}>}
  */
 function bucketSeries(dayMap, gran, start, end) {
   const buckets = []
-  const push = (label, days) => {
-    let value = 0
-    let count = 0
-    let activeDays = 0
-    days.forEach((d) => {
-      const cell = dayMap[d]
-      if (!cell || !cell.count) return
-      value += cell.value
-      count += cell.count
-      activeDays += 1
-    })
-    buckets.push({ label, value, count, activeDays })
-  }
+  let cur = ''
 
-  if (gran === 'day') {
-    // 周视图：一周 7 根柱子，标签用「一/二/…/日」
-    dayjs.daysBetween(start, end).forEach((d) => {
-      const cell = dayMap[d]
-      buckets.push({
-        label: dayjs.weekdayCN(d),
-        value: cell ? cell.value : 0,
-        count: cell ? cell.count : 0,
-        activeDays: cell && cell.count ? 1 : 0
-      })
-    })
-    return buckets
-  }
-
-  if (gran === 'weekOfMonth') {
-    // 月视图：按自然日区间切成「第 1~5 周」，比直接铺 31 根柱子更易读
-    const days = dayjs.daysBetween(start, end)
-    for (let w = 0; w < 5; w++) {
-      const chunk = days.slice(w * 7, w * 7 + 7)
-      if (!chunk.length) break
-      push('第' + (w + 1) + '周', chunk)
+  if (gran === 'week') {
+    // 标签用这一周周一的日期：一周一格时，「第几周」没有绝对含义，
+    // 而起点日期是唯一的（跨月、跨年都不会歧义）
+    cur = dayjs.startOfWeek(start)
+    while (cur <= end) {
+      pushBucket(buckets, dayjs.shortDateLabel(cur), cur, dayjs.addDays(cur, 6), dayMap)
+      cur = dayjs.addDays(cur, 7)
     }
     return buckets
   }
 
-  // 年视图：按月分 12 桶
-  const year = dayjs.parseDate(start).getFullYear()
-  for (let m = 0; m < 12; m++) {
-    const monthStart = year + '-' + dayjs.pad2(m + 1) + '-01'
-    const monthEnd = dayjs.endOfMonth(monthStart)
-    push(m + 1 + '月', dayjs.daysBetween(monthStart, monthEnd))
+  if (gran === 'month') {
+    cur = dayjs.startOfMonth(start)
+    while (cur <= end) {
+      pushBucket(buckets, dayjs.parseDate(cur).getMonth() + 1 + '月', cur, dayjs.endOfMonth(cur), dayMap)
+      cur = dayjs.addMonths(cur, 1)
+    }
+    return buckets
   }
+
+  if (gran === 'year') {
+    cur = dayjs.startOfYear(start)
+    while (cur <= end) {
+      pushBucket(buckets, dayjs.parseDate(cur).getFullYear() + '年', cur, dayjs.endOfYear(cur), dayMap)
+      cur = dayjs.addYears(cur, 1)
+    }
+    return buckets
+  }
+
+  // 缺省按天
+  dayjs.daysBetween(start, end).forEach((d) => {
+    pushBucket(buckets, dayjs.shortDateLabel(d), d, d, dayMap)
+  })
   return buckets
+}
+
+/**
+ * 一个日期区间的汇总桶。
+ *
+ * 逐日往前推（addDays 一个游标），而不是先把区间铺成日期数组再遍历：
+ * 年窗口的桶各有 365 天，铺数组会白造一万多个字符串。
+ */
+function pushBucket(buckets, label, start, end, dayMap) {
+  let value = 0
+  let count = 0
+  let activeDays = 0
+  const total = dayjs.diffDays(start, end)
+  for (let i = 0; i <= total; i++) {
+    const cell = dayMap[dayjs.addDays(start, i)]
+    if (!cell || !cell.count) continue
+    value += cell.value
+    count += cell.count
+    activeDays += 1
+  }
+  buckets.push({ label, value, count, activeDays })
+}
+
+/**
+ * 区间 -> 出桶单位。**两者是同一个东西**：选日看每天、选周看每周、
+ * 选月看每月、选年看每年。
+ *
+ * 之所以还留着这张表而不是让调用方直接用 range：粒度这个概念在别处还要用
+ * （图表标题「每周」、副标题「按周」），有一处显名映射，改了单位不会漏改文案。
+ */
+const RANGE_GRAN = { day: 'day', week: 'week', month: 'month', year: 'year' }
+
+/** 单位对应的中文单字，用来拼「每天 / 每周 / 每月 / 每年」这类文案 */
+const GRAN_LABEL = { day: '天', week: '周', month: '月', year: '年' }
+
+/** 区间 -> 出桶单位，未知区间按天 */
+function granOfRange(range) {
+  return RANGE_GRAN[range] || 'day'
+}
+
+/** 区间 -> 单位的中文单字（天 / 周 / 月 / 年），用来拼图表标题与副标题 */
+function granLabel(range) {
+  return GRAN_LABEL[granOfRange(range)] || GRAN_LABEL.day
+}
+
+/**
+ * 时间轴图表一屏画几格（滚动模式下的 xAxis.itemCount）。
+ *
+ * 数字是排版问题不是数学问题：格里的标签是「9/17」「10月」这种短字，
+ * 一屏 10 格时每格还有一百多设备像素，再多就该挤了。
+ * 四个值都小于对应的窗口格数（见 date.WINDOW_PERIODS），
+ * 只有年视图两者相等 —— 一屏正好装下整个窗口，滑不动，也就不必滑。
+ */
+const CHART_ITEM_COUNT = { day: 10, week: 8, month: 6, year: 5 }
+
+/** 区间 -> 图表一屏的格数 */
+function chartItemCount(range) {
+  const n = CHART_ITEM_COUNT[range]
+  return typeof n === 'number' ? n : CHART_ITEM_COUNT.day
 }
 
 /**
@@ -446,6 +496,9 @@ module.exports = {
   fmtNum,
   dailySeries,
   bucketSeries,
+  granOfRange,
+  granLabel,
+  chartItemCount,
   heatmapData,
   levelOf,
   monthCalendar,

@@ -11,15 +11,16 @@
     </view>
   </view>
 
-  <!-- 主体：横向 N 列 × 纵向 7 行（周一到周日） -->
+  <!-- 主体：横向 N 列 × 纵向 7 行（周一到周日）。
+       每格的填充色由 js 算好放在 cell.bg 上（色阶 / 圆点是两套规则，见 index.js 的 fillOf） -->
   <view class="heat-grid">
     <view wx:for="{{columns}}" wx:key="index" class="heat-col">
       <view
         wx:for="{{item}}"
         wx:for-item="cell"
         wx:key="date"
-        class="heat-cell {{cell.future ? 'heat-cell--future' : ''}}"
-        style="{{cell.future ? '' : 'background:' + (cell.level === 0 ? 'var(--heat-0)' : 'var(--heat-' + cell.level + ')')}}"
+        class="heat-cell {{dot ? 'heat-cell--dot' : ''}} {{cell.future ? 'heat-cell--future' : ''}}"
+        style="{{cell.future ? '' : 'background:' + cell.bg}}"
         data-date="{{cell.date}}"
         bindtap="onCellTap"
       ></view>
@@ -45,13 +46,13 @@
       show-scrollbar="{{false}}"
     >
       <view class="heat-inner" style="width: {{gridWidth}}rpx;">
-        <template is="heatCells" data="{{columns, monthSlots, showMonths}}" />
+        <template is="heatCells" data="{{columns, monthSlots, showMonths, dot}}" />
       </view>
     </scroll-view>
 
     <!-- 普通模式：每列 flex:1 等分容器，整块正好铺满 -->
     <view wx:else class="heat-inner">
-      <template is="heatCells" data="{{columns, monthSlots, showMonths}}" />
+      <template is="heatCells" data="{{columns, monthSlots, showMonths, dot}}" />
     </view>
   </view>
 

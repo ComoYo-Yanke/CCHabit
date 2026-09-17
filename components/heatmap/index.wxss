@@ -132,6 +132,22 @@
   border-radius: 5rpx;
 }
 
+/* ---- 圆点模式（首页卡片） ---- */
+/*
+ * 要的是**正圆**，所以格子得先是正方形。
+ * 不能写 `height: 100%`（父元素没有确定高度），也不写死 rpx ——
+ * 列宽是 flex 等分出来的，写死了就对不上。这里用 padding-bottom: 100%：
+ * 百分比内边距按**包含块的宽度**解析，而包含块正是这一列，
+ * 于是格子高度 = 列宽，天然是正方形，改列数 / 改卡片宽度都不用跟着改数字。
+ * 紧接其后的 .heat--compact .heat-cell--dot 是为了压过上面那条紧凑模式
+ * （它写死了 height: 20rpx 和 5rpx 圆角）。
+ */
+.heat--compact .heat-cell--dot {
+  height: 0;
+  padding-bottom: 100%;
+  border-radius: 50%;
+}
+
 /* ---- 图例 ---- */
 .heat-legend {
   display: flex;

@@ -13,6 +13,19 @@ const dayjs = require('../../utils/date.js')
  */
 const COL_W = 32
 
+/**
+ * 单格的填充色。
+ *
+ * 色阶模式（默认）按 level 取那五档变量：0 是「没记录」，贴着底色。
+ * 圆点模式**只分有没有**，有记录一律实心 —— 首页小卡上的格子只有十几 rpx，
+ * 四档深浅在那么小的面积上根本分不出来，只会把「哪几天打了卡」说糊。
+ * 颜色优先用调用方给的主题色（习惯色），没给就退回当前主题的主色。
+ */
+function fillOf(cell, dot, color) {
+  if (dot) return cell.count > 0 ? color || 'var(--accent)' : 'var(--heat-0)'
+  return cell.level === 0 ? 'var(--heat-0)' : 'var(--heat-' + cell.level + ')'
+}
+
 Component({
   options: {
     styleIsolation: 'apply-shared'
@@ -27,10 +40,19 @@ Component({
     target: { type: Number, value: 0 },
     /** 最后一个格子所在日期，默认今天 */
     endDate: { type: String, value: '' },
-    /** 主题色（暂用于图例文字） */
-    color: { type: String, value: '#5B8CFF' },
+    /**
+     * 圆点模式下「有记录」那种格子的颜色（习惯详情页传习惯色、首页卡片传习惯色）。
+     * 默认空串 = 用当前主题的主色（--accent）：首页的打卡总览是「全部习惯合计」，
+     * 不属于任何一个习惯，也就没有习惯色可用。
+     */
+    color: { type: String, value: '' },
     /** 紧凑模式（习惯卡片里的小图） */
     compact: { type: Boolean, value: false },
+    /**
+     * 圆点模式（首页卡片）：格子画成圆，且不显示深浅，只分「打过 / 没打过」。
+     * 见 fillOf 与 index.wxss 的 .heat-cell--dot。
+     */
+    dot: { type: Boolean, value: false },
     /** 是否显示月份刻度 */
     showMonths: { type: Boolean, value: true },
     /** 是否显示底部图例 */
@@ -62,6 +84,10 @@ Component({
     'scroll': function () {
       // 切换模式会改变列宽的算法，整块重算一遍（并重新靠右）
       this.rebuild()
+    },
+    // 每一格的颜色是 rebuild 里算好的（见 fillOf），这两项变了得重算一遍
+    'dot, color': function () {
+      this.rebuild()
     }
   },
 
@@ -73,7 +99,7 @@ Component({
 
   methods: {
     rebuild() {
-      const { dayMap, weeks, target, endDate, scroll } = this.data
+      const { dayMap, weeks, target, endDate, scroll, dot, color } = this.data
       const data = stats.heatmapData(dayMap || {}, endDate || dayjs.today(), weeks, target)
 
       // 把「第几列出现新月份」摊平成与列等长的数组，渲染时按列对齐
@@ -85,8 +111,14 @@ Component({
 
       const gridWidth = scroll ? weeks * COL_W : 0
 
+      // 填充色在这里算，不写在 wxml 的表达式里：色阶和圆点是两套完全不同的规则，
+      // 塞进一个属性里就是两层三元表达式叠着，谁也读不出来
+      const columns = data.columns.map((col) =>
+        col.map((cell) => Object.assign({}, cell, { bg: fillOf(cell, dot, color) }))
+      )
+
       this.setData({
-        columns: data.columns,
+        columns,
         monthSlots,
         maxValue: data.maxValue,
         gridWidth,

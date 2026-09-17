@@ -1,11 +1,16 @@
 /**
  * 统计总览页
  *
- * 支持 周 / 月 / 年 三维度切换，展示：
+ * 支持 日 / 周 / 月 / 年 四维度切换，展示：
  *   1. 全局汇总指标（打卡总次数、打卡天数、完成率、覆盖习惯数）
- *   2. 折线图：每日打卡次数趋势（跨全部习惯）
- *   3. 柱状图：各习惯在本区间的打卡次数对比
+ *   2. 折线图：打卡次数趋势（跨全部习惯），单位**就是**当前区间 ——
+ *      选日一天一格、选周一周一格、选月一月一格、选年一年一格，可横向滑动回看
+ *   3. 柱状图：各习惯在本窗口的打卡次数对比（横轴是习惯名，与时间单位无关）
  *   4. 排行榜：逐习惯的明细（次数 / 累计数值 / 连续天数 / 完成率）
+ *
+ * 每一档铺开的是一个**窗口**（日 30 天 / 周 26 周 / 月 12 个月 / 年 5 年），
+ * 一屏画不下，靠横向滑动看；两头的箭头平移整个窗口。
+ * 汇总指标和排行榜算的就是这个窗口，和图上画的那一片是同一段时间。
  *
  * 注意：不同习惯的「数值单位」不同（个、公里、毫升…），
  * 因此全局层只汇总「次数」这类可比指标，数值一律回到单个习惯内展示。
@@ -29,6 +34,8 @@ Page({
     range: 'week',
     anchor: '',
     rangeLabel: '',
+    /** 折线图标题：每{{天/周/月/年}}打卡趋势，跟着 range 变（见 refresh） */
+    lineTitle: '',
     canNext: false,
 
     summary: null,
@@ -102,7 +109,9 @@ Page({
     const { range } = this.data
     const today = dayjs.today()
     const anchor = this.data.anchor || today
-    const rangeInfo = dayjs.rangeOf(range, anchor)
+    // 窗口而不是单个单位：汇总 / 排行 / 图表算的都是同一片，
+    // 拿 rangeOf（单个单位）的话，图上 26 根柱子配的是一周的指标
+    const rangeInfo = dayjs.windowOf(range, anchor)
 
     const habits = storage.getEnabledHabits()
     const recordsMap = storage.getRecordsMap()
@@ -126,20 +135,13 @@ Page({
     // （见 utils/theme.js 的 chartVars，取的是十六进制，uCharts 只认这个）
     const chart = theme.chartVars(this.data.themeName)
 
-    // ---- 折线：每日打卡次数（跨习惯合计） ----
-    const series = stats.dailySeries(merged, rangeInfo.days)
-    const lineSource =
-      range === 'year'
-        ? stats.bucketSeries(merged, 'year', rangeInfo.start, rangeInfo.end).map((b) => ({
-            label: b.label,
-            count: b.count
-          }))
-        : series.map((s) => ({ label: s.label, count: s.count }))
-
-    const lineData = {
-      categories: lineSource.map((p) => p.label),
-      series: [{ name: '打卡次数', color: chart.accent, data: lineSource.map((p) => p.count) }]
-    }
+    // ---- 折线：打卡次数趋势（跨习惯合计） ----
+    // 出桶单位**就是**当前区间（见 stats.granOfRange）：选周就是一周一格，
+    // 一格对应一次翻页，和头顶那个分段控件说的是同一件事。
+    // 结构交给 barChartData 拼：折线和柱状要的都是 { categories, series }，
+    // 只是取 count 这一个字段，没必要在这里再手写一遍映射
+    const buckets = stats.bucketSeries(merged, stats.granOfRange(range), rangeInfo.start, rangeInfo.end)
+    const lineData = stats.barChartData(buckets, { color: chart.accent, field: 'count' })
 
     // ---- 逐习惯明细 ----
     // 跨习惯比较时只能比「次数」（各习惯单位不同，数值不可加），
@@ -177,6 +179,8 @@ Page({
     this.setData({
       anchor,
       rangeLabel: rangeInfo.label,
+      // 图的单位跟着区间走，标题得跟着改，否则月视图里写着「每日」而横轴是月份
+      lineTitle: '每' + stats.granLabel(range) + '打卡趋势',
       canNext: !!this.shiftedAnchor(1),
       hasHabits: habits.length > 0,
       summary: Object.assign({}, summary, {
@@ -187,7 +191,11 @@ Page({
       lineData,
       barData,
       ranking,
-      lineOpts: { xAxis: { labelCount: 5, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } },
+      // 折线是时间轴：一屏 itemCount 格，多出来的横向滑动看（scroll 属性配 itemCount，
+      // 见 components/qiun-charts）。不配 labelCount —— 一屏才 6~10 格，
+      // 每格的标签都放得下，再抽稀只会把「10月」抽掉一半。
+      // 对比柱状图的横轴是习惯名，和时间无关，保持不滚动 + 抽稀
+      lineOpts: { xAxis: { itemCount: stats.chartItemCount(range), fontSize: 10 }, yAxis: { data: [{ min: 0 }] } },
       barOpts: { xAxis: { labelCount: 6, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } }
     }, done)
   },
@@ -199,21 +207,28 @@ Page({
   },
 
   /**
-   * 按 delta 平移区间，返回新的锚点；越界时返回 null（整段都在今天之后，没有数据可看）。
+   * 按 delta 平移窗口，返回新的锚点；越界时返回 null（最后一格落在今天之后，没有数据可看）。
+   *
+   * 一次平移的是**整个窗口**（day 30 天 / week 26 周 / month 12 月 / year 5 年），
+   * 不是一格 —— 一格一格挪的话，窗口里绝大多数格子原地不动，翻页等于没翻。
    *
    * 这里的方向曾经写反过：「左」按钮点了没反应，只能往「右」翻、还能一直翻到未来去。
    * 原来那句是 `diffDays(nextStart, today) > 0`，即「区间起点在过去」——
    * 而上一周 / 上一月 / 上一年的起点**必然**在过去，于是往回翻被全线挡死；
-   * 往未来翻反而没人拦。判据应该是「下一段的起点落在今天之后」，
-   * 也就是这一整段还没发生。
+   * 往未来翻反而没人拦。判据应该是「下一屏还没发生」，也就是它的最后一格
+   * 落在今天所在的那一格之后。
    *
    * 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后，不用转 Date。
    */
   shiftedAnchor(delta) {
     const { range } = this.data
     const today = dayjs.today()
-    const next = dayjs.shiftRange(range, this.data.anchor || today, delta)
-    return dayjs.rangeOf(range, next).start > today ? null : next
+    const step = dayjs.windowPeriods(range)
+    const next = dayjs.shiftRange(range, this.data.anchor || today, delta * step)
+    // 比的是各自的**单位起点**，不是 next 这个日期本身：next 只是落在最后一格里的
+    // 某一天（月视图里是 17 号，而窗口是从 1 号铺的），直接跟今天比大小会误判 ——
+    // 往前翻一屏后仍可能「比今天小」，于是箭头亮着，按下去窗口却摆回原处
+    return dayjs.rangeOf(range, next).start > dayjs.rangeOf(range, today).start ? null : next
   },
 
   onShiftRange(e) {

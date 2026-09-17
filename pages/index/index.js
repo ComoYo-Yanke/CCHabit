@@ -4,10 +4,11 @@
  * 结构：
  *   1. 顶部问候 + 今日概览（完成数 / 连续天数）
  *   2. 全部习惯的合并热力点阵（铺满全部历史，可横向滑动回看）
- *   3. 习惯卡片列表（单卡自带近 12 周点阵、今日数值、连续天数）
+ *   3. 习惯卡片栅格（两列方形小卡：近 12 周圆点阵 + 连续天数 + 快捷打卡）
  *   4. 右下角悬浮按钮：新建习惯
  *
  * 数据全部来自本地 storage，页面 onShow 时重新汇总。
+ * 版本号变过的话，onShow 还会弹一次「已更新至 vX.Y.Z」（见 maybeShowUpdate）。
  */
 const app = getApp()
 const storage = require('../../utils/storage.js')
@@ -15,6 +16,7 @@ const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
+const version = require('../../utils/version.js')
 
 /** 首页合并热力图的**最少**周数；有更早的记录就一路往前铺，可以横向滑到底 */
 const OVERVIEW_MIN_WEEKS = 26
@@ -28,6 +30,12 @@ const CARD_WEEKS = 12
  * step 是弹层里快捷档位的幅度，属于精细录入那条路。
  */
 const QUICK_CHECKIN_VALUE = 1
+/**
+ * 更新提示的退场时长（ms）。
+ * 要 ≥ app.wxss 里 .mask 的透明度过渡（0.22s），否则 --mounted 摘早了，
+ * 弹窗会是「啪」地消失而不是淡出。略多一点留余量。
+ */
+const MODAL_LEAVE_MS = 260
 
 Page({
   data: {
@@ -53,13 +61,21 @@ Page({
     // 习惯列表
     items: [],
     hasHabits: false,
+    /** 卡片内迷你点阵的周数（唯一一份定义在 CARD_WEEKS） */
+    cardWeeks: CARD_WEEKS,
 
     // 弹层
     showEditor: false,
     editingHabit: null,
     showCheckin: false,
     checkinHabit: null,
-    checkinDate: ''
+    checkinDate: '',
+
+    // 更新提示（版本变了才弹一次，见 maybeShowUpdate）
+    verMounted: false,
+    verOn: false,
+    verVersion: '',
+    verItems: []
   },
 
   onLoad() {
@@ -91,6 +107,7 @@ Page({
     // 从「我的 / 统计」页点「新建习惯」跳过来时，把编辑弹层直接打开，
     // 否则用户切到首页后只看到一个 + 按钮，会以为功能坏了
     if (app.consumePendingAction() === 'newHabit') this.onAddHabit()
+    this.maybeShowUpdate()
   },
 
   /**
@@ -192,24 +209,19 @@ Page({
       const dayMap = stats.buildDayMap(records)
       const streak = stats.computeStreak(dayMap, today)
       const todayCell = dayMap[today]
-      // 「累计」从该习惯第一条记录算起，而不是固定区间
-      const all = stats.summarize(dayMap, this.firstDate(records), today)
 
       const done = !!(todayCell && todayCell.count > 0)
       if (done) todayDone += 1
       if (streak.current > maxStreak) maxStreak = streak.current
 
-      const todayValue = todayCell ? todayCell.value : 0
-
+      // 只喂卡片真正要画的东西：卡片上已经不看今日状态和累计值了，
+      // 那几项当年是给旧卡片准备的 —— 多算一遍 summarize 就是白读一遍记录
       return {
         habit,
         dayMap,
+        // done 卡片不用，但概览区的「去打卡」要靠它挑第一个没打卡的习惯
         done,
-        todayCount: todayCell ? todayCell.count : 0,
-        todayText: stats.fmtNum(todayValue),
-        streak: streak.current,
-        totalText: stats.fmtNum(all.totalValue),
-        totalCount: all.totalCount
+        streak: streak.current
       }
     })
 
@@ -226,10 +238,57 @@ Page({
     }, done)
   },
 
-  /** 记录里最早的日期，用于「累计」统计的起点；无记录时退回今天 */
-  firstDate(records) {
-    return records.length ? records[0].d : dayjs.today()
+  // ---------------- 更新提示 ----------------
+
+  /**
+   * 版本变过就弹一次「已更新至 vX.Y.Z」。
+   *
+   * 判据是 storage 里记的 appVersion 和当前版本号不等（见 utils/storage.js）：
+   *   - 全新安装：初始化时就把当前版本写进去了，两个值相等 —— 新用户不会收到
+   *     「已更新」这种对他是无意义的通知；
+   *   - 老版本升级上来：记的还是旧版本号，于是弹一次；
+   *   - 弹过之后：立刻把新版本号记下来，重进、重开都不再弹。
+   *
+   * 立刻记录（而不是等用户点「知道了」）是有意的：这个提示是「通知」不是「任务」，
+   * 万一用户没点就杀掉小程序，也不该下次再拦他一遍。
+   */
+  maybeShowUpdate() {
+    if (this.data.verMounted) return
+    if (storage.lastVersion() === version.APP_VERSION) return
+
+    const items = version.changelogOf(version.APP_VERSION)
+    storage.markVersion(version.APP_VERSION)
+    // 没有更新条目（比如只是内部改动）就静默跳过：为一个空弹窗打断打卡不值当
+    if (!items.length) return
+
+    this.setData({
+      verMounted: true,
+      verVersion: version.APP_VERSION,
+      verItems: items
+    })
+    // 下一拍再加 --on：遮罩得先落到 display:flex，过渡才有起点（见 app.wxss 的 .mask）
+    this._verTimer = setTimeout(() => {
+      if (this.data.verMounted) this.setData({ verOn: true })
+    }, 20)
   },
+
+  onCloseUpdate() {
+    if (!this.data.verMounted || !this.data.verOn) return
+    this.setData({ verOn: false })
+    // 先摘 --on 播完退场，再摘 --mounted 落到 display:none
+    this._verTimer = setTimeout(() => this.setData({ verMounted: false }), MODAL_LEAVE_MS)
+  },
+
+  onUnload() {
+    if (this._verTimer) clearTimeout(this._verTimer)
+  },
+
+  /**
+   * 空处理：给遮罩的 catchtouchmove 和面板的 catchtap 用。
+   * 遮罩上必须挂 catchtouchmove，否则滑动会穿透到背后的页面（见 app.wxss 的 .mask）；
+   * 面板上的 catchtap 是为了让点面板本身不冒泡到遮罩，不然点正文也会关掉弹窗。
+   */
+  noop() {},
 
   // ---------------- 交互 ----------------
 

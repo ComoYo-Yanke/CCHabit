@@ -455,6 +455,93 @@ view, text, scroll-view, button, input, textarea {
 }
 
 /*
+ * 居中弹窗用的遮罩变体：.mask 默认把面板压到底部（justify-content: flex-end），
+ * 这里改成屏幕正中。加的是 align-items: center 而不是 padding —— 遮罩是
+ * left/top/right/bottom 全 0 的定宽盒子，再挂左右内边距会不会溢出取决于
+ * box-sizing 是谁，赌不起；宽度交给 .modal 自己按百分比给。
+ */
+.mask--center {
+  justify-content: center;
+  align-items: center;
+}
+
+/*
+ * 居中的弹窗面板（自定义主题的取景弹窗、首页的更新提示）。
+ *
+ * 底色那几行和 .sheet 是同一套理由：卡片会跟着 surfaceAlpha 变透明，
+ * 而这类面板底下压着 60% 黑的遮罩，跟着透只会「越透越暗」，正文一起糊掉 ——
+ * 所以面板自己覆写一整套实心的 --popup-*（详见 .sheet 上的长注释）。
+ *
+ * 入场只走 transform，不走自己的 opacity：父层 .mask 的透明度是整棵子树一起
+ * 合成出去的，面板再写一遍 opacity 只会多一个可能对不齐的时钟。
+ */
+.modal {
+  width: 78%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  /* 内容再长也不许溢出，否则圆角外面会漏出东西 */
+  overflow: hidden;
+  background: var(--popup-surface);
+  --surface: var(--popup-surface);
+  --surface-2: var(--popup-surface-2);
+  --surface-3: var(--popup-surface-3);
+  --border: var(--popup-border);
+  --border-soft: var(--popup-border-soft);
+  border: 1rpx solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 24rpx 70rpx rgba(0, 0, 0, 0.36);
+  /* 收起姿态：略小 + 略低，展开时回到原位（位移很小，只是让「弹出来」有形） */
+  transform: scale(0.94) translateY(16rpx);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.mask--on .modal {
+  transform: none;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 28rpx 10rpx;
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-close {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: -10rpx;
+}
+
+/*
+ * 面板主体：和 .sheet-body 同一条规矩 —— **scroll-view** + flex 收缩 + min-height: 0。
+ * 理由见上面 .sheet-body 那六版血泪史，这里不重复；简单说就是普通 view 的
+ * overflow 滚动会被遮罩的 catchtouchmove 吃掉，真机上滑不动。
+ * max-height 是兜底：flex 分配万一没认，scroll-view 也得有个确定的顶。
+ */
+.modal-body {
+  padding: 6rpx 28rpx 0;
+  flex: 1;
+  min-height: 0;
+  max-height: 60vh;
+}
+
+.modal-foot {
+  padding: 20rpx 28rpx 26rpx;
+  flex-shrink: 0;
+}
+
+/*
  * 弹层就是这里覆写一整套底色变量的地方，**故意不和卡片共用 --surface**。
  *
  * 卡片那几层要跟着 surfaceAlpha 变透明 —— 那是自定义主题里「让背景图透上来」的

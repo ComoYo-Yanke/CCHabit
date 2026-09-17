@@ -8,7 +8,7 @@
   深色默认值，整页随之换肤（见 utils/theme.js）。page-style 是整体覆盖，
   所以弹层的 overflow 必须自己拼在后面。
 -->
-<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin) ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin || verMounted) ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <!--
   淡出淡入全靠 fading 这一个布尔量（机制见 utils/page-fade.js）：
@@ -96,16 +96,21 @@
         <text class="section-sub">长按卡片可编辑</text>
       </view>
 
-      <habit-card
-        wx:for="{{items}}"
-        wx:key="habit.id"
-        item="{{item}}"
-        weeks="{{12}}"
-        showHeat="{{true}}"
-        bind:tapcard="onCardTap"
-        bind:checkin="onCardCheckin"
-        bind:longpress="onCardLongPress"
-      />
+      <!-- 两列栅格：卡片做成正方形后自己不知道宽度，列宽（也就是卡片的宽和高）
+           由这里给。用 gap + calc((100% - 20rpx) / 2) 而不是 50% —— 后者会把
+           gap 算进两列里，第二列直接被挤到下一行，变成一列一个 -->
+      <view class="habit-grid">
+        <view wx:for="{{items}}" wx:key="habit.id" class="habit-cell">
+          <habit-card
+            item="{{item}}"
+            weeks="{{cardWeeks}}"
+            showHeat="{{true}}"
+            bind:tapcard="onCardTap"
+            bind:checkin="onCardCheckin"
+            bind:longpress="onCardLongPress"
+          />
+        </view>
+      </view>
     </view>
   </block>
 
@@ -118,6 +123,41 @@
 <view class="fab {{fading ? 'fab--out' : ''}}" bindtap="onAddHabit">
   <!-- 必须用白色加号：ic-plus-active 是蓝色描边，和按钮底色一样，会完全看不见 -->
   <view class="ic ic-plus-white fab-icon"></view>
+</view>
+
+<!--
+  ============ 更新提示（首次打开新版本时弹一次） ============
+  放在 .page 之外，理由和悬浮按钮一样：.page--out 是整棵子树透明度归零，
+  提示弹在页面之外，不能跟着页面的淡入淡出一起被抹掉。
+  内容只是文字（没有 input 之类的原生组件），但遮罩仍然照规矩两级挂载 ——
+  .mask 收起时 display:none 是那套原生化问题的唯一正解，见 app.wxss 的 .mask。
+-->
+<view
+  class="mask mask--center {{verMounted ? 'mask--mounted' : ''}} {{verOn ? 'mask--on' : ''}}"
+  catchtouchmove="noop"
+  bindtap="onCloseUpdate"
+>
+  <!-- 面板自己吞掉点击，点面板空白处不该关掉 -->
+  <view class="modal" catchtap="noop">
+    <view class="modal-head">
+      <view class="modal-title">已更新至 v{{verVersion}}</view>
+      <view class="modal-close press" bindtap="onCloseUpdate">
+        <view class="ic ic-close-idle"></view>
+      </view>
+    </view>
+
+    <scroll-view scroll-y class="modal-body upd-body">
+      <view class="upd-label">本次更新</view>
+      <view wx:for="{{verItems}}" wx:key="*this" class="upd-item">
+        <view class="upd-dot"></view>
+        <text class="upd-item-text">{{item}}</text>
+      </view>
+    </scroll-view>
+
+    <view class="modal-foot">
+      <view class="btn btn--primary" bindtap="onCloseUpdate">知道了</view>
+    </view>
+  </view>
 </view>
 
 <!-- ============ 弹层 ============ -->

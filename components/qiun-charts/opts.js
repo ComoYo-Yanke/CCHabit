@@ -18,6 +18,20 @@
 const theme = require('../../utils/theme.js')
 
 /**
+ * 估算一段文字的像素宽度：中日韩字符按 1em、其余（数字 / 字母 / 标点）按 0.55em。
+ *
+ * 不能按字数估：时间轴的标签是「9/17」「10月」这类，一个数字只有半个字宽，
+ * 按字数估会把明明放得下的「9/15」判成太长而截成「9/…」。
+ */
+function textWidth(str, fontSize) {
+  let w = 0
+  for (let i = 0; i < str.length; i++) {
+    w += str.charCodeAt(i) > 0x2e80 ? fontSize : fontSize * 0.55
+  }
+  return w
+}
+
+/**
  * 柱状图 X 轴类别名收缩器（uCharts 的 xAxis.formatter 钩子）。
  *
  * 为什么需要它：uCharts 的抽稀逻辑（drawXAxis 内）把 categories 每隔 ratio 个留一个，
@@ -27,12 +41,12 @@ const theme = require('../../utils/theme.js')
  * 一格只剩二十几 px，就会出现「冥想」直接压住「早睡早起打卡」。
  * 而且抽稀挡不住它 —— 最后那个标签不受 ratio 约束，抽得再狠也照样挨着画。
  *
- * 唯一的出路是让文字本身短到能塞进一格：按「一格能放几个字」把过长的名字截断。
- * 折线图的类别是日期 / 月份，本来就是固定宽度，不参与收缩。
+ * 唯一的出路是让文字本身短到能塞进一格：按「一格能放多宽」把过长的名字截断。
+ * 折线图的类别本来就是固定宽度的日期 / 月份，不参与收缩。
  *
  * @param {*} val   类别文本（抽稀掉的槽位会传空串）
  * @param {*} index 类别下标
- * @param {*} opts  uCharts 的完整配置，用它拿画布宽 / 内边距 / 类目数
+ * @param {*} opts  uCharts 的完整配置，用它拿画布宽 / 内边距 / 一屏格数
  */
 function xCategoryFormatter(val, index, opts) {
   if (!val || !opts) return val
@@ -52,15 +66,19 @@ function xCategoryFormatter(val, index, opts) {
   const plotWidth = (opts.width || 0) - (area[1] || 0) - (area[3] || 0)
   if (plotWidth <= 0) return val
 
+  // 一格有多宽：滚动模式下一屏只显示 itemCount 格，所以格子是「屏宽 / itemCount」，
+  // 不是「屏宽 / 类目总数」—— 后者会把格子算窄 itemCount 倍，于是月视图的「10月」
+  // 被判成放不下而截掉半个字。0.9 是留给 Y 轴占位和左右边界的余量。
+  const slots = opts.enableScroll && xAxis.itemCount ? Math.min(xAxis.itemCount, cats.length) : cats.length
+  const maxWidth = (plotWidth / slots) * 0.9
   const fontSize = (xAxis.fontSize || opts.fontSize || 10) * pix
-  // 一格 = 一个类别的横向宽度。0.9 是留给 Y 轴占位和左右边界的余量，
-  // 中文按 1em 估宽（比实际略宽，宁可截短也不要压字）。
-  const maxChars = Math.floor(((plotWidth / cats.length) * 0.9) / fontSize)
-  if (maxChars >= 2 && val.length > maxChars) {
-    // 截到 maxChars-1 再补省略号，总宽 ≈ maxChars - 0.5 字，仍在一格之内
-    return val.slice(0, maxChars - 1) + '…'
-  }
-  return val
+  if (textWidth(val, fontSize) <= maxWidth) return val
+
+  // 一个字一个字往回退，退到加上省略号也放得下为止。
+  // 一个字都放不下时干脆不截：截成「…」比压着隔壁格子更没用。
+  let cut = val.length - 1
+  while (cut > 0 && textWidth(val.slice(0, cut) + '…', fontSize) > maxWidth) cut -= 1
+  return cut > 0 ? val.slice(0, cut) + '…' : val
 }
 
 /**
@@ -104,11 +122,14 @@ function defaultOpts(themeName) {
       // 类别名过长时自动截断，见 xCategoryFormatter 的注释。
       // 这里配在默认值里，页面不用（也无法）自己传函数：函数过不了 setData 的序列化。
       formatter: xCategoryFormatter
-      // ⚠️ 不要给 xAxis 配 itemCount：它是**滚动模式**下的单屏数量，
-      // 配合 enableScroll:false 使用时只会污染 uCharts 的抽稀算式
+      // ⚠️ itemCount 是**滚动模式**下的单屏格数，只在 enableScroll:true 时由页面传
+      // （时间轴那几张图，见 components/qiun-charts 的 scroll 属性）。
+      // 不滚动时千万别配它：它会污染 uCharts 的抽稀算式
       //   maxXAxisListLength = ceil(categories.length / itemCount * labelCount) - 1
-      // 让本该怎么抽的月份/年份标签全挤在一起（月视图 30 天能画出 16 个标签）。
-      // 不设置时 maxXAxisListLength 直接等于 labelCount，抽稀才是对的。
+      // 让本该怎么抽的标签全挤在一起。不设置时 maxXAxisListLength 直接等于 labelCount，
+      // 抽稀才是对的。
+      // 时间轴那几张图同理也**不配 labelCount**：一屏本来就只有 6~10 格，
+      // 每格的标签都放得下，再按 labelCount 抽一遍只会把「10月」抽掉一半。
     },
     yAxis: {
       gridType: 'dash',

@@ -1,52 +1,54 @@
+<!--
+  一张方形小卡：两列并排（栅格在 pages/index 的 .habit-grid 里）。
+  内容只有三样：图标 + 名称、近 N 周的圆点阵、连续天数与快捷打卡按钮。
+  「今天打没打」不再单列一块文字 —— 圆点阵的最后一列就是今天，看一眼就知道，
+  再写一行「未打卡」纯属重复；「今日 · N 次」同理，点开详情才有意义。
+-->
 <view
   wx:if="{{item}}"
   class="hc card press"
   bindtap="onTapCard"
   bindlongpress="onLongPress"
 >
-  <!-- 顶部：图标 / 名称 / 今日状态 -->
-  <view class="hc-head">
-    <view class="hc-icon" style="background: {{item.habit.color}}22; border-color: {{item.habit.color}}44;">
-      {{item.habit.icon}}
+  <!-- 外层只负责撑出正方形，排版全在绝对定位的内层里（理由见 index.wxss 的 .hc） -->
+  <view class="hc-inner">
+    <view class="hc-head">
+      <view class="hc-icon" style="background: {{item.habit.color}}22; border-color: {{item.habit.color}}44;">
+        {{item.habit.icon}}
+      </view>
+      <view class="hc-name ellipsis">{{item.habit.name}}</view>
     </view>
 
-    <view class="hc-title-wrap">
-      <view class="hc-name ellipsis">{{item.habit.name}}</view>
-      <view class="hc-meta">
-        <view wx:if="{{item.streak > 0}}" class="hc-streak">
-          <view class="ic ic-fire-active hc-fire"></view>
-          <text>{{item.streak}} 天</text>
-        </view>
-        <text wx:else class="hc-meta-idle">还没有连续记录</text>
+    <!-- 圆点阵：只分「打过 / 没打过」，颜色取习惯色。不传 target：每日目标已移除 -->
+    <view wx:if="{{showHeat}}" class="hc-heat">
+      <heatmap
+        dayMap="{{item.dayMap}}"
+        weeks="{{weeks}}"
+        compact="{{true}}"
+        dot="{{true}}"
+        color="{{item.habit.color}}"
+        showMonths="{{false}}"
+        showLegend="{{false}}"
+      />
+    </view>
+
+    <view class="hc-foot">
+      <view wx:if="{{item.streak > 0}}" class="hc-streak">
+        <view class="ic ic-fire-active hc-fire"></view>
+        <text>{{item.streak}} 天</text>
+      </view>
+      <text wx:else class="hc-meta-idle">还没开始</text>
+
+      <!-- 快捷打卡：点一下直接记一笔（数值固定为 1，见 pages/index 的 onCardCheckin）。
+           只画一个对勾 —— 方形小卡里放不下「打卡」两个字，而这个位置本来就只有一个动作 -->
+      <view
+        class="hc-btn"
+        style="background: {{item.habit.color}};"
+        data-id="{{item.habit.id}}"
+        catchtap="onCheckin"
+      >
+        <view class="ic ic-check-white hc-btn-icon"></view>
       </view>
     </view>
-
-    <view class="hc-today {{item.done ? 'hc-today--done' : ''}}" style="{{item.done ? 'background:' + item.habit.color + '22;color:' + item.habit.color : ''}}">
-      <text wx:if="{{item.done}}" class="hc-today-text">{{item.todayText}}{{item.habit.unit}}</text>
-      <text wx:else class="hc-today-text">未打卡</text>
-      <text class="hc-today-label">今日{{item.todayCount > 0 ? ' · ' + item.todayCount + ' 次' : ''}}</text>
-    </view>
-  </view>
-
-  <!-- 近 N 周热力概览。不传 target：每日目标已经移除，色阶按区间内最大值相对分档 -->
-  <view wx:if="{{showHeat}}" class="hc-heat">
-    <heatmap
-      dayMap="{{item.dayMap}}"
-      weeks="{{weeks}}"
-      compact="{{true}}"
-      showMonths="{{false}}"
-      showLegend="{{false}}"
-    />
-  </view>
-
-  <!-- 底部操作 -->
-  <view class="hc-foot">
-    <text class="hc-foot-hint">累计 {{item.totalText}}{{item.habit.unit}} · 共 {{item.totalCount}} 次</text>
-    <view
-      class="hc-btn"
-      style="background: {{item.habit.color}};"
-      data-id="{{item.habit.id}}"
-      catchtap="onCheckin"
-    >打卡</view>
   </view>
 </view>

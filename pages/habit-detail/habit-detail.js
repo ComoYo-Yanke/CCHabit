@@ -4,11 +4,14 @@
  * 包含：
  *   1. 头部信息 + 打卡 / 编辑入口
  *   2. 日历视图（只读一览：当月哪几天打了卡、哪几天没打，可往前翻月份，不可翻到未来）
- *   3. 周 / 月 / 年 区间切换的汇总指标
- *   4. 折线图：区间内每日数值变化
- *   5. 柱状图：区间内打卡次数对比
+ *   3. 日 / 周 / 月 / 年 四档切换的汇总指标
+ *   4. 折线图：当前单位（天 / 周 / 月 / 年）的数值合计，一屏画不下就横向滑动
+ *   5. 柱状图：同一批桶的打卡次数对比，与折线图共用单位
  *   6. 热力点阵：完成情况，铺满全部历史，横向可滑动
  *   7. 历史打卡记录（当天可改可删，过去只读回看）
+ *
+ * 第 3~5 项说的都是同一个**窗口**（日 30 天 / 周 26 周 / 月 12 个月 / 年 5 年），
+ * 两头的箭头平移整个窗口（见 refreshRange / shiftedAnchor）。
  */
 const app = getApp()
 const storage = require('../../utils/storage.js')
@@ -47,6 +50,10 @@ Page({
     /** 区间锚点，空串表示跟随今天 */
     anchor: '',
     rangeLabel: '',
+    /** 折线图标题：每{{天/周/月/年}}数值趋势，跟着 range 变（见 refreshRange） */
+    lineTitle: '',
+    /** 柱状图副标题「按天 / 按周 / 按月 / 按年」，同样跟着 range 变 */
+    granSub: '',
     canNext: false,
     summary: null,
 
@@ -185,42 +192,50 @@ Page({
   },
 
   /**
-   * 按当前 range 计算区间汇总与两张图表。
+   * 按当前 range 计算窗口汇总与两张图表。
    * @param {Object} [cachedDayMap] 已算好的 dayMap，缺省时自行读取
    */
   refreshRange(cachedDayMap) {
     const { habit, range } = this.data
     const today = dayjs.today()
     const activeAnchor = this.data.anchor || today
-    const rangeInfo = dayjs.rangeOf(range, activeAnchor)
+    // 窗口而不是单个单位：汇总 / 两张图算的都是同一片，
+    // 拿 rangeOf（单个单位）的话，图上 26 根柱子配的是一周的指标
+    const rangeInfo = dayjs.windowOf(range, activeAnchor)
     const dayMap = cachedDayMap || stats.buildDayMap(storage.getRecords(habit.id))
 
     const summary = stats.summarize(dayMap, rangeInfo.start, rangeInfo.end)
-    const inRangeStreak = stats.computeStreak(filterDayMap(dayMap, rangeInfo.days), today)
+    const inRangeStreak = stats.computeStreak(filterDayMap(dayMap, rangeInfo.start, rangeInfo.end), today)
 
-    // 折线：年视图按天会挤成 365 个点，退化为按月聚合；周/月视图保持按日
-    const lineSource =
-      range === 'year'
-        ? buildMonthlyLine(dayMap, rangeInfo)
-        : stats.dailySeries(dayMap, rangeInfo.days)
+    // 出桶单位**就是**当前区间（见 stats.granOfRange）：选周就是一周一格，
+    // 一格对应一次翻页。两张图共用同一批桶，说的才是同一件事 ——
+    // 原先折线在月视图里按天铺 31 个点、柱状按周只出 5 根，上下两张图根本对不上。
+    const buckets = stats.bucketSeries(dayMap, stats.granOfRange(range), rangeInfo.start, rangeInfo.end)
 
-    const lineData = {
-      categories: lineSource.map((p) => p.label),
-      series: [{ name: habit.unit || '数值', color: habit.color, data: lineSource.map((p) => p.value) }]
-    }
+    // 图表颜色跟着主题走：canvas 读不到 CSS 变量，颜色全靠 JS 喂，
+    // 写死 habit.color 的话换主题时图还是老配色（见 utils/theme.js 的 chartVars）
+    const chart = theme.chartVars(this.data.themeName)
 
-    // 柱状：打卡次数对比（周=7 天 / 月=第 N 周 / 年=12 个月）
-    const gran = range === 'week' ? 'day' : range === 'month' ? 'weekOfMonth' : 'year'
-    const buckets = stats.bucketSeries(dayMap, gran, rangeInfo.start, rangeInfo.end)
+    // 折线：每个桶的数值合计（缺省 field 就是 value）
+    const lineData = stats.barChartData(buckets, {
+      name: habit.unit || '数值',
+      color: chart.accent
+    })
+
+    // 柱状：同一批桶，取打卡次数
     const barData = stats.barChartData(buckets, {
       name: '打卡次数',
-      color: habit.color,
+      color: chart.success,
       field: 'count'
     })
 
     this.setData({
       anchor: activeAnchor,
       rangeLabel: rangeInfo.label,
+      // 图的单位跟着区间走，标题和副标题也得跟着改，否则年视图里横轴是 1~12 月、
+      // 标题却写着「每日数值趋势」
+      lineTitle: '每' + stats.granLabel(range) + '数值趋势',
+      granSub: '按' + stats.granLabel(range),
       canNext: !!this.shiftedAnchor(1, activeAnchor),
       summary: Object.assign({}, summary, {
         totalValueText: stats.fmtNum(summary.totalValue),
@@ -230,9 +245,12 @@ Page({
       }),
       lineData,
       barData,
-      // labelCount 控制 x 轴标签抽稀后的数量，避免柱/点密集时文字重叠
-      chartOpts: { xAxis: { labelCount: 5, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } },
-      barOpts: { xAxis: { labelCount: 7, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } }
+      // 两张图都是时间轴：一屏 itemCount 格（见 stats.chartItemCount），多出来的横向
+      // 滑动看（scroll 属性配 itemCount，见 components/qiun-charts）。
+      // 不配 labelCount —— 一屏才 6~10 格，每格的标签都放得下，再抽稀只会把「10月」
+      // 抽掉一半
+      chartOpts: { xAxis: { itemCount: stats.chartItemCount(range), fontSize: 10 }, yAxis: { data: [{ min: 0 }] } },
+      barOpts: { xAxis: { itemCount: stats.chartItemCount(range), fontSize: 10 }, yAxis: { data: [{ min: 0 }] } }
     })
   },
 
@@ -244,13 +262,16 @@ Page({
   },
 
   /**
-   * 按 delta 平移区间，返回新的锚点；越界时返回 null（整段都在今天之后，没有数据可看）。
+   * 按 delta 平移窗口，返回新的锚点；越界时返回 null（最后一格落在今天之后，没有数据可看）。
+   *
+   * 一次平移的是**整个窗口**（day 30 天 / week 26 周 / month 12 月 / year 5 年），
+   * 不是一格 —— 一格一格挪的话，窗口里绝大多数格子原地不动，翻页等于没翻。
    *
    * 这里的方向曾经写反过，和统计页是同一个 bug：「左」按钮点了没反应，
    * 只能往「右」翻、还能一直翻到未来去。原来那句是 `diffDays(nextStart, today) > 0`，
    * 即「区间起点在过去」—— 而上一周 / 上一月 / 上一年的起点**必然**在过去，
-   * 于是往回翻被全线挡死，往未来翻反而没人拦。判据应该是
-   * 「下一段的起点落在今天之后」，也就是这一整段还没发生。
+   * 于是往回翻被全线挡死，往未来翻反而没人拦。判据应该是「下一屏还没发生」，
+   * 也就是它的最后一格落在今天所在的那一格之后。
    *
    * canNext 也复用同一个判断，避免「箭头亮着但点了没用」这种自相矛盾的状态。
    *
@@ -261,8 +282,10 @@ Page({
     const { range } = this.data
     const today = dayjs.today()
     const anchor = fromAnchor || this.data.anchor || today
-    const next = dayjs.shiftRange(range, anchor, delta)
-    return dayjs.rangeOf(range, next).start > today ? null : next
+    const next = dayjs.shiftRange(range, anchor, delta * dayjs.windowPeriods(range))
+    // 比的是各自的**单位起点**，不是 next 这个日期本身：next 只是落在最后一格里的
+    // 某一天（月视图里是 17 号，而窗口是从 1 号铺的），直接跟今天比大小会误判
+    return dayjs.rangeOf(range, next).start > dayjs.rangeOf(range, today).start ? null : next
   },
 
   onShiftRange(e) {
@@ -458,19 +481,17 @@ Page({
   }
 })
 
-/** 只保留区间内的日期，用于计算「区间内最长连续」 */
-function filterDayMap(dayMap, days) {
+/**
+ * 只保留窗口内的日期，用于计算「窗口内最长连续」。
+ * 按日期串首尾卡，不铺日期数组 —— 年窗口有 1800 多天，铺出来只为过一遍太亏。
+ * 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后。
+ */
+function filterDayMap(dayMap, start, end) {
   const out = {}
-  days.forEach((d) => {
-    if (dayMap[d]) out[d] = dayMap[d]
+  Object.keys(dayMap).forEach((d) => {
+    if (d >= start && d <= end) out[d] = dayMap[d]
   })
   return out
-}
-
-/** 年视图折线：按月聚合，返回 [{label:'1月', value}] */
-function buildMonthlyLine(dayMap, rangeInfo) {
-  const buckets = stats.bucketSeries(dayMap, 'year', rangeInfo.start, rangeInfo.end)
-  return buckets.map((b) => ({ label: b.label, value: b.value }))
 }
 
 /** 时间戳 -> HH:mm */

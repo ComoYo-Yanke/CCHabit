@@ -15,6 +15,8 @@
  *   - **取景是「挪窗子」，不是「调三个数」**：整张图摊开当舞台，上面盖一个屏幕比例的
  *     小窗，窗里的就是会显示的那块（见 utils/theme.js 的 frame）。拖动改 imagePosX/Y，
  *     旁边的滑块改 imageZoom —— 存的还是那三个老字段，所以真实页面的渲染一行没动。
+ *     这套东西收在「调整背景图」弹窗里，页面上只看得到一颗按钮：整张图摊开占的
+ *     地方太大，往下滑的时候手指极容易蹭到小窗，把取景拖歪了都不知道。
  *   - 这一页**不参与页面淡入**（没有 page--fade / onShow / onHide 那套）。
  *     页面里有原生组件（slider / image），它们不认祖先的 opacity，
  *     淡入时会出现「底片全透明、滑块已经杵在那儿」的怪相。
@@ -22,6 +24,14 @@
  */
 const storage = require('../../utils/storage.js')
 const theme = require('../../utils/theme.js')
+
+/**
+ * 取景弹窗的入场 / 退场时长（ms），和 app.wxss 里 .modal 的 0.24s、
+ * .mask 的 0.22s 过渡对应：退场要 ≥ 0.22s 才不至于「啪」地消失；
+ * 入场后要等过渡走完再量舞台（途中量到的是缩放中的宽度）。
+ */
+const MODAL_ENTER_MS = 280
+const MODAL_LEAVE_MS = 260
 
 /** 可改的五个颜色。顺序就是界面上的顺序，从「大块」到「小字」 */
 const FIELDS = [
@@ -70,7 +80,11 @@ Page({
     /** 当前展开了色板 / 滑块的那一项，空串表示都收着 */
     activeField: '',
     /** 展开项的三根滑块当前值，拖动时用 */
-    rgb: { r: 0, g: 0, b: 0 }
+    rgb: { r: 0, g: 0, b: 0 },
+
+    /** 「调整背景图」弹窗的两级挂载状态（见 app.wxss 的 .mask） */
+    frameMounted: false,
+    frameOn: false
   },
 
   onLoad() {
@@ -112,9 +126,9 @@ Page({
    */
   apply(cfg) {
     const p = theme.preview(cfg)
-    // 取景台刚出现时量一次舞台（见 measureStage）。量到之前拖动是不会动的，
-    // 所以这里挂一次；量不到（还没渲染出来）下一次 apply 还会再挂
-    if (p.frame && !this._stageW) wx.nextTick(() => this.measureStage())
+    // 舞台的宽度不在这里量：取景台现在只住在弹窗里（打开时量，见 onOpenFrame），
+    // 而 apply 大部分时候是在弹窗关着的情况下被调的（改颜色、拖透明度），
+    // 那时 .fx-stage 根本不在节点树上
     this.setData({
       cfg,
       themeStyle: p.style + ';',
@@ -234,14 +248,48 @@ Page({
     else this.apply(cfg)
   },
 
-  // ---------------- 取景台 ----------------
+  // ---------------- 取景弹窗 ----------------
+
+  /**
+   * 打开「调整背景图」。
+   *
+   * 两级挂载的理由见 app.wxss 的 .mask：滑块是**原生组件**，只认「在不在」，
+   * 收起时必须整棵子树 display:none，否则会在页面上留下半透明的残影。
+   */
+  onOpenFrame() {
+    if (!this.data.cfg.image || this.data.frameMounted) return
+    // 舞台宽度作废重量：它现在住在弹窗里，面板宽和当初卡片宽不是一回事，
+    // 拿旧数去把手指的 px 换算成百分比会拖不准
+    this._stageW = 0
+    this.setData({ frameMounted: true })
+    // 下一拍再加 --on：遮罩得先落到 display:flex，过渡才有起点
+    wx.nextTick(() => {
+      this.setData({ frameOn: true })
+      // 量两次：这一次让拖动立刻能用，等展开动画走完再量一次 ——
+      // 面板是从 scale(0.94) 弹到原位的，动画途中量到的是缩放后的宽度，差 6%
+      this.measureStage()
+      this._frameTimer = setTimeout(() => this.measureStage(), MODAL_ENTER_MS)
+    })
+  },
+
+  onCloseFrame() {
+    if (!this.data.frameMounted || !this.data.frameOn) return
+    this.setData({ frameOn: false })
+    // 先摘 --on 播完退场，延迟一下再摘 --mounted 落到 display:none
+    this._frameTimer = setTimeout(() => this.setData({ frameMounted: false }), MODAL_LEAVE_MS)
+  },
+
+  onUnload() {
+    if (this._frameTimer) clearTimeout(this._frameTimer)
+  },
 
   /**
    * 量一次舞台的宽度，缓存起来。**只有拖动需要它** —— 手指走的是 px，而配置里存的是
-   * 百分比，换算要一个真实的长度。舞台的尺寸由 CSS 撑（padding-bottom = 原图宽高比），
-   * 其中宽度就是卡片的内容宽，跟图无关，所以一台设备量一次就够。
+   * 百分比，换算要一个真实的长度。舞台的高度由 CSS 撑（padding-bottom = 原图宽高比），
+   * 所以量到宽度就够了，高度按 frame.pad 折算，不必两处分头算。
    *
-   * 量的是宽度，高度按 frame.pad 折算 —— 省一次测量，也免得两处分头算高度。
+   * 量不到（弹窗没开、或还没渲染出来）时静默跳过：`_stageW` 保持 0，
+   * onFrameStart 会因此拒绝开始拖动 —— 宁可不响应，也好过用错误的宽度乱拖。
    */
   measureStage() {
     wx.createSelectorQuery()

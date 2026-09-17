@@ -2,8 +2,10 @@
   page-meta 必须是页面第一个节点。
   themeStyle 里的变量由**本地**配置现算（见 theme.preview），不是从 storage 读的 ——
   滑块还在拖的时候配置还没落盘，但整页得立刻跟着变。
+  取景弹窗打开期间再关掉本页的滚动：遮罩上的 catchtouchmove 只拦触摸，
+  开发者工具里鼠标滚轮走 wheel 事件，会直接滚到背后的页面（同 pages/index）。
 -->
-<page-meta page-style="{{themeStyle}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{frameMounted ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <nav-bar title="自定义主题" back="{{true}}" fixed="{{true}}" />
 
@@ -69,105 +71,18 @@
         <view class="flex-1">
           <view class="bg-title">{{cfg.image ? '换一张' : '选择图片'}}</view>
           <view class="bg-desc">从相册或相机选，会自动压缩后存在本机（不上传）</view>
+          <!--
+            取景台不画在这里。它块头大、又是整张图摊开，摆在这一页往下滑的时候
+            手指极容易蹭到小窗，把取景拖歪了还不知道自己干了什么 ——
+            所以收进正中那个「调整背景图」弹窗，要调才打开。
+          -->
           <view class="bg-ops">
-            <view class="btn btn--ghost bg-op press" bindtap="onPickImage">选择图片</view>
+            <view class="btn btn--ghost bg-op press" bindtap="onPickImage">{{cfg.image ? '换一张' : '选择图片'}}</view>
+            <view wx:if="{{cfg.image}}" class="btn btn--ghost bg-op press" bindtap="onOpenFrame">调整背景图</view>
             <view wx:if="{{cfg.image}}" class="btn btn--ghost bg-op press" bindtap="onRemoveImage">移除</view>
           </view>
         </view>
       </view>
-
-      <block wx:if="{{cfg.image}}">
-        <!--
-          取景台。整张图按原比例摊开当舞台，上面盖一个**屏幕比例**的小窗 ——
-          窗里的就是真机上会显示的那一块，窗外压暗加糊表示「看不到」。
-          几何全部来自 theme.frame（和真实那一层的 bgLayer 出自同一份配置），
-          所以窗里看到的和真机上看到的是一回事，不存在「预览对、真机偏」。
-          窗子用百分比定位（舞台高度由 padding-bottom 撑成原图宽高比），
-          因此这一整块不需要量 DOM 就能画出来；量一次只是为了把手指的 px 换算成百分比。
-        -->
-        <view wx:if="{{frame}}" class="fx">
-          <view class="fx-stage" style="padding-bottom: {{frame.pad}}%;">
-            <!-- 窗外那层：和窗里是同一张图，只是多糊一档（几何一样，所以不用另起类名） -->
-            <image
-              class="fx-img"
-              src="{{cfg.image}}"
-              mode="scaleToFill"
-              style="filter: blur({{frame.outBlur}}px); -webkit-filter: blur({{frame.outBlur}}px);"
-            />
-            <view class="fx-dim"></view>
-            <view
-              class="fx-win"
-              style="left: {{frame.win.left}}%; top: {{frame.win.top}}%; width: {{frame.win.width}}%; height: {{frame.win.height}}%;"
-              bindtouchstart="onFrameStart"
-              catchtouchmove="onFrameMove"
-              bindtouchend="onFrameEnd"
-              bindtouchcancel="onFrameEnd"
-            >
-              <image
-                class="fx-img"
-                src="{{cfg.image}}"
-                mode="scaleToFill"
-                style="left: {{frame.inner.left}}%; top: {{frame.inner.top}}%; width: {{frame.inner.width}}%; height: {{frame.inner.height}}%; filter: blur({{cfg.imageBlur}}px); -webkit-filter: blur({{cfg.imageBlur}}px);"
-              />
-            </view>
-          </view>
-          <view class="sl-tip">按住小窗拖到你想要的画面，窗外那块不会显示</view>
-        </view>
-
-        <view class="sl-row">
-          <view class="sl-label">
-            <text>取景缩放</text>
-            <text class="sl-val">{{cfg.imageZoom}}%</text>
-          </view>
-          <slider
-            min="100"
-            max="300"
-            step="5"
-            value="{{cfg.imageZoom}}"
-            activeColor="{{cfg.accent}}"
-            block-size="20"
-            data-field="imageZoom"
-            bindchanging="onNumChanging"
-            bindchange="onNumChange"
-          />
-          <view class="sl-tip">越大越近，也就是小窗越小；拉不动的那一轴说明本来就没得挪</view>
-        </view>
-        <view class="sl-row">
-          <view class="sl-label">
-            <text>模糊</text>
-            <text class="sl-val">{{cfg.imageBlur}}</text>
-          </view>
-          <slider
-            min="0"
-            max="30"
-            step="1"
-            value="{{cfg.imageBlur}}"
-            activeColor="{{cfg.accent}}"
-            block-size="20"
-            data-field="imageBlur"
-            bindchanging="onNumChanging"
-            bindchange="onNumChange"
-          />
-        </view>
-        <view class="sl-row">
-          <view class="sl-label">
-            <text>淡化</text>
-            <text class="sl-val">{{cfg.imageDim}}%</text>
-          </view>
-          <slider
-            min="0"
-            max="100"
-            step="1"
-            value="{{cfg.imageDim}}"
-            activeColor="{{cfg.accent}}"
-            block-size="20"
-            data-field="imageDim"
-            bindchanging="onNumChanging"
-            bindchange="onNumChange"
-          />
-          <view class="sl-tip">越高图越淡、字越清楚；调到 0 就是原图</view>
-        </view>
-      </block>
     </view>
   </view>
 
@@ -273,4 +188,130 @@
   </view>
 
   <view class="list-bottom-gap"></view>
+</view>
+
+<!--
+  ============ 调整背景图（正中弹窗） ============
+  取景台连同那三根滑块都住在这里，页面上只看得到一颗「调整背景图」按钮。
+  放这一页外面（.page 的兄弟节点）没有特别理由，只是和别处的弹层保持同一个位置习惯。
+
+  取景台。整张图按原比例摊开当舞台，上面盖一个**屏幕比例**的小窗 ——
+  窗里的就是真机上会显示的那一块，窗外压暗加糊表示「看不到」。
+  几何全部来自 theme.frame（和真实那一层的 bgLayer 出自同一份配置），
+  所以窗里看到的和真机上看到的是一回事，不存在「预览对、真机偏」。
+  窗子用百分比定位（舞台高度由 padding-bottom 撑成原图宽高比），
+  因此这一整块不需要量 DOM 就能画出来；量一次只是为了把手指的 px 换算成百分比。
+-->
+<view
+  class="mask mask--center {{frameMounted ? 'mask--mounted' : ''}} {{frameOn ? 'mask--on' : ''}}"
+  catchtouchmove="noop"
+  bindtap="onCloseFrame"
+>
+  <!-- 面板自己吞掉点击，点正文不该关掉弹窗 -->
+  <view class="modal" catchtap="noop">
+    <view class="modal-head">
+      <view class="modal-title">调整背景图</view>
+      <view class="modal-close press" bindtap="onCloseFrame">
+        <view class="ic ic-close-idle"></view>
+      </view>
+    </view>
+
+    <!-- 主体必须是 scroll-view（普通 view 的滚动会被遮罩的 catchtouchmove 吃掉，
+         真机上滑不动），理由见 app.wxss 的 .modal-body -->
+    <scroll-view scroll-y class="modal-body">
+      <block wx:if="{{frame}}">
+        <view class="fx">
+          <view class="fx-stage" style="padding-bottom: {{frame.pad}}%;">
+            <!-- 窗外那层：和窗里是同一张图，只是多糊一档（几何一样，所以不用另起类名） -->
+            <image
+              class="fx-img"
+              src="{{cfg.image}}"
+              mode="scaleToFill"
+              style="filter: blur({{frame.outBlur}}px); -webkit-filter: blur({{frame.outBlur}}px);"
+            />
+            <view class="fx-dim"></view>
+            <!-- catchtouchmove：拖窗子不该顺手把弹窗里的内容滚起来 -->
+            <view
+              class="fx-win"
+              style="left: {{frame.win.left}}%; top: {{frame.win.top}}%; width: {{frame.win.width}}%; height: {{frame.win.height}}%;"
+              bindtouchstart="onFrameStart"
+              catchtouchmove="onFrameMove"
+              bindtouchend="onFrameEnd"
+              bindtouchcancel="onFrameEnd"
+            >
+              <image
+                class="fx-img"
+                src="{{cfg.image}}"
+                mode="scaleToFill"
+                style="left: {{frame.inner.left}}%; top: {{frame.inner.top}}%; width: {{frame.inner.width}}%; height: {{frame.inner.height}}%; filter: blur({{cfg.imageBlur}}px); -webkit-filter: blur({{cfg.imageBlur}}px);"
+              />
+            </view>
+          </view>
+          <view class="sl-tip">按住小窗拖到你想要的画面，窗外那块不会显示</view>
+        </view>
+
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>取景缩放</text>
+            <text class="sl-val">{{cfg.imageZoom}}%</text>
+          </view>
+          <slider
+            min="100"
+            max="300"
+            step="5"
+            value="{{cfg.imageZoom}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-field="imageZoom"
+            bindchanging="onNumChanging"
+            bindchange="onNumChange"
+          />
+          <view class="sl-tip">越大越近，也就是小窗越小；拉不动的那一轴说明本来就没得挪</view>
+        </view>
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>模糊</text>
+            <text class="sl-val">{{cfg.imageBlur}}</text>
+          </view>
+          <slider
+            min="0"
+            max="30"
+            step="1"
+            value="{{cfg.imageBlur}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-field="imageBlur"
+            bindchanging="onNumChanging"
+            bindchange="onNumChange"
+          />
+        </view>
+        <view class="sl-row">
+          <view class="sl-label">
+            <text>淡化</text>
+            <text class="sl-val">{{cfg.imageDim}}%</text>
+          </view>
+          <slider
+            min="0"
+            max="100"
+            step="1"
+            value="{{cfg.imageDim}}"
+            activeColor="{{cfg.accent}}"
+            block-size="20"
+            data-field="imageDim"
+            bindchanging="onNumChanging"
+            bindchange="onNumChange"
+          />
+          <view class="sl-tip">越高图越淡、字越清楚；调到 0 就是原图</view>
+        </view>
+      </block>
+
+      <!-- frame 为 null 只会发生在「问不到原图尺寸」的那张图上（见 probeImageSize）。
+           这时摆一个空舞台只会误导，直接说清楚，并且给一条出路 -->
+      <view wx:else class="fx-empty">这张背景图读不到尺寸，暂时调不了取景。换一张图即可恢复。</view>
+    </scroll-view>
+
+    <view class="modal-foot">
+      <view class="btn btn--primary" bindtap="onCloseFrame">完成</view>
+    </view>
+  </view>
 </view>

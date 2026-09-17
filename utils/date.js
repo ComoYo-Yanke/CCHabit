@@ -154,13 +154,32 @@ function yearMonthLabel(str) {
 }
 
 /**
- * 计算某个统计维度（周/月/年）对应的时间区间。
- * @param {'week'|'month'|'year'} type
+ * 'YYYY-MM-DD' -> '9/11'。
+ * 时间轴的每一格都要挤下一个标签（日视图一屏 10 格、周视图 8 格），
+ * 「9月11日」这种中文写法比「9/11」宽一倍，会压到隔壁格子上。
+ * 年份不进标签：窗口标签（见 windowLabel）已经写了这一屏是哪一段。
+ */
+function shortDateLabel(str) {
+  const d = parseDate(str)
+  return d.getMonth() + 1 + '/' + d.getDate()
+}
+
+/**
+ * 计算某个统计维度（日/周/月/年）对应的**单个**单位区间。
+ *
+ * ⚠️ 这里是「anchor 落在的那一个单位」，不是图表上展示的那一片：
+ * 一片是 `windowOf` 铺开的若干格。要算汇总 / 排行（也就是跟着图走的那几个数）
+ * 得用 windowOf 的 start/end，拿这里的只会得到「一周 / 一月」的量。
+ *
+ * @param {'day'|'week'|'month'|'year'} type
  * @param {string} anchor 区间内的任意一天
  * @returns {{start:string, end:string, days:string[], label:string}}
  */
 function rangeOf(type, anchor) {
   const a = anchor || today()
+  if (type === 'day') {
+    return { start: a, end: a, days: [a], label: monthDayLabel(a) }
+  }
   if (type === 'week') {
     const start = startOfWeek(a)
     const end = endOfWeek(a)
@@ -177,15 +196,80 @@ function rangeOf(type, anchor) {
 }
 
 /**
- * 相对当前区间按粒度平移，返回新的锚点日期。
- * @param {'week'|'month'|'year'} type
+ * 相对当前区间平移，返回新的锚点日期。
+ *
+ * 平的是**一个单位**（一天 / 一周 / 一月 / 一年）。翻页按钮一次要平移整屏，
+ * 那是调用方乘上 windowPeriods 的事，别写进这里 —— 这个函数只回答
+ * 「往前一格是哪天」。
+ *
+ * @param {'day'|'week'|'month'|'year'} type
  * @param {string} anchor 当前锚点
  * @param {number} delta 平移量（-1 上一区间 / +1 下一区间）
  */
 function shiftRange(type, anchor, delta) {
+  if (type === 'day') return addDays(anchor, delta)
   if (type === 'week') return addDays(anchor, delta * 7)
   if (type === 'month') return addMonths(anchor, delta)
   return addYears(anchor, delta)
+}
+
+/**
+ * 每个维度在图上铺多少格。单位与维度同名：日铺 30 天、周铺 26 周、
+ * 月铺 12 个月、年铺 5 年。
+ *
+ * 为什么不是「就铺一个单位」：一个单位就是一格，图上只剩一根柱子，
+ * 既看不出趋势也翻不动。铺一串同类单位，翻页按钮平移的是这一整串。
+ *
+ * 为什么是这四组数：一屏画不下这么多格（一屏几格见 stats.chartItemCount），
+ * 多出来的靠横向滑动看。窗口给得比一屏宽，滑动才有东西可滑；
+ * 给得太宽又只是把滚动条拉长，没有信息增量。
+ */
+const WINDOW_PERIODS = { day: 30, week: 26, month: 12, year: 5 }
+
+/** 某个维度一屏要平移多少个单位（翻页的步长 = 整个窗口） */
+function windowPeriods(type) {
+  return WINDOW_PERIODS[type] || WINDOW_PERIODS.day
+}
+
+/**
+ * 图表展示的窗口：以 anchor 所在的那个单位为**最后一格**，往前铺
+ * windowPeriods(type) 格。
+ *
+ * 汇总指标、排行榜、两张图表全都用这个 start/end —— 它们必须和图上画出来的
+ * 那一串格子是同一片时间，否则会出现「图上只有 6 格，指标却按 12 个月算」。
+ *
+ * @param {'day'|'week'|'month'|'year'} type
+ * @param {string} anchor 窗口最后一格里的任意一天
+ * @returns {{start:string, end:string, label:string, periods:Number}}
+ */
+function windowOf(type, anchor) {
+  const t = WINDOW_PERIODS[type] ? type : 'day'
+  const n = WINDOW_PERIODS[t]
+  const last = rangeOf(t, anchor || today())
+  // 从最后一格的起点往回退 n-1 格，就是第一格（各单位的对齐由 shiftRange 保证：
+  // 周退到周一、月退到 1 号、年退到 1 月 1 日）
+  const first = rangeOf(t, shiftRange(t, last.start, -(n - 1)))
+  return {
+    start: first.start,
+    end: last.end,
+    label: windowLabel(t, first.start, last.end),
+    periods: n
+  }
+}
+
+/**
+ * 窗口标签。日 / 周给日期区间，月给年月区间，年给年份区间。
+ * 跨年时才补上年份，免得常年顶着一个没人看的年份占地方。
+ */
+function windowLabel(type, start, end) {
+  const a = parseDate(start)
+  const b = parseDate(end)
+  if (type === 'year') return a.getFullYear() + '年 - ' + b.getFullYear() + '年'
+  if (type === 'month') return yearMonthLabel(start) + ' - ' + yearMonthLabel(end)
+  const sameYear = a.getFullYear() === b.getFullYear()
+  const head = (sameYear ? '' : a.getFullYear() + '年') + monthDayLabel(start)
+  const tail = (sameYear ? '' : b.getFullYear() + '年') + monthDayLabel(end)
+  return head + ' - ' + tail
 }
 
 /**
@@ -238,8 +322,11 @@ module.exports = {
   weekdayFullCN,
   monthDayLabel,
   yearMonthLabel,
+  shortDateLabel,
   rangeOf,
   shiftRange,
+  windowPeriods,
+  windowOf,
   friendlyLabel,
   isFutureRange
 }

@@ -1,7 +1,10 @@
 /**
  * 首页习惯卡片
  *
- * 展示单个习惯的：今日打卡状态、连续天数、近 N 周热力概览、目标进度。
+ * 一个圆角方形的小卡，两列并排（栅格在 pages/index 的 .habit-grid）。
+ * 只画三样：图标 + 名称、近 N 周圆点阵、连续天数与快捷打卡按钮。
+ * 「今日打没打」交给点阵的最后一列去说，不再单列一块文字。
+ *
  * 数据由页面预先汇总成 item 传入，卡片本身不做任何计算，保持轻量。
  */
 Component({
@@ -12,10 +15,8 @@ Component({
      * {
      *   habit: Habit,
      *   dayMap: { 'YYYY-MM-DD': {count, value} },
-     *   todayCount: Number,    今日打卡次数
-     *   todayText: String,     今日累计数值（已格式化）
      *   streak: Number,        当前连续天数
-     *   done: Boolean          今日是否已打卡
+     *   done: Boolean          今日是否已打卡（卡片不画，页面挑「去打卡」的目标时用）
      * }
      */
     item: { type: Object, value: null },

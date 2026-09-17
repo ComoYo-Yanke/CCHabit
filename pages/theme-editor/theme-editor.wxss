@@ -122,6 +122,8 @@
 
 .bg-ops {
   display: flex;
+  /* 有图时是三颗（换一张 / 调整背景图 / 移除），窄屏上宁可换行也别把字压扁 */
+  flex-wrap: wrap;
   gap: 16rpx;
   margin-top: 18rpx;
 }
@@ -185,6 +187,14 @@
   overflow: hidden;
   border-radius: 4rpx;
   box-shadow: 0 0 0 2rpx var(--accent);
+}
+
+/* 弹窗里读不到原图尺寸时的兜底文案（正常情况走不到） */
+.fx-empty {
+  padding: 40rpx 0;
+  font-size: 24rpx;
+  color: var(--text-3);
+  line-height: 1.7;
 }
 
 /* ============ 滑块行 ============ */
