@@ -1,17 +1,19 @@
 /**
  * 关于页
  *
- * 纯静态页面，不含任何数据读写：
+ * 基本上是静态页：
  *   1. 小程序自身信息（名称 / 版本 / 一句话介绍）
- *   2. 数据与隐私说明（数据只在本机）
- *   3. 最近更新（更新日志）
- *   4. 开发者信息（名称 / 邮箱 / GitHub / 简介）
+ *   2. 开屏更新公告的开关（**本页唯一一处读写 storage 的地方**）
+ *   3. 数据与隐私说明（数据只在本机）
+ *   4. 最近更新（更新日志）
+ *   5. 开发者信息（名称 / 邮箱 / GitHub / 简介）
  *
  * 版本号与更新日志来自 utils/version.js，和「我的」页、首页的更新弹窗是同一份。
  *
  * 小程序没法直接跳外链（web-view 只认业务域名，个人开发者通常没有），
  * 所以 GitHub 走的是「复制地址」：复制完用户自己粘到浏览器里打开。
  */
+const storage = require('../../utils/storage.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 // 版本号与更新日志的唯一一份定义（「我的」页和首页的更新弹窗读的是同一份）
@@ -38,6 +40,21 @@ Page({
     // 主题：themeStyle 供 page-meta 换肤，themeName 是 app-bg 判断「还该不该显示背景图」的信号
     themeName: theme.DEFAULT_THEME,
     themeStyle: '',
+    /**
+     * 「此次更新不再显示公告」的开关状态，即 storage 里的
+     * `updateMuted === 当前版本号`。
+     *
+     * 不另存一个布尔量：那个值本来就是「这一个版本被压掉了」的意思，
+     * 反推出来的开关和弹窗里那个勾选框天生一致 —— 在弹窗里勾一下、
+     * 回到这一页开关自己就是开的，不需要任何同步代码。
+     */
+    updateMuted: false,
+    /**
+     * 原生 switch 拿不到 CSS 变量，颜色只能从 JS 给 ——
+     * 所以这里取当前主题的主色，自定义主题下才跟着用户调的色走
+     * （写死 #5B8CFF 的话，换成自定义主题这个开关就还是蓝的）。
+     */
+    accent: '#5B8CFF',
     developer: {
       name: 'CoMoYo-Yanke',
       email: 'comoyoyanke@outlook.com',
@@ -60,6 +77,10 @@ Page({
   onShow() {
     pageFade.show(this)
     this.syncTheme()
+    // 在 onShow 里读：用户可能刚从首页那个弹窗上勾了「此次更新不再显示」再过来，
+    // 状态得跟上（开关就是那个值反推的，见 data.updateMuted）
+    const muted = storage.getSettings().updateMuted === APP_VERSION
+    if (muted !== this.data.updateMuted) this.setData({ updateMuted: muted })
   },
 
   /** 首访的淡入时机：等初次渲染完成再起动画（见 utils/page-fade.js） */
@@ -76,6 +97,26 @@ Page({
     if (style !== this.data.themeStyle || name !== this.data.themeName) {
       this.setData({ themeName: name, themeStyle: style })
     }
+    // switch 的原生色：单拎出来比一次，换主题时不会因为上面那条提前返回而留在旧色上
+    const accent = theme.vars(name)['--accent']
+    if (accent && accent !== this.data.accent) this.setData({ accent })
+  },
+
+  /**
+   * 「此次更新不再显示公告」开关。
+   *
+   * 写的和首页那个弹窗里的勾选框是**同一个字段**（storage 的 updateMuted），
+   * 只是这里落地的是**当前版本号**。打开 = 记下当前版本号（于是下次启动不弹），
+   * 关掉 = 清空（于是下次启动照弹）。
+   */
+  onToggleUpdateNotice(e) {
+    const muted = !!(e.detail && e.detail.value)
+    storage.saveSettings({ updateMuted: muted ? APP_VERSION : '' })
+    this.setData({ updateMuted: muted })
+    wx.showToast({
+      title: muted ? '本次更新不再提示' : '恢复开屏更新公告',
+      icon: 'none'
+    })
   },
 
   /** 复制开发者邮箱，方便反馈问题 */

@@ -23,6 +23,9 @@
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-date">{{dateLabel}}</view>
     <view class="hero-title">{{greeting}}</view>
+    <!-- 开屏鼓励语：每次启动随机一句（见 utils/quotes.js）。
+         一行、小字、超长截断，不给它换行撑高头部的机会 -->
+    <view class="hero-quote ellipsis">{{quote.text}} · {{quote.author}}</view>
   </view>
 
   <!-- ============ 今日概览 ============ -->

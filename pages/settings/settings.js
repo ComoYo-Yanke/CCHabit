@@ -15,6 +15,7 @@ const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 const { APP_VERSION } = require('../../utils/version.js')
+const quotes = require('../../utils/quotes.js')
 
 /** 导入弹层的退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
 const SHEET_LEAVE_MS = 260
@@ -32,6 +33,9 @@ Page({
     habitCount: 0,
     recordCount: 0,
     usedDays: 0,
+
+    /** 顶部那行鼓励语。和主页是同一句 —— quotes 里那句是缓存的（见它的注释） */
+    quote: quotes.pick(),
 
     usage: { currentSize: 0, limitSize: 10240, percent: 0, level: 'ok' },
     usageText: '',

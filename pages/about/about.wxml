@@ -50,6 +50,27 @@
     </view>
   </view>
 
+  <!-- ============ 开屏设置 ============
+       开关本身是原生组件，拿不到 CSS 变量，主色只能从 JS 给（见 about.js 的 accent） -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">开屏设置</text>
+    </view>
+    <view class="card" style="padding: 8rpx 28rpx;">
+      <view class="sw-item">
+        <view class="flex-1">
+          <view class="sw-title">此次更新不再显示公告</view>
+          <view class="sw-desc">和开屏弹窗里那个勾选框是同一件事，勾了就打开；只作用于当前版本，下次更新还会提示</view>
+        </view>
+        <switch
+          checked="{{updateMuted}}"
+          color="{{accent}}"
+          bindchange="onToggleUpdateNotice"
+        />
+      </view>
+    </view>
+  </view>
+
   <!-- ============ 主要功能 ============ -->
   <view class="section">
     <view class="section-head">

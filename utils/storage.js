@@ -432,6 +432,14 @@ const DEFAULT_SETTINGS = {
    * 「此次更新不再显示」勾过的那一个版本号。
    * 只压制**这一个版本**的更新提示：下次改版本号，值对不上，又会弹
    * （见 pages/index 的 maybeShowUpdate）。
+   *
+   * 两处写它，说的是同一件事，所以只有这一个字段：
+   *   - 弹窗里那个勾选框（关掉弹窗时落盘，见 pages/index 的 onCloseUpdate）
+   *   - 「关于」页那个开关（见 pages/about 的 onToggleUpdateNotice）
+   * 「关于」页是拿 `updateMuted === 当前版本号` 反推开关状态的 ——
+   * 所以在弹窗里勾一下，回到「关于」页开关自己就是开的，不用另外同步。
+   * 代价是换版本号之后开关会自己回到「关」：这正是这一项的含义
+   * （「这一个版本别弹了」），不是 bug。
    */
   updateMuted: ''
 }

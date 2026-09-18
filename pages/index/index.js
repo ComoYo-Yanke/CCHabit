@@ -18,19 +18,21 @@ const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 const version = require('../../utils/version.js')
+const quotes = require('../../utils/quotes.js')
 
 /** 首页合并热力图的**最少**周数；有更早的记录就一路往前铺，可以横向滑到底 */
 const OVERVIEW_MIN_WEEKS = 26
 /** 合并热力图的周数上限（约 5 年）：再多也只是把横向滚动条拉得更长，没有信息增量 */
 const OVERVIEW_MAX_WEEKS = 260
 /**
- * 卡片热力图顶上的星期表头，**周日在前**（1 = 周日 … 7 = 周六）。
- * 和 utils/date.js 的一周起点（周一）不一样，是刻意的：卡片上这本是「日历」，
- * 日历就是周日起排的，格子也跟着按周日开头排（见 cardCalendar）。
+ * 卡片热力图顶上的星期表头，**周日在前**：7 1 2 3 4 5 6（7 = 周日，1 = 周一 …）。
+ * 也就是按 ISO 的编号，只是把周日挪到了第一列 —— 日历就是周日起排的，
+ * 格子也跟着按周日开头排（见 cardCalendar）。和 utils/date.js 的一周起点
+ * （周一，编号 1~7）不是一回事，这里是刻意的。
  * 用阿拉伯数字而不是「一~日」：这几个字符是给格子**定列**的标尺，
- * 不是词，数字在 24rpx 宽的格子里比汉字短一半、也更不容易串位。
+ * 不是词，数字在 27rpx 宽的格子里比汉字短一半、也更不容易串位。
  */
-const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]
+const WEEKDAYS = [7, 1, 2, 3, 4, 5, 6]
 /**
  * 卡片上「打卡」按钮记录的数值。
  * 固定 1：这是「点一下就算今天打过卡」的快捷动作，不套用习惯的 step ——
@@ -106,6 +108,13 @@ Page({
     // 今日概览
     dateLabel: '',
     greeting: '',
+    /**
+     * 顶部那行鼓励语。在这里求值就等于「启动时抽一次」——
+     * 页面模块在启动时加载，而 utils/quotes 里抽中的那句是缓存的，
+     * 所以本页和「我的」页看到的是同一句（见那个模块的注释）。
+     * 不写进 onLoad：它不是每页一份的数据，换页回来也不该换句子。
+     */
+    quote: quotes.pick(),
     todayDone: 0,
     todayTotal: 0,
     todayPercent: 0,
@@ -318,6 +327,7 @@ Page({
   maybeShowUpdate() {
     if (this._updateChecked) return
     this._updateChecked = true
+    // 「关于」页那个开关和弹窗里的勾选框写的是同一个值，所以这里只看这一处
     if (storage.getSettings().updateMuted === version.APP_VERSION) return
 
     const items = version.changelogOf(version.APP_VERSION)

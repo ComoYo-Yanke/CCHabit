@@ -29,7 +29,7 @@
 
   display: flex;
   align-items: center;
-  padding: 10rpx;
+  padding: 14rpx;
   border-radius: 999rpx;
   border: 1rpx solid #1F242F;
   background: #161A22;
@@ -60,7 +60,7 @@
   align-items: center;
   justify-content: center;
   /* 缩不缩都行，但和右边三个 tab 贴太紧会看起来像一个整体，留一点缝 */
-  margin-right: 8rpx;
+  margin-right: 20rpx;
   flex-shrink: 0;
   transition: background-color 0.18s ease;
 }

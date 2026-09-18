@@ -281,6 +281,27 @@
   padding: 0 4rpx;
 }
 
+/* 开屏设置那一行的开关。
+   名字和「我的」页的 .sw-* 一样，但那边是定义在 settings.wxss 里的、不跨页生效，
+   所以这里得自成一份（两页的开关行观感要一致，改一边记得看一眼另一边） */
+.sw-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+}
+
+.sw-title {
+  font-size: 28rpx;
+  color: var(--text);
+}
+
+.sw-desc {
+  font-size: 21rpx;
+  color: var(--text-3);
+  margin-top: 6rpx;
+}
+
 .copyright {
   text-align: center;
   padding: 56rpx 28rpx 0;

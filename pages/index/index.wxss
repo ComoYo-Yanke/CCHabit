@@ -7,10 +7,27 @@
   background: var(--grad-top);
 }
 
+/*
+ * 当前日期。原来是全页最淡的一级色（--text-3），压在头部那层渐变光晕上，
+ * 自定义主题下经常就是「看得见但读不清」。
+ * 现在三件事一起做，把对比度拉到最高，但仍然只占文字那一小块：
+ *   1. 文字用最亮的一级 --text；
+ *   2. 身后垫一层**反色**底 —— 用页面底色 --bg，它和 --text 正好是色阶的两端，
+ *      这一对付色组合在这一页里对比度最高；
+ *   3. 一圈主色柔光：深底上是发光，浅底上是柔和的光晕，两种底色都成立。
+ * 胶囊形状（inline-block + 圆角 + 自身内边距）是为了不把它拉成一条横贯头部的色带 ——
+ * 「不影响整体」的关键就在这，垫底只跟着文字走。
+ */
 .hero-date {
+  display: inline-block;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
   font-size: 26rpx;
-  color: var(--text-3);
   letter-spacing: 1rpx;
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: 0 0 0 1rpx var(--border-soft);
+  text-shadow: 0 0 12rpx var(--accent-soft), 0 0 26rpx var(--accent-soft);
 }
 
 .hero-title {
@@ -19,6 +36,16 @@
   color: var(--text);
   margin-top: 10rpx;
   line-height: 1.3;
+}
+
+/* 开屏鼓励语。刻意压到 22rpx、用最淡的一级色，且只占一行（.ellipsis 截断）——
+   它是问候语下面的配角，绝不能把头部撑高或把视线从「今日完成」上抢走。
+   用 --text-3 而不是 --text-2：这里读不清无所谓，那是说明文字才该有的对比度 */
+.hero-quote {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--text-3);
 }
 
 /* 今日概览 */
@@ -130,10 +157,28 @@
   width: calc((100% - 20rpx) / 2);
 }
 
-/* ---------- 更新提示弹窗（面板本体在 app.wxss 的 .modal） ---------- */
+/* ---------- 更新提示弹窗（面板本体在 app.wxss 的 .modal） ----------
+   这一屏的**正文字号 = 最高对比**：颜色仍然跟着主题走（自定义主题下就是用户调的
+   那两级文字色），但用色往上提一档 —— 原来正文用 --text-2、说明用 --text-3，
+   自定义主题里这两级是「次要文字往底色退」推出来的，用户把两者的对比调得接近时，
+   弹窗里这几行就成了「看得见但读不清」。弹窗是**要读的**，所以正文直接用 --text，
+   说明文字提到 --text-2（而不是留给最淡的 --text-3）。
+
+   光提色阶还不够：面板底色（--popup-surface）也是从用户给的颜色推的，
+   用户把底色和文字色调得接近时，再高的色阶也拉不开。所以这一屏的字**统一描一圈边** ——
+   用页面底色 --bg 做四个方向的 text-shadow，就是一圈 1rpx 的实边。
+   挑 --bg 是因为它和文字色天然反色（色阶两端），深浅两套主题都不用另配一套色；
+   描边只有 1rpx，动的是可读性，不动观感。 */
+.upd-label,
+.upd-item-text,
+.upd-mute-text {
+  text-shadow: -1rpx -1rpx 0 var(--bg), 1rpx -1rpx 0 var(--bg), -1rpx 1rpx 0 var(--bg),
+    1rpx 1rpx 0 var(--bg);
+}
+
 .upd-label {
   font-size: 24rpx;
-  color: var(--text-3);
+  color: var(--text-2);
   margin-bottom: 14rpx;
 }
 
@@ -160,7 +205,7 @@
   min-width: 0;
   font-size: 26rpx;
   line-height: 1.7;
-  color: var(--text-2);
+  color: var(--text);
 }
 
 /* 正文只垫一点点底：下面紧跟着尾部按钮，垫多了面板中间会空出一块 */
@@ -204,7 +249,7 @@
 
 .upd-mute-text {
   font-size: 24rpx;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .list-bottom-gap {

@@ -16,6 +16,15 @@
   margin-top: 10rpx;
 }
 
+/* 开屏鼓励语。刻意压到 22rpx、用最淡的一级色，且只占一行（.ellipsis 截断）——
+   它是头部里的配角，不能撑高头部、也不能抢走下面数据概览的视线 */
+.hero-quote {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
 .tiles-row {
   display: flex;
   gap: 16rpx;
