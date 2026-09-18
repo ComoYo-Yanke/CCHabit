@@ -2,7 +2,14 @@
 
 **简体中文** | [English](#english-version)
 
-<img src="./static/icon.png" width="250" alt="TapHabit" />
+<div style="width:120px;height:120px;border-radius:24px;background:#222b3d;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:inset 0 0 0 2px #33415c;">
+  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 6L9 17l-5-5"></path>
+  </svg>
+</div>
+c
+
+
 
 > ⚡ 纯本地 · 无服务端 · 无账号 · 不联网
 > 对标 TapHabit 的习惯追踪小程序，所有数据保存在微信小程序 storage 里。
@@ -173,7 +180,12 @@ Copyright (c) 2026 **CoMoYo-Yanke**. All rights reserved.
 
 [简体中文](#-taphabit-风格--习惯打卡小程序) | **English**
 
-<img src="./static/icon.png" width="250" alt="TapHabit" />
+<div style="width:120px;height:120px;border-radius:24px;background:#222b3d;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:inset 0 0 0 2px #33415c;">
+  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 6L9 17l-5-5"></path>
+  </svg>
+</div>
+
 
 > ⚡ Fully local · No server · No account · No network
 > A TapHabit-style habit tracker. All data lives in WeChat Mini Program storage.
