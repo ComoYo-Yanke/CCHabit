@@ -57,6 +57,14 @@ Component({
      * uCharts 的滚动只对绘图区做一次 context.translate，Y 轴和轴线始终钉在原地。
      */
     scroll: { type: Boolean, value: false },
+    /**
+     * 滚动图表**初始停在哪一端**：'right'（默认，最新一格在眼前）| 'left'。
+     *
+     * 时间轴那几张图都从最右起步 —— 横轴是时间，最右边是今天，一进来就该看见它。
+     * 但统计页那张「习惯对比」的横轴是习惯名，按打卡次数从多到少排的，
+     * 要看的是**前几名**，从左起步才对。
+     */
+    scrollStart: { type: String, value: 'right' },
     /** 提示框数值单位后缀 */
     unit: { type: String, value: '' },
     /**
@@ -236,11 +244,12 @@ Component({
                 height: size.height,
                 rotate: false,
                 enableScroll: !!this.data.scroll,
-                // 滚动图表初始停在最右（最新一格）。uCharts 只在 xAxis.scrollAlign
-                // 为 'right' 且 _scrollDistance_ 还是 undefined 时（也就是首次绘制）
-                // 自己算出这个偏移量；后续重画得靠 updateData 的 scrollPosition
-                // 参数再算一次（见 render）
-                xAxis: this.data.scroll ? { scrollAlign: 'right' } : {},
+                // 滚动图表的初始停靠端（见 scrollStart 属性）。uCharts 只在
+                // xAxis.scrollAlign 为 'right' 且 _scrollDistance_ 还是 undefined 时
+                // （也就是首次绘制）自己算出这个偏移量；'left' 则不做任何偏移，
+                // 从头画起。后续重画得靠 updateData 的 scrollPosition 参数再算一次
+                // （见 render）
+                xAxis: this.data.scroll ? { scrollAlign: this.data.scrollStart } : {},
                 categories: d.categories || [],
                 series: d.series || []
               })
@@ -305,17 +314,17 @@ Component({
         height: size.height,
         rotate: false,
         enableScroll: !!this.data.scroll,
-        xAxis: this.data.scroll ? { scrollAlign: 'right' } : {},
+        xAxis: this.data.scroll ? { scrollAlign: this.data.scrollStart } : {},
         categories: d.categories || [],
         series: d.series || []
       })
       // context 必须沿用首次创建的绘图上下文，不能被 mergeDeep 产生的副本覆盖，
       // 否则 uCharts 会对着一个没有绑定 canvas 的上下文绘制（图表全白）
       chartOpts.context = this.chart.opts.context
-      // 滚动图表每次重画都回到最右（最新那一格）：切区间、换主题、打完卡重算都会
-      // 走到这里，停在上一段停留的位置会让人以为「数据没跟着变」。
+      // 滚动图表每次重画都回到起始端：切区间、换主题、打完卡重算都会走到这里，
+      // 停在上一段停留的位置会让人以为「数据没跟着变」。
       // 只能走这个参数 —— scrollAlign 是**构造时**读的，重画时再传没人看
-      if (this.data.scroll) chartOpts.scrollPosition = 'right'
+      if (this.data.scroll) chartOpts.scrollPosition = this.data.scrollStart
       this.chart.updateData(chartOpts)
     },
 

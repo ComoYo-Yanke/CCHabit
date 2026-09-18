@@ -23,7 +23,9 @@
   top: 0;
   right: 0;
   bottom: 0;
-  padding: 24rpx;
+  /* 卡片里的主角是日历，所以内边距收紧到 14rpx（省下的 20rpx 全部给了格子，
+     见下面热力图那块的账）。这层一松，日历就缩回去了 */
+  padding: 14rpx;
   display: flex;
   flex-direction: column;
 }
@@ -55,9 +57,77 @@
   color: var(--text);
 }
 
-/* ---- 圆点阵 ---- */
-.hc-heat {
+/* ---- 当月热力图 ----
+   这块是卡片的主角，所以尺寸是**倒着**算的：先把高度用满，格子能多大就多大。
+   高度被「最多 6 行」这一条卡住 —— 337rpx 的卡片，去掉 14rpx 内边距、44rpx 的头部、
+   52rpx 的底部，剩 309rpx 给整块热力图：
+     6 × 27rpx（格子）+ 5 × 3rpx（行缝）= 177rpx，加上顶上那行周几（18 + 3）= 198rpx
+   再加 12rpx 的 margin-top，一共 210rpx；44 + 210 + 52 = 306rpx ≤ 309rpx。
+   也就是说 27rpx 是**高度**允许的上限，再大一行就顶出去了。
+   月份只有 5 行时多出来的那点高度由 .hc-foot 的 margin-top:auto 收走，
+   所以这里算的是「装得下 6 行」的上限，不是「每张卡都撑满」。
+
+   格子被高度定死之后，整块宽度还剩十几 rpx 的余量（7 × 27 + 6 × 14 = 273rpx < 309rpx），
+   居中了事 —— 不把格子拉成椭圆去填满：圆点是这套图的语言，拉扁了就不像了。
+   列缝（14rpx）特意比行缝（3rpx）大：让这块尽量往两边撑开，
+   否则中间一小撮会显得更孤立。 */
+.hc-cal {
+  /* 7 列 × 27rpx + 6 条列缝 × 14rpx = 273rpx。
+     表头和格子两行都引这个数当宽度，所以改列宽只改这一处 */
+  --cal-w: 273rpx;
   margin-top: 12rpx;
+}
+
+/*
+ * 周几那行和下面的格子必须**逐列**对上，否则「3」不在第三列上。
+ * 原来两边是各写一遍「24rpx 项宽 + 10rpx 列缝 + 居中」，看着一样，
+ * 其实是两份独立的账 —— 任何一边差个一像素，七列下来就错开小半格，
+ * 而且这种错位在小屏上才明显，很难看出是哪儿的事。
+ * 现在两边共用同一个固定宽度（--cal-w）和同一条列缝，项宽也定死，
+ * 于是第 i 列的左边缘在两边都必然是 left + i × 34rpx：对齐是算出来的，不是凑出来的。
+ * 宽度正好等于内容宽度（228 = 228），没有余量，所以不需要 justify-content，
+ * 也不会因为多出来的空间怎么分而错开。
+ */
+.hc-cal-head {
+  display: flex;
+  gap: 14rpx;
+  width: var(--cal-w);
+  /* 上下 0、左右 auto：整块在卡片里居中（铺不满卡片，见上面的注释），下面留 3rpx 行缝 */
+  margin: 0 auto 3rpx;
+}
+
+.hc-cal-wd {
+  /* flex: none —— 宽度是算好的，被压窄一格整行就跟着错 */
+  flex: none;
+  width: 27rpx;
+  text-align: center;
+  font-size: 18rpx;
+  line-height: 18rpx;
+  color: var(--text-3);
+}
+
+.hc-cal-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3rpx 14rpx;
+  width: var(--cal-w);
+  margin: 0 auto;
+}
+
+/* 圆点，和首页那张「打卡总览」同一个语言：打过卡的填习惯色（行内样式给），
+   没打的留一格浅底 —— 整月的形状就是靠这层浅底显出来的 */
+.hc-cal-cell {
+  /* 和表头同理：宽高都是算好的，不能被 flex 压缩 */
+  flex: none;
+  width: 27rpx;
+  height: 27rpx;
+  border-radius: 50%;
+  background: var(--heat-0);
+}
+
+/* 还没到的日子，以及月首 / 月末凑满一周的占位格：不上色，只占位 */
+.hc-cal-cell--off {
+  background: transparent;
 }
 
 /* ---- 底部：连续天数 + 快捷打卡 ---- */

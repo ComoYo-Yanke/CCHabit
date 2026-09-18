@@ -33,6 +33,25 @@ const theme = require('../../utils/theme.js')
 const MODAL_ENTER_MS = 280
 const MODAL_LEAVE_MS = 260
 
+/** 能存几个预设。产品定的数字，顺手也当 nextPresetName 的编号上限 */
+const PRESET_MAX = 3
+
+/**
+ * 一个预设存哪些项 —— 用户可以调的**全部**项目：五个颜色、卡片透明度与毛玻璃、
+ * 背景图本体与它的几何（尺寸 / 取景位置 / 缩放 / 模糊 / 淡化）。
+ * 一句话，`theme.DEFAULT_CUSTOM` 有哪些键就存哪些。
+ *
+ * 所以这里**由 DEFAULT_CUSTOM 直接推出来**，不再手抄一份清单：抄一份的后果是
+ * 以后往调色板里加了新项，老预设会悄悄少掉那一项（切回去只觉得「哪儿不太一样」，
+ * 说不上来），而这种漏只有真机上才看得出来。
+ *
+ * 背景图存进来是有代价的：它是本地文件（wxfile://usr/...），storage 里只放路径，
+ * 而删文件的地方不止一处。所以「换一张图 / 移除背景图 / 恢复默认 / 删掉一个预设」
+ * 都改走 storage.releaseImageFile —— 那张图还被别的预设指着就先留着，没人指着了才真删。
+ * 没有这套引用计数，预设里留下的就是个死路径，切回去一片空白。
+ */
+const PRESET_KEYS = Object.keys(theme.DEFAULT_CUSTOM)
+
 /** 可改的五个颜色。顺序就是界面上的顺序，从「大块」到「小字」 */
 const FIELDS = [
   { key: 'bg', label: '整体背景色', desc: '页面底色，卡片深浅跟着它定' },
@@ -84,7 +103,13 @@ Page({
 
     /** 「调整背景图」弹窗的两级挂载状态（见 app.wxss 的 .mask） */
     frameMounted: false,
-    frameOn: false
+    frameOn: false,
+
+    /** 存下来的主题预设（最多 presetMax 个，存整页能调的全部，见 PRESET_KEYS） */
+    presets: [],
+    presetMax: PRESET_MAX,
+    /** 当前配色正好等于哪个预设 —— 拿它的 id 在列表里标「使用中」，空串表示都不是 */
+    activePresetId: ''
   },
 
   onLoad() {
@@ -92,6 +117,7 @@ Page({
     storage.saveSettings({ theme: 'custom' })
     const cfg = theme.customConfig()
     this.apply(cfg)
+    this.loadPresets()
     // 老配置（这一版之前设的图）没有尺寸，补问一次，取景滑块才有得算
     this.probeImageSize(cfg)
   },
@@ -134,7 +160,14 @@ Page({
       themeStyle: p.style + ';',
       bg: p.bg,
       frame: p.frame,
-      tabbar: p.tabbar
+      tabbar: p.tabbar,
+      /**
+       * 「使用中」的标记跟着配置一起重算。
+       * 原来只在 onLoad 里算一次（loadPresets），于是切完预设、或改了一个颜色之后，
+       * 列表上那两处按钮要退出这一页再进来才变 —— 说的和看到的是两回事。
+       * 这里只查已加载的那份 presets，**不读 storage**：拖动取景时 apply 会被高频调用。
+       */
+      activePresetId: matchPreset(this.data.presets, cfg)
     })
   },
 
@@ -380,8 +413,9 @@ Page({
         // 新尺寸由紧随其后的 probeImageSize 补上（问的是文件所在的路径）
         this.persist(Object.assign({}, this.data.cfg, { image: r.savedFilePath, imageW: 0, imageH: 0 }))
         this.probeImageSize(this.data.cfg)
-        // 换完再删旧的：先删万一保存失败，用户就两头空了
-        if (old && old !== r.savedFilePath) this.removeFile(old)
+        // 换完再放旧的：先删万一保存失败，用户就两头空了。
+        // 走 releaseImageFile 而不是直接删文件 —— 某个预设可能还存着这张图
+        if (old && old !== r.savedFilePath) storage.releaseImageFile(old)
         wx.showToast({ title: '背景已设置', icon: 'none' })
       },
       fail: () => {
@@ -398,28 +432,102 @@ Page({
     const old = this.data.cfg.image
     // 尺寸跟着图一起清掉，免得留下的两个数字被下一张图误用
     this.persist(Object.assign({}, this.data.cfg, { image: '', imageW: 0, imageH: 0 }))
-    this.removeFile(old)
+    // persist 之后才判得准还有没有别人用这张图（见 storage.releaseImageFile）
+    storage.releaseImageFile(old)
   },
 
-  /** 删掉不再使用的背景图文件；文件本来就不在时静默失败即可 */
-  removeFile(path) {
-    if (!path) return
-    const fs = wx.getFileSystemManager()
-    if (typeof fs.removeSavedFile !== 'function') return
-    fs.removeSavedFile({ filePath: path, fail: () => {} })
+  // ---------------- 主题预设 ----------------
+
+  /**
+   * 存下来的配色预设，最多 3 个。
+   *
+   * 存在 settings 里（th:settings.themePresets），因为它必须能活过「进这一页」——
+   * 预设的意义就是「下次不用重调」。存的是**快照**而不是「指向当前配置的引用」：
+   * 存下来之后再改颜色，改的是当前配色，预设里那份不动，
+   * 这正是「随时切回来」的前提。
+   */
+  loadPresets() {
+    const presets = storage.getSettings().themePresets || []
+    this.setData({ presets, activePresetId: matchPreset(presets, this.data.cfg) })
   },
 
-  /** 全部恢复成默认（深色那套），背景图也一并删掉 */
+  /** 把当前配色存成一个预设 */
+  onSavePreset() {
+    const list = this.data.presets || []
+    if (list.length >= PRESET_MAX) {
+      wx.showToast({ title: '最多存 ' + PRESET_MAX + ' 个预设', icon: 'none' })
+      return
+    }
+    const preset = {
+      id: storage.uid('p'),
+      name: nextPresetName(list),
+      cfg: pickPreset(this.data.cfg)
+    }
+    this.savePresets(list.concat([preset]))
+    wx.showToast({ title: '已存为「' + preset.name + '」', icon: 'none' })
+  },
+
+  /**
+   * 切到某个预设：配色和背景图一起换回去（预设存的就是整套）。
+   *
+   * 合并到当前配置上而不是整体替换 cfg：PRESET_KEYS 覆盖的正是用户能调的那些项，
+   * 但 cfg 里还有别的字段（比如这一版之后新加的），整体替换会把它们抹掉。
+   */
+  onApplyPreset(e) {
+    const p = this.findPreset(e.currentTarget.dataset.id)
+    if (!p) return
+    const old = this.data.cfg.image
+    // 收掉展开的色板：换完整套颜色，某个色板还开着会指着一项已经变了的颜色
+    this.setData({ activeField: '' })
+    this.persist(Object.assign({}, this.data.cfg, p.cfg))
+    // 换下来的那张图可能就没人用了（persist 之后才判得准，见 storage.releaseImageFile）
+    if (old && old !== this.data.cfg.image) storage.releaseImageFile(old)
+  },
+
+  onDeletePreset(e) {
+    const p = this.findPreset(e.currentTarget.dataset.id)
+    if (!p) return
+    // 和「恢复默认」一样恒定二次确认：预设是用户自己一点点调出来的，误删就得重调
+    wx.showModal({
+      title: '删除「' + p.name + '」？',
+      content: '只删这个预设，当前正在用的配色和背景图都不受影响。',
+      confirmText: '删除',
+      confirmColor: '#FF5C5C',
+      success: (res) => {
+        if (!res.confirm) return
+        // 先落盘再释放：这个预设不再引用它那张图了，之后才判得准还有没有别人用
+        this.savePresets((this.data.presets || []).filter((x) => x.id !== p.id))
+        storage.releaseImageFile(p.cfg.image)
+      }
+    })
+  },
+
+  findPreset(id) {
+    return (this.data.presets || []).find((p) => p.id === id)
+  },
+
+  /**
+   * 写回 settings 并刷新列表。
+   * 「使用中」那一项要跟着重算 —— 存/删都会让这个判断的答案变。
+   */
+  savePresets(list) {
+    storage.saveSettings({ themePresets: list })
+    this.setData({ presets: list, activePresetId: matchPreset(list, this.data.cfg) })
+  },
+
+  /** 全部恢复成默认（深色那套），背景图也一并移除 */
   onReset() {
     wx.showModal({
       title: '恢复默认配色',
-      content: '五个颜色、透明度都会回到默认值，背景图会被移除。',
+      content: '五个颜色、透明度都会回到默认值，背景图会被移除。存下来的预设不受影响。',
       confirmText: '恢复',
       success: (res) => {
         if (!res.confirm) return
-        this.removeFile(this.data.cfg.image)
+        const old = this.data.cfg.image
         this.setData({ activeField: '' })
         this.persist(Object.assign({}, theme.DEFAULT_CUSTOM))
+        // 顺序反了会误删：先落盘（当前配置不再用它了），再问一句还有没有别的持有者
+        storage.releaseImageFile(old)
         wx.showToast({ title: '已恢复默认', icon: 'none' })
       }
     })
@@ -431,6 +539,53 @@ Page({
 function clamp(n, lo, hi) {
   const v = Number(n)
   return Math.max(lo, Math.min(hi, isNaN(v) ? lo : v))
+}
+
+/** 从一份完整配置里摘出预设要存的那几项（见 PRESET_KEYS） */
+function pickPreset(cfg) {
+  const c = cfg || {}
+  const out = {}
+  PRESET_KEYS.forEach((k) => {
+    out[k] = c[k]
+  })
+  return out
+}
+
+/** 一份配色的指纹，只取预设真正存的那几项 —— 两边用同一个函数，比的时候不会各比各的 */
+function presetSig(cfg) {
+  const c = cfg || {}
+  return PRESET_KEYS.map((k) => c[k]).join('|')
+}
+
+/**
+ * 当前这套正好等于哪个预设（返回它的 id，都不等则空串），用来在列表里标「使用中」。
+ *
+ * 比的是**存进预设的那几项**（也就是 PRESET_KEYS 那些），不是整份 cfg：
+ * cfg 里另有几项不属于用户能调的范围，拿整份去比会永远对不上。
+ */
+function matchPreset(presets, cfg) {
+  const sig = presetSig(cfg)
+  const hit = (presets || []).find((p) => presetSig(p.cfg) === sig)
+  return hit ? hit.id : ''
+}
+
+/**
+ * 给新预设起个不重名的名字：「预设 1」「预设 2」……取第一个还空着的编号。
+ *
+ * 不用「列表长度 + 1」：删掉中间那个之后新加的会和剩下的撞名，
+ * 列表里出现两个「预设 2」，用户分不清哪个是哪个。
+ */
+function nextPresetName(list) {
+  const used = {}
+  ;(list || []).forEach((p) => {
+    used[p.name] = true
+  })
+  for (let i = 1; i <= PRESET_MAX; i++) {
+    const name = '预设 ' + i
+    if (!used[name]) return name
+  }
+  // 理论上到不了（上限就是 PRESET_MAX 个），兜个底免得出现 undefined 名字
+  return '预设 ' + ((list || []).length + 1)
 }
 
 /** '#RRGGBB' -> { r, g, b }，认不出来时返回黑色 */

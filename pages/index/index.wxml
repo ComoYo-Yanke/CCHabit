@@ -103,7 +103,7 @@
         <view wx:for="{{items}}" wx:key="habit.id" class="habit-cell">
           <habit-card
             item="{{item}}"
-            weeks="{{cardWeeks}}"
+            weekdays="{{weekdays}}"
             showHeat="{{true}}"
             bind:tapcard="onCardTap"
             bind:checkin="onCardCheckin"
@@ -117,18 +117,10 @@
   <view class="list-bottom-gap"></view>
 </view>
 
-<!-- ============ 悬浮新建按钮 ============ -->
-<!-- 悬浮按钮是 .page 的**兄弟节点**（不是子节点），不会跟着 .page 的透明度走，
-     所以自己挂一套等效的类，跟着页面一起淡出 / 淡入（见 index.wxss 的 .fab--out） -->
-<view class="fab {{fading ? 'fab--out' : ''}}" bindtap="onAddHabit">
-  <!-- 必须用白色加号：ic-plus-active 是蓝色描边，和按钮底色一样，会完全看不见 -->
-  <view class="ic ic-plus-white fab-icon"></view>
-</view>
-
 <!--
-  ============ 更新提示（首次打开新版本时弹一次） ============
-  放在 .page 之外，理由和悬浮按钮一样：.page--out 是整棵子树透明度归零，
-  提示弹在页面之外，不能跟着页面的淡入淡出一起被抹掉。
+  ============ 更新提示（每次打开都弹，勾了「此次更新不再显示」才不弹） ============
+  放在 .page 之外：.page--out 是整棵子树透明度归零，提示弹在页面之外，
+  不能跟着页面的淡入淡出一起被抹掉。
   内容只是文字（没有 input 之类的原生组件），但遮罩仍然照规矩两级挂载 ——
   .mask 收起时 display:none 是那套原生化问题的唯一正解，见 app.wxss 的 .mask。
 -->
@@ -155,6 +147,14 @@
     </scroll-view>
 
     <view class="modal-foot">
+      <!-- 「此次更新不再显示」：一行整块可点（勾选框在这么小的格子里不好按）。
+           记的是**当前版本号**，所以压制的只是这一个版本的提示（见 onCloseUpdate）。 -->
+      <view class="upd-mute press" bindtap="onToggleMute">
+        <view class="upd-check {{verMute ? 'upd-check--on' : ''}}">
+          <view wx:if="{{verMute}}" class="ic ic-check-white upd-check-icon"></view>
+        </view>
+        <text class="upd-mute-text">此次更新不再显示</text>
+      </view>
       <view class="btn btn--primary" bindtap="onCloseUpdate">知道了</view>
     </view>
   </view>

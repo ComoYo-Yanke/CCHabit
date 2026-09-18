@@ -19,6 +19,24 @@
   style="background: {{c.bg}}; border-color: {{c.border}};"
   catchtouchmove="noop"
 >
+  <!--
+    新建习惯。原先挂在下角那个悬浮按钮上，现在收进胶囊、放在「主页」左边
+    （用户要求的「收进下方胶囊里，放在主页按钮旁边」）。
+    实心主色，不走 .tab 那套半透明选中底 —— 它是按钮，不是第四个 tab（理由见 utils/theme.js 的 tabbarVars）。
+    data-act 而不是 data-index：它和三个 tab 共用同一套 touchend 点击判定（见 index.js 的 dispatch）。
+  -->
+  <view
+    class="tab-add"
+    style="background: {{c.accent}};"
+    data-act="add"
+    bindtouchstart="onTouchStart"
+    bindtouchend="onTouchEnd"
+    bindtap="onTap"
+  >
+    <!-- 必须用白色加号：ic-plus-active 是蓝色描边，压在主色底上等于看不见 -->
+    <view class="ic ic-plus-white tab-add-icon"></view>
+  </view>
+
   <view
     wx:for="{{list}}"
     wx:key="pagePath"

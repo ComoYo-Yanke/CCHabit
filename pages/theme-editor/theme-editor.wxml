@@ -39,6 +39,10 @@
         图标不跟着变就会和它打架 —— 不预览出来等于闭着眼睛调。
       -->
       <view class="pv-tabbar" style="background: {{tabbar.bg}}; border-color: {{tabbar.border}};">
+        <!-- 新建习惯那枚圆钮：实心主色，和底栏里一样走行内样式 -->
+        <view class="pv-tab-add" style="background: {{tabbar.accent}};">
+          <view class="pv-tab-add-icon ic ic-plus-white"></view>
+        </view>
         <view class="pv-tab">
           <view class="pv-tab-icon" style="background-image: {{tabbar.icons.home.idle}};"></view>
         </view>
@@ -83,6 +87,52 @@
           </view>
         </view>
       </view>
+    </view>
+  </view>
+
+  <!-- ============ 主题预设 ============ -->
+  <!--
+    位置在「背景图」和「颜色」之间：从上往下读就是「先挑一套」→「再微调」。
+    一个预设存的是这一页**能调的全部**（见 js 里的 PRESET_KEYS），背景图也在内，
+    所以缩略图分两种：带图的直接把那张图铺成小方块（配色的差别它一眼就盖过去了），
+    不带图的才退回三个色点（底色 / 卡片色 / 主色）。
+    两种都不缩整页截图 —— 那个要画一堆东西，且每改一次颜色都得重画。
+  -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">主题预设</text>
+      <text class="section-sub">{{presets.length}}/{{presetMax}} · 存整页设置</text>
+    </view>
+    <view class="card">
+      <view wx:for="{{presets}}" wx:key="id" class="ps-item">
+        <image
+          wx:if="{{item.cfg.image}}"
+          class="ps-thumb"
+          src="{{item.cfg.image}}"
+          mode="aspectFill"
+        ></image>
+        <view wx:else class="ps-dots">
+          <view class="ps-dot" style="background: {{item.cfg.bg}};"></view>
+          <view class="ps-dot" style="background: {{item.cfg.surface}};"></view>
+          <view class="ps-dot" style="background: {{item.cfg.accent}};"></view>
+        </view>
+        <view class="ps-name ellipsis">{{item.name}}</view>
+        <!-- 当前配色正好等于这一套时，不再给「切换」按钮 —— 点了也是原样，
+             换成「使用中」还能顺便告诉用户现在用的是哪个 -->
+        <text wx:if="{{item.id === activePresetId}}" class="ps-on">使用中</text>
+        <view wx:else class="ps-op press" data-id="{{item.id}}" bindtap="onApplyPreset">切换</view>
+        <view class="ps-op ps-op--del press" data-id="{{item.id}}" bindtap="onDeletePreset">删除</view>
+      </view>
+
+      <view wx:if="{{!presets.length}}" class="ps-empty">
+        还没有预设。把上面的背景图和下面的颜色调成你喜欢的样子，点「存为预设」就存下来了，之后一键切回来。
+      </view>
+
+      <view
+        class="ps-save press {{presets.length >= presetMax ? 'ps-save--full' : ''}}"
+        bindtap="onSavePreset"
+      >{{presets.length >= presetMax ? '已存满 ' + presetMax + ' 个' : '存为预设'}}</view>
+      <view class="ps-tip">预设存的是这一页的全部设置：颜色、卡片透明度、毛玻璃，以及背景图和它取景的位置。切预设连图一起换。</view>
     </view>
   </view>
 
@@ -221,30 +271,38 @@
     <scroll-view scroll-y class="modal-body">
       <block wx:if="{{frame}}">
         <view class="fx">
-          <view class="fx-stage" style="padding-bottom: {{frame.pad}}%;">
-            <!-- 窗外那层：和窗里是同一张图，只是多糊一档（几何一样，所以不用另起类名） -->
-            <image
-              class="fx-img"
-              src="{{cfg.image}}"
-              mode="scaleToFill"
-              style="filter: blur({{frame.outBlur}}px); -webkit-filter: blur({{frame.outBlur}}px);"
-            />
-            <view class="fx-dim"></view>
-            <!-- catchtouchmove：拖窗子不该顺手把弹窗里的内容滚起来 -->
-            <view
-              class="fx-win"
-              style="left: {{frame.win.left}}%; top: {{frame.win.top}}%; width: {{frame.win.width}}%; height: {{frame.win.height}}%;"
-              bindtouchstart="onFrameStart"
-              catchtouchmove="onFrameMove"
-              bindtouchend="onFrameEnd"
-              bindtouchcancel="onFrameEnd"
-            >
+          <!-- 取景台外面套一层收窄的框（见 .fx-frame）：原先它铺满整个面板宽度，
+               在手机上就是满屏宽一张图摊开，比「一张缩略图」大得多。
+               收窄必须套在外层：舞台的高度是 padding-bottom 的百分比撑出来的，
+               而百分比内边距按**包含块的宽度**解析 —— 所以框一窄，
+               宽度和高度会一起等比缩下来，而里面那些百分比定位的窗子
+               包含块也跟着换成这一层，位置一点不受影响。 -->
+          <view class="fx-frame">
+            <view class="fx-stage" style="padding-bottom: {{frame.pad}}%;">
+              <!-- 窗外那层：和窗里是同一张图，只是多糊一档（几何一样，所以不用另起类名） -->
               <image
                 class="fx-img"
                 src="{{cfg.image}}"
                 mode="scaleToFill"
-                style="left: {{frame.inner.left}}%; top: {{frame.inner.top}}%; width: {{frame.inner.width}}%; height: {{frame.inner.height}}%; filter: blur({{cfg.imageBlur}}px); -webkit-filter: blur({{cfg.imageBlur}}px);"
+                style="filter: blur({{frame.outBlur}}px); -webkit-filter: blur({{frame.outBlur}}px);"
               />
+              <view class="fx-dim"></view>
+              <!-- catchtouchmove：拖窗子不该顺手把弹窗里的内容滚起来 -->
+              <view
+                class="fx-win"
+                style="left: {{frame.win.left}}%; top: {{frame.win.top}}%; width: {{frame.win.width}}%; height: {{frame.win.height}}%;"
+                bindtouchstart="onFrameStart"
+                catchtouchmove="onFrameMove"
+                bindtouchend="onFrameEnd"
+                bindtouchcancel="onFrameEnd"
+              >
+                <image
+                  class="fx-img"
+                  src="{{cfg.image}}"
+                  mode="scaleToFill"
+                  style="left: {{frame.inner.left}}%; top: {{frame.inner.top}}%; width: {{frame.inner.width}}%; height: {{frame.inner.height}}%; filter: blur({{cfg.imageBlur}}px); -webkit-filter: blur({{cfg.imageBlur}}px);"
+                />
+              </view>
             </view>
           </view>
           <view class="sl-tip">按住小窗拖到你想要的画面，窗外那块不会显示</view>

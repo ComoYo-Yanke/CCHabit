@@ -185,8 +185,7 @@ Page({
       hasHabits: habits.length > 0,
       summary: Object.assign({}, summary, {
         habitCount: habits.length,
-        activeHabitCount: ranking.filter((r) => r.count > 0).length,
-        avgPerDayText: stats.fmtNum(summary.avgPerDay)
+        activeHabitCount: ranking.filter((r) => r.count > 0).length
       }),
       lineData,
       barData,
@@ -194,9 +193,23 @@ Page({
       // 折线是时间轴：一屏 itemCount 格，多出来的横向滑动看（scroll 属性配 itemCount，
       // 见 components/qiun-charts）。不配 labelCount —— 一屏才 6~10 格，
       // 每格的标签都放得下，再抽稀只会把「10月」抽掉一半。
-      // 对比柱状图的横轴是习惯名，和时间无关，保持不滚动 + 抽稀
+      // 对比柱状图的横轴是习惯名，和时间无关，
+      // 同样一屏 itemCount 个、多出来的横向滑动（scroll + scrollStart="left"，见 stats.wxml）
       lineOpts: { xAxis: { itemCount: stats.chartItemCount(range), fontSize: 10 }, yAxis: { data: [{ min: 0 }] } },
-      barOpts: { xAxis: { labelCount: 6, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } }
+      /**
+       * 对比柱状图。
+       *
+       * **不加 labelCount** —— 这是「习惯多的时候名字不显示」的根因，不是显示问题：
+       * uCharts 的抽稀（u-charts.js 的 drawXAxis）是拿 labelCount 当「一屏想放几个」
+       * 去算 maxXAxisListLength 的，而它**不看 enableScroll**。于是不滚动时
+       * labelCount: 6 会变成 maxXAxisListLength = 6 - 1 = 5、ratio = ceil(n/5)，
+       * 习惯一到 6 个就每隔一个名字抹白一个，10 个以上只剩两三行有字。
+       * 不配它，maxXAxisListLength 默认取 categories.length、ratio 恒为 1，一个都不抽。
+       * 而「放不下」交给滚动解决：itemCount 5 是滚动时每屏的格数，
+       * 习惯不超过 5 个时 dataCount 就等于 categories.length，和不开滚动完全一样
+       * （见 u-charts.js 的 getXAxisPoints），所以这个 5 对小数据量是安全的。
+       */
+      barOpts: { xAxis: { itemCount: 5, fontSize: 10 }, yAxis: { data: [{ min: 0 }] } }
     }, done)
   },
 

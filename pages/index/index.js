@@ -4,11 +4,12 @@
  * 结构：
  *   1. 顶部问候 + 今日概览（完成数 / 连续天数）
  *   2. 全部习惯的合并热力点阵（铺满全部历史，可横向滑动回看）
- *   3. 习惯卡片栅格（两列方形小卡：近 12 周圆点阵 + 连续天数 + 快捷打卡）
- *   4. 右下角悬浮按钮：新建习惯
+ *   3. 习惯卡片栅格（两列方形小卡：当月热力图 + 连续天数 + 快捷打卡）
+ *   4. 新建习惯：不在本页了，挪进了底部胶囊里「主页」左边（见 custom-tab-bar）
  *
  * 数据全部来自本地 storage，页面 onShow 时重新汇总。
- * 版本号变过的话，onShow 还会弹一次「已更新至 vX.Y.Z」（见 maybeShowUpdate）。
+ * 每次打开都会弹一次「已更新至 vX.Y.Z」，用户勾了「此次更新不再显示」才不弹
+ * （见 maybeShowUpdate）。
  */
 const app = getApp()
 const storage = require('../../utils/storage.js')
@@ -22,8 +23,14 @@ const version = require('../../utils/version.js')
 const OVERVIEW_MIN_WEEKS = 26
 /** 合并热力图的周数上限（约 5 年）：再多也只是把横向滚动条拉得更长，没有信息增量 */
 const OVERVIEW_MAX_WEEKS = 260
-/** 卡片内迷你热力图展示的周数 */
-const CARD_WEEKS = 12
+/**
+ * 卡片热力图顶上的星期表头，**周日在前**（1 = 周日 … 7 = 周六）。
+ * 和 utils/date.js 的一周起点（周一）不一样，是刻意的：卡片上这本是「日历」，
+ * 日历就是周日起排的，格子也跟着按周日开头排（见 cardCalendar）。
+ * 用阿拉伯数字而不是「一~日」：这几个字符是给格子**定列**的标尺，
+ * 不是词，数字在 24rpx 宽的格子里比汉字短一半、也更不容易串位。
+ */
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7]
 /**
  * 卡片上「打卡」按钮记录的数值。
  * 固定 1：这是「点一下就算今天打过卡」的快捷动作，不套用习惯的 step ——
@@ -36,6 +43,56 @@ const QUICK_CHECKIN_VALUE = 1
  * 弹窗会是「啪」地消失而不是淡出。略多一点留余量。
  */
 const MODAL_LEAVE_MS = 260
+
+/** 卡片月历里占位格的 key 前缀。用不到真日期，只要在这次的 wx:for 里互不相同 */
+const PAD_KEY = 'p'
+const TAIL_KEY = 't'
+
+/**
+ * 卡片上那个当月热力图的格子。
+ *
+ * 日期本身还是 stats.monthCalendar 算的，不自己在这儿排：那套「月初占几位、这个月几天、
+ * 哪天算未来」的账详情页的日历已经算过一遍了，两边各算一次迟早会写岔 ——
+ * 事实上 monthCalendar 里就有一处正好写反过（未来判据的方向），这种账只该有一份。
+ *
+ * 这一层做两件事：
+ *
+ * 一、**把格子裁瘦**。monthCalendar 是给详情页那张能点的大日历准备的，每格还带着
+ *     date / value / count / isToday 一整套；而首页一屏要铺好几张卡，每张卡三十几个格子，
+ *     多带的字段全都要穿过一次 setData。卡片上的格子只回答三个问题：打没打过（done）、
+ *     是不是未来的日子（future）、是不是占位（empty），所以就只留这三样 + 一个 key。
+ *
+ * 二、**把一周的头挪到周日**。monthCalendar 是周一开头的（utils/date.js 的一周起点），
+ *     而卡片顶上那行 1~7 是从周日起的 —— 不换的话，每个月的 1 号只要不落在周一，
+ *     圆点整片就错开一列，也就是「圆点对不上数字」。
+ *
+ *     换法很省事：周一开头那串格子里，开头的空档数（leadMon）就是 1 号落在周几，
+ *     那么周日开头要空几格就是 (leadMon + 1) % 7 —— 周一开头的第 0 格是周一，
+ *     在周日开头里是第 1 格，整串右移一格；周日（leadMon = 6）右移回第 0 格，
+ *     所以取模。后面补满整周同理。**不动 monthCalendar 本身** —— 详情页那张日历
+ *     是周一开头的，改了会连它一起动。
+ */
+function cardCalendar(dayMap, today) {
+  const all = stats.monthCalendar(dayMap, today).cells
+
+  // 开头的占位格有几个（占位格一定连在开头，真实日期的格 empty 是 false）
+  let leadMon = 0
+  while (leadMon < all.length && all[leadMon].empty) leadMon++
+  const leadSun = (leadMon + 1) % 7
+
+  const cells = []
+  for (let i = 0; i < leadSun; i++) cells.push({ key: PAD_KEY + i, empty: true })
+  all.forEach((c) => {
+    if (c.empty) return
+    cells.push({ key: c.key, done: c.done, future: c.isFuture })
+  })
+  // 补满整周。整串右移一格不会让行数变多：周日开头最坏是「6 格空档 + 31 天」= 6 行，
+  // 和周一开头最坏的情况一样，卡片给热力图留的高度就是按 6 行算的（见 habit-card 的 wxss）
+  const tail = (7 - (cells.length % 7)) % 7
+  for (let i = 0; i < tail; i++) cells.push({ key: TAIL_KEY + i, empty: true })
+
+  return cells
+}
 
 Page({
   data: {
@@ -61,8 +118,8 @@ Page({
     // 习惯列表
     items: [],
     hasHabits: false,
-    /** 卡片内迷你点阵的周数（唯一一份定义在 CARD_WEEKS） */
-    cardWeeks: CARD_WEEKS,
+    /** 卡片里那本小日历的星期表头（唯一一份定义在 WEEKDAYS） */
+    weekdays: WEEKDAYS,
 
     // 弹层
     showEditor: false,
@@ -71,11 +128,12 @@ Page({
     checkinHabit: null,
     checkinDate: '',
 
-    // 更新提示（版本变了才弹一次，见 maybeShowUpdate）
+    // 更新提示（每次打开都弹一次，除非勾了「此次更新不再显示」，见 maybeShowUpdate）
     verMounted: false,
     verOn: false,
     verVersion: '',
-    verItems: []
+    verItems: [],
+    verMute: false
   },
 
   onLoad() {
@@ -215,10 +273,11 @@ Page({
       if (streak.current > maxStreak) maxStreak = streak.current
 
       // 只喂卡片真正要画的东西：卡片上已经不看今日状态和累计值了，
-      // 那几项当年是给旧卡片准备的 —— 多算一遍 summarize 就是白读一遍记录
+      // 那几项当年是给旧卡片准备的 —— 多算一遍 summarize 就是白读一遍记录。
+      // dayMap 也不再往下带：卡片画的是月历，格子已经由 monthCalendar 展开好了
       return {
         habit,
-        dayMap,
+        cal: cardCalendar(dayMap, today),
         // done 卡片不用，但概览区的「去打卡」要靠它挑第一个没打卡的习惯
         done,
         streak: streak.current
@@ -241,30 +300,38 @@ Page({
   // ---------------- 更新提示 ----------------
 
   /**
-   * 版本变过就弹一次「已更新至 vX.Y.Z」。
+   * 弹「已更新至 vX.Y.Z」，**每次打开小程序都弹**，除非用户勾过「此次更新不再显示」。
    *
-   * 判据是 storage 里记的 appVersion 和当前版本号不等（见 utils/storage.js）：
-   *   - 全新安装：初始化时就把当前版本写进去了，两个值相等 —— 新用户不会收到
-   *     「已更新」这种对他是无意义的通知；
-   *   - 老版本升级上来：记的还是旧版本号，于是弹一次；
-   *   - 弹过之后：立刻把新版本号记下来，重进、重开都不再弹。
+   * 早先的判据是「storage 里记的 appVersion 和当前版本号不等」—— 那等于把提示
+   * 归到「升级后第一次」这一类里，看过一次就再也不出现。改成每次打开都弹之后，
+   * 有两道闸要自己加：
    *
-   * 立刻记录（而不是等用户点「知道了」）是有意的：这个提示是「通知」不是「任务」，
-   * 万一用户没点就杀掉小程序，也不该下次再拦他一遍。
+   *  1. **一次启动只判一次**（`_updateChecked`）。首页是 tab 页，切到统计页再切回来、
+   *     或者从详情页返回都会走 onShow，不加这道闸就每回来一次弹一次。
+   *     页面实例跟着小程序活着，所以这个标志天然就是「本次启动」的粒度。
+   *  2. **用户自己关掉的**（settings.updateMuted）。勾选记的是**版本号**，
+   *     所以它压制的只是这一个版本的提示：下次改了版本号值就对不上，又会弹。
+   *
+   * markVersion 照旧记一次：th:meta 里的 appVersion 是「上次打开时的版本」，
+   * 和压制无关，但别的地方（以及排查问题时）读它有它的用处。
    */
   maybeShowUpdate() {
-    if (this.data.verMounted) return
-    if (storage.lastVersion() === version.APP_VERSION) return
+    if (this._updateChecked) return
+    this._updateChecked = true
+    if (storage.getSettings().updateMuted === version.APP_VERSION) return
 
     const items = version.changelogOf(version.APP_VERSION)
-    storage.markVersion(version.APP_VERSION)
     // 没有更新条目（比如只是内部改动）就静默跳过：为一个空弹窗打断打卡不值当
     if (!items.length) return
+    storage.markVersion(version.APP_VERSION)
 
     this.setData({
       verMounted: true,
       verVersion: version.APP_VERSION,
-      verItems: items
+      verItems: items,
+      // 每次弹出都从「没勾」开始：勾选状态不跨次保留，否则上一版勾过一次，
+      // 这一版一进来就是勾着的，等于替用户做了决定
+      verMute: false
     })
     // 下一拍再加 --on：遮罩得先落到 display:flex，过渡才有起点（见 app.wxss 的 .mask）
     this._verTimer = setTimeout(() => {
@@ -272,8 +339,16 @@ Page({
     }, 20)
   },
 
+  /** 点「此次更新不再显示」那一行：勾上 / 取消 */
+  onToggleMute() {
+    this.setData({ verMute: !this.data.verMute })
+  },
+
   onCloseUpdate() {
     if (!this.data.verMounted || !this.data.verOn) return
+    // 记录发生在**关闭**这一刻（而不是勾上的那一刻）：用户勾了又取消、或者勾完
+    // 又反悔直接点「知道了」，都不该留下痕迹。点遮罩 / × 关掉时 verMute 是当时的真值
+    storage.saveSettings({ updateMuted: this.data.verMute ? version.APP_VERSION : '' })
     this.setData({ verOn: false })
     // 先摘 --on 播完退场，再摘 --mounted 落到 display:none
     this._verTimer = setTimeout(() => this.setData({ verMounted: false }), MODAL_LEAVE_MS)

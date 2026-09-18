@@ -414,34 +414,89 @@ const DEFAULT_SETTINGS = {
    * 这里是 null 而不是一份默认值：默认值放在 theme.js 的 DEFAULT_CUSTOM
    * （theme.js 依赖本模块，反向 require 会成环），缺省字段由那边补齐。
    */
-  customTheme: null
+  customTheme: null,
+  /**
+   * 自定义主题的预设，最多 3 个，在 pages/theme-editor 里存 / 切。
+   * 每项形如 { id, name, cfg }，`cfg` 是一份**完整的**自定义主题配置（含背景图那几项）。
+   *
+   * 背景图是本地文件、storage 里只存路径，于是它现在有**多个持有者**：当前配置一份，
+   * 每个预设各一份。「换一张图 / 移除背景图 / 恢复默认 / 删掉一个预设」都不能看见
+   * 路径就删文件了 —— 别的预设可能还指着同一张（见 releaseImageFile 的引用计数）。
+   * 只有「整份设置都要没了」的场合（清空数据 / 导入覆盖）才整批收掉，
+   * 见 releaseBackgroundImage。
+   *
+   * 上限 3 是产品定的（多了这一栏会顶掉整页预览的意义），不存在这里，见 theme-editor。
+   */
+  themePresets: [],
+  /**
+   * 「此次更新不再显示」勾过的那一个版本号。
+   * 只压制**这一个版本**的更新提示：下次改版本号，值对不上，又会弹
+   * （见 pages/index 的 maybeShowUpdate）。
+   */
+  updateMuted: ''
 }
 
 function getSettings() {
   return Object.assign({}, DEFAULT_SETTINGS, safeGet(KEYS.SETTINGS, {}))
 }
 
-/**
- * 删掉自定义主题用过的那张背景图。
- *
- * 背景图存在**本地文件**里，不在 storage 里（相册原图几 MB，storage 只有 10MB），
- * storage 里只留一个路径。于是「清空数据 / 导入覆盖」这类动作一旦丢掉
- * customTheme，那份文件就再没人指着它了：空间照占，界面上也没有入口能删它
- * （编辑页的「移除」按钮读的正是被丢掉的那个路径）。所以每次丢弃设置之前先收掉。
- */
-function releaseBackgroundImage() {
-  const cfg = getSettings().customTheme
-  const path = cfg && cfg.image
+/** 删一个本地文件；文件本来就不在、或低版本基础库没这个接口时静默作罢 */
+function removeSavedFile(path) {
   if (!path) return
   try {
     const fs = wx.getFileSystemManager()
-    // 低版本基础库没有 removeSavedFile，此时只能作罢，不影响清空本身
-    if (typeof fs.removeSavedFile === 'function') {
-      fs.removeSavedFile({ filePath: path, fail: () => {} })
-    }
+    // 低版本基础库没有 removeSavedFile，此时只能作罢，不影响调用方要做的事
+    if (typeof fs.removeSavedFile !== 'function') return
+    fs.removeSavedFile({ filePath: path, fail: () => {} })
   } catch (e) {
     // 文件本来就不在、或接口不可用，静默即可
   }
+}
+
+/**
+ * 删掉自定义主题用过的**全部**背景图：当前那张 + 每个预设里那张。
+ *
+ * 背景图存在**本地文件**里，不在 storage 里（相册原图几 MB，storage 只有 10MB），
+ * storage 里只留一个路径。于是「清空数据 / 导入覆盖」这类动作一旦丢掉
+ * customTheme 和 themePresets，那几份文件就再没人指着它们了：空间照占，
+ * 界面上也没有入口能删它们（编辑页的「移除」按钮读的正是被丢掉的那个路径）。
+ * 所以每次丢弃设置之前先收掉。
+ *
+ * 只用在「整份设置都要没了」的场合。日常那种「换一张图 / 删一个预设」的删除
+ * 走 releaseImageFile —— 那时候还有别的持有者，不能见一个删一个。
+ */
+function releaseBackgroundImage() {
+  const s = getSettings()
+  const paths = []
+  if (s.customTheme && s.customTheme.image) paths.push(s.customTheme.image)
+  ;(s.themePresets || []).forEach((p) => {
+    if (p && p.cfg && p.cfg.image) paths.push(p.cfg.image)
+  })
+  paths.forEach(removeSavedFile)
+}
+
+/**
+ * 删掉一张**不再被引用**的背景图文件。
+ *
+ * 背景图现在有多个持有者（见 themePresets），所以「换一张图 / 移除背景图 /
+ * 恢复默认配色 / 删掉一个预设」都不能看见路径就删 —— 别的预设可能还指着同一张，
+ * 删了它再切回去就是一片空白。
+ *
+ * 判据读的是**当前已经落盘的设置**，所以调用方必须**先 persist 再 release**：
+ * 先把「谁还引用它」这个新事实写下去，这里再据此决定删不删。
+ * （theme-editor 里的删除动作都是这个次序。）
+ *
+ * @param {String} path 待释放的文件路径
+ * @returns {Boolean} 是不是真的删了 —— 还被引用时返回 false
+ */
+function releaseImageFile(path) {
+  if (!path) return false
+  const s = getSettings()
+  if (s.customTheme && s.customTheme.image === path) return false
+  const stillUsed = (s.themePresets || []).some((p) => p && p.cfg && p.cfg.image === path)
+  if (stillUsed) return false
+  removeSavedFile(path)
+  return true
 }
 
 function saveSettings(patch) {
@@ -536,6 +591,12 @@ function importData(text) {
     releaseBackgroundImage()
     const next = Object.assign({}, parsed.settings)
     if (next.customTheme) next.customTheme = Object.assign({}, next.customTheme, { image: '' })
+    // 预设里那张图同理，而且是**每一个**预设各有一张
+    if (Array.isArray(next.themePresets)) {
+      next.themePresets = next.themePresets.map((p) =>
+        p && p.cfg ? Object.assign({}, p, { cfg: Object.assign({}, p.cfg, { image: '' }) }) : p
+      )
+    }
     saveSettings(next)
   }
 
@@ -632,6 +693,9 @@ module.exports = {
   clearRecordsOfDay,
   getSettings,
   saveSettings,
+  // 释放一张不再被引用的背景图（引用计数）。整批收掉的那个只在模块内用 ——
+  // 「清空数据 / 导入覆盖」都在本模块里，外面没有这个场合
+  releaseImageFile,
   getUsage,
   exportData,
   importData,

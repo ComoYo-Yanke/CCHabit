@@ -110,45 +110,11 @@
   color: var(--success);
 }
 
-/* 悬浮新建按钮 */
-.fab {
-  position: fixed;
-  right: 40rpx;
-  /* 兜底值必须写：env() 参与 calc 若解析失败，bottom 会被整条丢掉，
-     悬浮按钮就会退回 static 位置（在长页面里等于跑到屏幕外，点不到）。
-     这正是「怎么都加不了习惯」的典型成因。 */
-  bottom: 146rpx;
-  bottom: calc(146rpx + env(safe-area-inset-bottom));
-  width: 108rpx;
-  height: 108rpx;
-  border-radius: 50%;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 890;
-  box-shadow: 0 12rpx 32rpx rgba(91, 140, 255, 0.4);
-  /* 两个过渡写在一起：opacity 跟着页面淡入（去掉 .fab--out 那一下），
-     transform 是按压反馈。分开写会互相覆盖 */
-  transition: opacity 0.26s cubic-bezier(0.42, 0, 0.58, 1), transform 0.15s ease;
-}
-
-/* 切换时跟着页面一起淡出（机制见 utils/page-fade.js）。
-   不复用 .page--out：上面 .fab 自己的 transition 还管着 transform（按压反馈），
-   两个 transition 简写会互相覆盖，所以这里把两条都写全。 */
-.fab--out {
-  opacity: 0;
-  transition: opacity 0.14s ease-in, transform 0.15s ease;
-}
-
-.fab:active {
-  transform: scale(0.92);
-}
-
-.fab-icon {
-  width: 52rpx;
-  height: 52rpx;
-}
+/* 新建习惯的圆钮不在本页了，挪进了底部胶囊「主页」左边（见 custom-tab-bar）：
+   它本来就不该是个「贴在这个页面上的东西」——创建习惯是全应用的动作，
+   不是首页的动作，而且现在这个位置正好在拇指够得着的胶囊里。
+   所以 .fab / .fab--out / .fab:active / .fab-icon 四条连同浮层的 z-index 一起删掉了，
+   那套「跟着页面淡入淡出」的补丁也一并不需要了。 */
 
 /* 习惯卡片的两列栅格。
    列宽必须减去 gap 再对半分：50% 是「容器的一半」，两列各占一半之后
@@ -200,6 +166,45 @@
 /* 正文只垫一点点底：下面紧跟着尾部按钮，垫多了面板中间会空出一块 */
 .upd-body {
   padding-bottom: 6rpx;
+}
+
+/* 「此次更新不再显示」那一行。做成整行可点：22rpx 的小方格在手机上不好按，
+   而这一行本来就是个「要不要」的选项，点哪儿都该算数 */
+.upd-mute {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  /* 和下面的按钮分开一点，免得误点到「知道了」上（那一下是「接受」，语义相反） */
+  margin-bottom: 22rpx;
+}
+
+.upd-check {
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 9rpx;
+  /* 没勾：一个空心方框。用 inset 阴影画描边，不占内容盒，
+     勾上之后底色铺满时不会因为边框而小一圈 */
+  box-shadow: inset 0 0 0 2rpx var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s ease;
+}
+
+.upd-check--on {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2rpx var(--accent);
+}
+
+.upd-check-icon {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.upd-mute-text {
+  font-size: 24rpx;
+  color: var(--text-3);
 }
 
 .list-bottom-gap {

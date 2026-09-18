@@ -1,8 +1,8 @@
 <!--
   一张方形小卡：两列并排（栅格在 pages/index 的 .habit-grid 里）。
-  内容只有三样：图标 + 名称、近 N 周的圆点阵、连续天数与快捷打卡按钮。
-  「今天打没打」不再单列一块文字 —— 圆点阵的最后一列就是今天，看一眼就知道，
-  再写一行「未打卡」纯属重复；「今日 · N 次」同理，点开详情才有意义。
+  内容只有三样：图标 + 名称、当月热力图、连续天数与快捷打卡按钮。
+  「今天打没打」不再单列一块文字：热力图里今天那一格就是答案 ——
+  它左边全是过去，右边全是还没到的空白。再写一行「未打卡」纯属重复。
 -->
 <view
   wx:if="{{item}}"
@@ -19,17 +19,33 @@
       <view class="hc-name ellipsis">{{item.habit.name}}</view>
     </view>
 
-    <!-- 圆点阵：只分「打过 / 没打过」，颜色取习惯色。不传 target：每日目标已移除 -->
-    <view wx:if="{{showHeat}}" class="hc-heat">
-      <heatmap
-        dayMap="{{item.dayMap}}"
-        weeks="{{weeks}}"
-        compact="{{true}}"
-        dot="{{true}}"
-        color="{{item.habit.color}}"
-        showMonths="{{false}}"
-        showLegend="{{false}}"
-      />
+    <!--
+      当月热力图。和原来那版（近 12 周、一周一列）**同一套圆点**，只有排法变了：
+      铺开的是一个自然月，而且横过来 —— 一列不再是一个星期，一行才是，
+      顶上按列标着 1~7（周日在前：1 = 周日 … 7 = 周六，和日历一样）。
+      圆点一个顶一天：打过卡的填习惯色，没打的留一格浅底，还没到的日子不上色
+      但位置照留 —— 和首页那张「打卡总览」是同一套语言，一眼就认得出。
+      格子本身不写日期数字：这点尺寸里塞不下，而月历式的排布已经说明了位置。
+      日期数据由页面算好（见 pages/index 的 cardCalendar，周日开头也是在那边换的）。
+
+      表头和格子是**两个** flex 容器，列对不上就全白排了，所以两边的列宽必须
+      一模一样 —— 由 wxss 里那对 .hc-cal-head / .hc-cal-grid 的同一个固定宽度
+      保证（不是靠两条 gap 抄得一样），改宽度只改那一处。
+    -->
+    <view wx:if="{{showHeat}}" class="hc-cal">
+      <view class="hc-cal-head">
+        <!-- 循环变量特意不叫 item：外层卡片的 item 也叫这个，同名会看不出谁是谁 -->
+        <view wx:for="{{weekdays}}" wx:for-item="wd" wx:key="*this" class="hc-cal-wd">{{wd}}</view>
+      </view>
+      <view class="hc-cal-grid">
+        <view
+          wx:for="{{item.cal}}"
+          wx:for-item="c"
+          wx:key="key"
+          class="hc-cal-cell {{c.empty || c.future ? 'hc-cal-cell--off' : ''}}"
+          style="{{c.done ? 'background: ' + item.habit.color + ';' : ''}}"
+        ></view>
+      </view>
     </view>
 
     <view class="hc-foot">

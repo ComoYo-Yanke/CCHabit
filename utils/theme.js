@@ -244,6 +244,14 @@ function tabbarVars(v) {
     bg: v.tabbarBg,
     border: v.tabbarBorder,
     active: v.tabbarActiveBg,
+    /**
+     * 实心主色，给底栏里那枚「新建习惯」圆钮用。
+     * 不能拿 active 顶替：active 是选中胶囊那层**半透明**的主色，圆钮是个按钮，
+     * 半透明地浮在底栏上看着像「被选中的第四个 tab」。
+     * 三套主题里 --accent 都是六位十六进制（自定义那套由用户调出来，也是 hex），
+     * 所以直接透传即可，不必像 chartVars 那样压平 alpha。
+     */
+    accent: v['--accent'],
     icons
   }
 }

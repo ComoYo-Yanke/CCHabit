@@ -115,6 +115,9 @@ Component({
         c.bg !== prev.bg ||
         c.border !== prev.border ||
         c.active !== prev.active ||
+        // accent 是那枚「新建习惯」圆钮的实心底色，和上面三个色值各走各的计算
+        // （它取的就是 --accent 本身）。漏比这一项，「改主色 → 胶囊里圆钮不变色」
+        c.accent !== prev.accent ||
         c.icons.home.idle !== prev.icons.home.idle ||
         c.icons.home.on !== prev.icons.home.on
       ) {
@@ -148,7 +151,7 @@ Component({
         return
       }
       this._touchHandled = true
-      this.commit(Number(e.currentTarget.dataset.index))
+      this.dispatch(e.currentTarget.dataset)
     },
 
     onTap(e) {
@@ -157,7 +160,49 @@ Component({
         this._touchHandled = false
         return
       }
-      this.commit(Number(e.currentTarget.dataset.index))
+      this.dispatch(e.currentTarget.dataset)
+    },
+
+    /**
+     * 一次点击落到哪儿。胶囊里现在有两类目标：三个 tab（data-index）和
+     * 「新建习惯」圆钮（data-act="add"），它们**共用上面那一套 touchend 判定** ——
+     * 「页面滑动过之后底栏点不动」那个坑对 + 号一模一样成立，它就在同一个胶囊里，
+     * 而且创建习惯本来就是个低频动作，点两次没反应更容易被当成坏了。
+     */
+    dispatch(ds) {
+      if (ds.act === 'add') this.onAdd()
+      else this.commit(Number(ds.index))
+    },
+
+    /**
+     * 胶囊里的「新建习惯」圆钮（在「主页」左边）。
+     *
+     * 它从首页右下角那个悬浮按钮搬过来，配色也照搬：实心主色（c.accent，
+     * 见 utils/theme.js 的 tabbarVars）。搬家的理由：创建习惯是全应用的动作，
+     * 不该只贴在首页上；而且底部这个位置拇指够得着。
+     */
+    onAdd() {
+      this.vibrate()
+
+      // 已经在首页：**直接**调页面的 onAddHabit 开弹层。
+      // 这里绝不能图省事走 switchTab —— 切到当前 tab 框架不会重跑首页的 onShow，
+      // 那个 pending 标记就会一直躺在全局里，等用户哪天切到别的 tab 再回来时
+      // 突然自己弹出新建弹层。
+      if (this.routeIndex() === 0) {
+        const page = this.currentPage()
+        if (page && typeof page.onAddHabit === 'function') page.onAddHabit()
+        return
+      }
+
+      // 在别的 tab 上：走「我的 / 统计」页里那个按钮的同一条路 ——
+      // 打全局标记，首页 onShow 时消费掉、把弹层弹出来
+      getApp().requestNewHabit()
+      pageFade.leave(this.currentPage())
+      clearTimeout(this._switchTimer)
+      this._switchTimer = setTimeout(() => {
+        this._switchTimer = null
+        wx.switchTab({ url: this.data.list[0].pagePath })
+      }, pageFade.LEAVE_MS)
     },
 
     /** 只用来吞掉 touchmove：底栏自己不滚动，拖动不该漏到底下的页面 */

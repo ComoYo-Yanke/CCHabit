@@ -8,6 +8,7 @@
  * 胶囊是**浮在内容之上**的，不占布局 —— 页面底部要让出它的高度，
  * 那份 padding 写在 app.wxss 的 .page 里，两处改一处就得改另一处。
  * 当前高度：离底 20rpx + 胶囊 108rpx（10rpx 内边距 ×2 + tab 86rpx + 描边 2rpx）。
+ * 左边那枚「新建习惯」圆钮也是 86rpx —— 胶囊高度由最高的孩子定，它高出去就会顶高胶囊。
  *
  * 图标**跟着主题走**（也走行内样式，见 index.js）：其余图标仍是烘焙的固定色
  * （深色 / 白色底上都有 4.6:1 以上对比度），但底栏这里不行 ——
@@ -42,6 +43,33 @@
    * 去掉模糊后观感几乎不变，换来的是点击始终可靠。
    * 若日后确认点击稳定，想加回毛玻璃只需恢复这两行。
    */
+}
+
+/* 新建习惯的圆钮，在「主页」左边。
+   高度必须和 .tab 一样是 86rpx（20+46+20）：胶囊的高度就是最高的那个孩子定的，
+   这里要是高出去，整个胶囊会变高，app.wxss 里 .page 的 padding-bottom 就压不住了。
+   margin-right 和 .tab 之间的间距对齐（.tab 自己没有横向 margin）。
+   底色由行内样式给（实心主色，跟主题走，见 index.js 的 syncTheme） */
+.tab-add {
+  width: 86rpx;
+  height: 86rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 缩不缩都行，但和右边三个 tab 贴太紧会看起来像一个整体，留一点缝 */
+  margin-right: 8rpx;
+  flex-shrink: 0;
+  transition: background-color 0.18s ease;
+}
+
+.tab-add-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.tab-add:active {
+  opacity: 0.85;
 }
 
 .tab {
