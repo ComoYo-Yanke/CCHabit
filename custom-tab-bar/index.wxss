@@ -33,6 +33,8 @@
   border-radius: 999rpx;
   border: 1rpx solid #1F242F;
   background: #161A22;
+  /* 只是兜底：真正的投影按底色亮度分两套，由 JS 给（见 utils/theme.js 的 tabbarVars.shadow）——
+     深色主题下纯黑的影子落在深色页面上等于没有，胶囊会糊进背景 */
   box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.16), 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
   /*
    * 这里**不用 backdrop-filter** 做毛玻璃，虽然它更好看。

@@ -7,7 +7,7 @@
     <path d="M20 6L9 17l-5-5"></path>
   </svg>
 </div>
-c
+
 
 
 
@@ -185,6 +185,7 @@ Copyright (c) 2026 **CoMoYo-Yanke**. All rights reserved.
     <path d="M20 6L9 17l-5-5"></path>
   </svg>
 </div>
+
 
 
 > ⚡ Fully local · No server · No account · No network

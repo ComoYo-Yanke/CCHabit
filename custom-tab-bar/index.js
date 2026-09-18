@@ -118,6 +118,9 @@ Component({
         // accent 是那枚「新建习惯」圆钮的实心底色，和上面三个色值各走各的计算
         // （它取的就是 --accent 本身）。漏比这一项，「改主色 → 胶囊里圆钮不变色」
         c.accent !== prev.accent ||
+        // shadow 按**底色**的亮度算，而 bg 是「卡片色」调出来的，两者不是一回事：
+        // 只改底色不改卡片色时，上面的 bg 比不出来，影子会留在旧的那一套
+        c.shadow !== prev.shadow ||
         c.icons.home.idle !== prev.icons.home.idle ||
         c.icons.home.on !== prev.icons.home.on
       ) {

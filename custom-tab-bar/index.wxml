@@ -16,7 +16,7 @@
 -->
 <view
   class="tabbar"
-  style="background: {{c.bg}}; border-color: {{c.border}};"
+  style="background: {{c.bg}}; border-color: {{c.border}}; box-shadow: {{c.shadow}};"
   catchtouchmove="noop"
 >
   <!--
