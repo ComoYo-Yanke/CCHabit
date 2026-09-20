@@ -243,7 +243,7 @@ git pull
 
 # ② 开分支
 git checkout -b feature/xxx
-git push origin releases/v1.3.0 # 推送新分支到远程仓库
+git push origin releases/vx.x.x # 推送新分支到远程仓库
 # ③ 开发 + 提交
 git add .
 git commit -m "feat: xxx"
