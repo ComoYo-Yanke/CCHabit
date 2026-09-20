@@ -1,9 +1,0 @@
-<view class="empty">
-  <view class="empty-icon">{{icon}}</view>
-  <view class="empty-title">{{title}}</view>
-  <view wx:if="{{desc}}" class="empty-desc">{{desc}}</view>
-  <view wx:if="{{action || subAction}}" class="empty-actions">
-    <view wx:if="{{action}}" class="btn btn--primary empty-btn" bindtap="onAction">{{action}}</view>
-    <view wx:if="{{subAction}}" class="btn btn--ghost empty-btn" bindtap="onSubAction">{{subAction}}</view>
-  </view>
-</view>
