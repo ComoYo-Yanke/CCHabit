@@ -17,7 +17,7 @@
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
     <view class="hero-title">我的</view>
     <view class="hero-date">数据只保存在这台手机上</view>
-    <!-- 鼓励语：每次切回本页换一句（见 utils/quotes.js）。
+    <!-- 鼓励语：每次切回本页翻一句（见 utils/quotes.js）。
          一行、小字、超长截断，不撑高头部 -->
     <view class="hero-quote ellipsis">{{quote.text}} · {{quote.author}}</view>
   </view>

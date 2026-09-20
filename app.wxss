@@ -111,6 +111,21 @@ view, text, scroll-view, button, input, textarea {
   padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
 }
 
+/*
+ * 各页顶上那行名言（内容来自 utils/quotes.js）。
+ *
+ * 主页 /「我的」/ 统计那三页有自己的 .hero，那行字就长在头部里（各自的 .hero-quote）；
+ * 其余几页顶上是 nav-bar，没有可依附的头部，所以给一条**独立的横条**：
+ * 在 .page 里放一个空 view 即可。字号、颜色、截断都跟着主页那一行走 ——
+ * 同一句小字在各页长得不一样才是怪事。
+ */
+.quote-line {
+  padding: 20rpx 28rpx 0;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
 /* ============ 自定义主题的背景图那一层 ============ */
 /*
  * 由 components/app-bg 渲染，必须是 `.page` 的第一个子节点：

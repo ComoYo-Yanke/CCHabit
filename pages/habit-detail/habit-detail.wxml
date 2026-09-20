@@ -22,6 +22,10 @@
        放在 wx:if 里面：习惯还没读出来时整页都不渲染，背景图跟着一起等 -->
   <app-bg theme-name="{{themeName}}" />
 
+  <!-- 名言：本页顶上是 nav-bar，没有可以安放它的头部，所以单独占一行横条
+       （样式见 app.wxss 的 .quote-line）。文本来自 utils/quotes.js -->
+  <view class="quote-line ellipsis">{{quote.text}} · {{quote.author}}</view>
+
   <!-- ============ 头部信息 ============ -->
   <view class="section">
     <!-- 渐变底色写 var(--surface) 而不是字面色值：浅色主题下这里要跟着变白 -->

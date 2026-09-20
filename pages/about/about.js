@@ -16,6 +16,7 @@
 const storage = require('../../utils/storage.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
+const quotes = require('../../utils/quotes.js')
 // 版本号与更新日志的唯一一份定义（「我的」页和首页的更新弹窗读的是同一份）
 const { APP_VERSION, CHANGELOG } = require('../../utils/version.js')
 
@@ -49,6 +50,8 @@ Page({
     // 主题：themeStyle 供 page-meta 换肤，themeName 是 app-bg 判断「还该不该显示背景图」的信号
     themeName: theme.DEFAULT_THEME,
     themeStyle: '',
+    /** 顶上那行名言，由 onShow 填（见 utils/quotes.js） */
+    quote: null,
     /**
      * 「此次更新不再显示公告」的开关状态，即 storage 里的
      * `updateMuted === 当前版本号`。
@@ -86,6 +89,8 @@ Page({
   onShow() {
     pageFade.show(this)
     this.syncTheme()
+    // 每次进来翻一句（和其它页共用同一份顺序，见 utils/quotes.js）
+    this.setData({ quote: quotes.next() })
     // 在 onShow 里读：用户可能刚从首页那个弹窗上勾了「此次更新不再显示」再过来，
     // 状态得跟上（开关就是那个值反推的，见 data.updateMuted）
     const muted = storage.getSettings().updateMuted === APP_VERSION

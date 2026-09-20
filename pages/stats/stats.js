@@ -20,6 +20,7 @@ const storage = require('../../utils/storage.js')
 const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
+const quotes = require('../../utils/quotes.js')
 const theme = require('../../utils/theme.js')
 
 Page({
@@ -30,6 +31,9 @@ Page({
     // 主题：themeStyle 供 page-meta 换肤，themeName 给 canvas 图表（它读不到 CSS 变量）
     themeName: theme.DEFAULT_THEME,
     themeStyle: '',
+
+    /** 顶部那行名言，由 onShow 填（见 utils/quotes.js） */
+    quote: null,
 
     range: 'week',
     anchor: '',
@@ -63,6 +67,8 @@ Page({
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
     this.syncTheme()
     this.syncTabBar()
+    // 每次切回本页翻一句（和其它页共用同一份顺序，见 utils/quotes.js）
+    this.setData({ quote: quotes.next() })
     this.refresh(() => pageFade.show(this))
   },
 
