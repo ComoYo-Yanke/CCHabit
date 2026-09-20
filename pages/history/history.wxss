@@ -1,0 +1,71 @@
+/* 全部版本记录页。
+   版本条目那一套 .log-* 和 pages/about 里的是同一套（那边只铺一版，这边铺全部），
+   两页观感要一致 —— 改样式记得看一眼另一页。这里没有 .log + .log 的分隔线之外的东西 */
+
+.log + .log {
+  margin-top: 26rpx;
+  padding-top: 26rpx;
+  border-top: 1rpx solid var(--border-soft);
+}
+
+.log-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14rpx;
+}
+
+.log-ver {
+  font-size: 27rpx;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.log-date {
+  font-size: 22rpx;
+  color: var(--text-3);
+}
+
+.log-item {
+  display: flex;
+  gap: 10rpx;
+  margin-top: 12rpx;
+}
+
+.log-dot {
+  font-size: 24rpx;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.log-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+/* ---- 底部的仓库入口 ---- */
+.gh-title {
+  font-size: 27rpx;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.gh-desc {
+  font-size: 21rpx;
+  color: var(--text-3);
+  margin-top: 6rpx;
+  line-height: 1.5;
+}
+
+.gh-go {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 列表底部留白（各页面各自定义，不是全局类） */
+.list-bottom-gap {
+  height: 40rpx;
+}

@@ -72,7 +72,10 @@
 
       <!-- 颜色 -->
       <view class="field">
-        <view class="field-label">主题色</view>
+        <view class="field-label">
+          主题色
+          <text class="field-hint">预设色不够用就点最后一个，自己拖</text>
+        </view>
         <view class="color-row">
           <view
             wx:for="{{colors}}"
@@ -83,6 +86,36 @@
             bindtap="onPickColor"
           >
             <view wx:if="{{form.color === item}}" class="ic ic-check-active color-check"></view>
+          </view>
+
+          <!--
+            自定义色：色块本身就是当前色（没调过时是空的虚线圈）。
+            选中态看的是「当前色不在预设里」而不是「面板开着」——
+            调完色收起面板，那一格也得仍显示是选中的。
+          -->
+          <view
+            class="color-cell color-cell--custom {{isCustomColor ? 'color-cell--on' : ''}}"
+            style="{{isCustomColor ? 'background: ' + form.color + ';' : ''}}"
+            bindtap="onToggleCustomColor"
+          >
+            <text wx:if="{{!isCustomColor}}" class="color-plus">＋</text>
+            <view wx:else class="ic ic-check-active color-check"></view>
+          </view>
+        </view>
+
+        <!-- 三根滑块：预设色之外的任意值 -->
+        <view wx:if="{{customColor}}" class="color-custom">
+          <view class="sl-row">
+            <view class="sl-label"><text>R</text><text class="sl-val">{{rgb.r}}</text></view>
+            <slider min="0" max="255" step="1" value="{{rgb.r}}" activeColor="#E04A4A" block-size="18" data-ch="r" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+          </view>
+          <view class="sl-row">
+            <view class="sl-label"><text>G</text><text class="sl-val">{{rgb.g}}</text></view>
+            <slider min="0" max="255" step="1" value="{{rgb.g}}" activeColor="#2FA85F" block-size="18" data-ch="g" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+          </view>
+          <view class="sl-row">
+            <view class="sl-label"><text>B</text><text class="sl-val">{{rgb.b}}</text></view>
+            <slider min="0" max="255" step="1" value="{{rgb.b}}" activeColor="#3B7BE0" block-size="18" data-ch="b" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
         </view>
       </view>

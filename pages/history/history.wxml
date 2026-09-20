@@ -1,0 +1,46 @@
+<!--
+  page-meta 必须是页面的第一个节点。
+  换肤就靠它：把当前主题的 CSS 变量写成 page 的行内样式（见 utils/theme.js）。
+-->
+<page-meta page-style="{{themeStyle}}"></page-meta>
+
+<nav-bar title="版本记录" back="{{true}}" fixed="{{true}}" />
+
+<view class="page page--no-tabbar page--fade {{fading ? 'page--out' : ''}}">
+  <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg -->
+  <app-bg theme-name="{{themeName}}" />
+
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">全部版本记录</text>
+      <text class="section-sub">共 {{count}} 版 · 当前 v{{version}}</text>
+    </view>
+
+    <view class="card">
+      <view class="log" wx:for="{{changelog}}" wx:key="version">
+        <view class="log-head">
+          <text class="log-ver">v{{item.version}}</text>
+          <text class="log-date">{{item.date}}</text>
+        </view>
+        <view class="log-item" wx:for="{{item.items}}" wx:for-item="line" wx:key="*this">
+          <text class="log-dot">·</text>
+          <text class="log-text">{{line}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="card press" bindtap="onCopyGithub">
+      <view class="row-between">
+        <view class="flex-1">
+          <view class="gh-title">GitHub 查看详情</view>
+          <view class="gh-desc">仓库里有每一版的改动明细与说明，点一下复制地址，粘到浏览器打开</view>
+        </view>
+        <text class="gh-go">复制 ›</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="list-bottom-gap"></view>
+</view>

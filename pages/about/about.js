@@ -31,12 +31,21 @@ const { APP_VERSION, CHANGELOG } = require('../../utils/version.js')
  */
 const CHANGELOG_LIMIT = 1
 
+/**
+ * 备案号与工信部官网。
+ * 网址写全 https://，小程序里复制出去才好直接粘进浏览器。
+ * （用户给的是 beian.miit,gov.cn，中间那个逗号是笔误，正式域名是 miit.gov.cn）
+ */
+const BEIAN = '蜀ICP备2026054876号'
+const BEIAN_URL = 'https://beian.miit.gov.cn'
+
 Page({
   data: {
     ...pageFade.data,
     version: APP_VERSION,
     changelog: CHANGELOG.slice(0, CHANGELOG_LIMIT),
     hasMoreLog: CHANGELOG.length > CHANGELOG_LIMIT,
+    beian: BEIAN,
     // 主题：themeStyle 供 page-meta 换肤，themeName 是 app-bg 判断「还该不该显示背景图」的信号
     themeName: theme.DEFAULT_THEME,
     themeStyle: '',
@@ -133,15 +142,22 @@ Page({
     })
   },
 
-  /**
-   * 「更多版本记录」。
-   * 刻意不展开列表：小程序打不开外链（web-view 只认业务域名），
-   * 所以把仓库地址复制给用户，让他自己粘到浏览器里看。
-   */
+  /** 「更早的版本记录」：进「版本记录」页看全部（那里底部另留了 GitHub 的复制入口） */
   onMoreLog() {
+    wx.navigateTo({ url: '/pages/history/history' })
+  },
+
+  /**
+   * 备案号。
+   *
+   * 这条记录按规矩要指向工信部官网，但小程序**打不开外链**（web-view 只认业务域名，
+   * 个人开发者基本拿不到），所以退一步：点了复制地址，再提示用户去浏览器粘。
+   * 和开发者那栏的 GitHub 是同一套处理 —— 是平台限制，不是偷懒。
+   */
+  onCopyBeian() {
     wx.setClipboardData({
-      data: this.data.developer.github,
-      success: () => wx.showToast({ title: '仓库地址已复制，粘到浏览器即可', icon: 'none' })
+      data: BEIAN_URL,
+      success: () => wx.showToast({ title: '工信部网址已复制，粘到浏览器打开', icon: 'none' })
     })
   }
 })

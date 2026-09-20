@@ -46,7 +46,7 @@
       </view>
     </view>
     <view class="about-desc">
-      一个对标 TapHabit 的习惯追踪工具，用原生小程序（WXML / WXSS / JS）实现，图表由 uCharts 绘制。
+      用原生小程序（WXML / WXSS / JS）实现，图表由 uCharts 绘制。
     </view>
   </view>
 
@@ -106,12 +106,13 @@
       </view>
 
       <!--
-        更早的版本不在这里铺开，也不做「点开看全部」，而是把人送去仓库看详情
-        （和开发者那栏一样走「复制地址」，小程序打不开外链，见文件头注释）。
+        更早的版本不在本页铺开（这一栏叫「最近更新」，铺满就没人看），
+        而是跳进「版本记录」页看全部 —— 那边一屏铺开整份日志，
+        底部还留着「GitHub 查看详情」的复制入口。
       -->
       <view wx:if="{{hasMoreLog}}" class="log-more press" bindtap="onMoreLog">
         <text class="log-more-text">更早的版本记录</text>
-        <text class="log-more-go">GitHub 仓库查看 ›</text>
+        <text class="log-more-go">全部版本 ›</text>
       </view>
     </view>
   </view>
@@ -178,6 +179,14 @@
   <view class="copyright">
     <view class="copyright-line">习惯打卡 v{{version}}</view>
     <view class="copyright-line">© 2026 {{developer.name}}</view>
+    <!--
+      备案号。要求是指向工信部官网，但小程序打不开外链，所以做成了「点击复制地址」，
+      提示语会告诉用户粘到浏览器打开（见 about.js 的 onCopyBeian）。
+      视觉上按链接处理：主色 + 下划线，点得出来是个能点的东西。
+    -->
+    <view class="copyright-line">
+      <text class="beian press" bindtap="onCopyBeian">{{beian}}</text>
+    </view>
   </view>
 
   <view class="list-bottom-gap"></view>

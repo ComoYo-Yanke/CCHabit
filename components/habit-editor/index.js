@@ -13,6 +13,37 @@ const storage = require('../../utils/storage.js')
 /** 退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
 const SHEET_LEAVE_MS = 260
 
+/**
+ * 颜色是不是预设里的那八个。
+ * 大小写都要认：预设是大写，但老数据里可能存着小写的同一个色。
+ */
+function isPresetColor(hex) {
+  const target = String(hex || '').toUpperCase()
+  return storage.HABIT_COLORS.some((c) => c.toUpperCase() === target)
+}
+
+/**
+ * 换颜色时要一起算出来的两个派生量：
+ *   - isCustomColor 自定义那格显示成色块还是「＋」、以及是否选中
+ *   - rgb           三根滑块的位置
+ * 放在一个函数里，是因为所有改颜色的入口都得同步更新它们，漏一个就出现
+ * 「选中的是红、滑块还停在蓝」这种错位。和 theme-editor 的 toRgb / toHex 是同一套写法。
+ */
+function colorState(color) {
+  return { isCustomColor: !isPresetColor(color), rgb: toRgb(color) }
+}
+
+function toRgb(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim())
+  if (!m) return { r: 0, g: 0, b: 0 }
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }
+}
+
+function toHex(rgb) {
+  const part = (n) => ('0' + Math.max(0, Math.min(255, Math.round(n || 0))).toString(16)).slice(-2)
+  return ('#' + part(rgb.r) + part(rgb.g) + part(rgb.b)).toUpperCase()
+}
+
 /** 新建时的默认表单 */
 function emptyForm() {
   return {
@@ -42,6 +73,12 @@ Component({
     customUnit: false,
     /** 自定义图标的输入框是否展开（emoji / 字母 / 文字都走这里） */
     customIcon: false,
+    /** RGB 调色滑块是否展开 */
+    customColor: false,
+    /** 当前色不在预设里 —— 决定自定义那格的样子 */
+    isCustomColor: false,
+    /** 三根滑块的位置，只在 customColor 展开时用得上 */
+    rgb: { r: 0, g: 0, b: 0 },
     icons: storage.ICON_PRESETS,
     colors: storage.HABIT_COLORS,
     units: storage.UNIT_PRESETS,
@@ -80,6 +117,7 @@ Component({
     'show, habit': function (show, habit) {
       if (!show) return
       if (habit && habit.id) {
+        const color = habit.color || storage.HABIT_COLORS[0]
         this.setData({
           isEdit: true,
           nameError: '',
@@ -87,18 +125,30 @@ Component({
           // 图标不在预设里就是用户自己填的，把输入框直接展开，否则一进来
           // 会看不出图标是哪来的（格子里有值，但没有任何一个是选中态）
           customIcon: !!habit.icon && storage.ICON_PRESETS.indexOf(habit.icon) < 0,
+          // 颜色同理：存的是自定义色就把调色面板展开，那一格才是选中态
+          customColor: !isPresetColor(color),
+          ...colorState(color),
           form: {
             id: habit.id,
             name: habit.name || '',
             unit: habit.unit || '',
             icon: habit.icon || '🎯',
-            color: habit.color || storage.HABIT_COLORS[0],
+            color,
             step: String(habit.step || 1),
             enabled: habit.enabled !== false
           }
         })
       } else {
-        this.setData({ isEdit: false, nameError: '', customUnit: false, customIcon: false, form: emptyForm() })
+        const color = storage.HABIT_COLORS[0]
+        this.setData({
+          isEdit: false,
+          nameError: '',
+          customUnit: false,
+          customIcon: false,
+          customColor: false,
+          ...colorState(color),
+          form: emptyForm()
+        })
       }
     }
   },
@@ -135,8 +185,46 @@ Component({
       this.setData({ customIcon: true, 'form.icon': '' })
     },
 
+    /** 点预设色。选完顺手把调色面板收起来，免得它一直占着地方 */
     onPickColor(e) {
-      this.setData({ 'form.color': e.currentTarget.dataset.color })
+      const color = e.currentTarget.dataset.color
+      this.setData({ 'form.color': color, customColor: false, ...colorState(color) })
+    },
+
+    /**
+     * 点最后一个「＋」/自定义色块：展开或收起 RGB 滑块。
+     * 展开时滑块对齐当前色 —— 和 onToggleField 一个道理，一展开就得是当前值。
+     */
+    onToggleCustomColor() {
+      if (this.data.customColor) {
+        this.setData({ customColor: false })
+        return
+      }
+      this.setData({ customColor: true, rgb: toRgb(this.data.form.color) })
+    },
+
+    /**
+     * RGB 滑块。
+     * bindchanging 是拖动中（一次拖动几十个事件）→ 只更新界面；
+     * bindchange 是松手。这里两头都改 form.color，因为组件的「落盘」发生在
+     * 用户点保存时（submit 事件），不需要区分这两者。
+     * 老版本基础库的 changing 事件给的是对象而不是数字，两种都接。
+     */
+    onRgbChanging(e) {
+      this.onRgb(e)
+    },
+
+    onRgbChange(e) {
+      this.onRgb(e)
+    },
+
+    onRgb(e) {
+      const ch = e.currentTarget.dataset.ch
+      const raw = e.detail.value
+      const value = typeof raw === 'object' && raw !== null ? raw.value : raw
+      const rgb = Object.assign({}, this.data.rgb, { [ch]: Number(value) || 0 })
+      const color = toHex(rgb)
+      this.setData({ rgb, 'form.color': color, isCustomColor: !isPresetColor(color) })
     },
 
     /** 选中预设单位；再次点击已选中的则取消 */

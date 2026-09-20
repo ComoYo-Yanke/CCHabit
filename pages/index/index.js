@@ -109,10 +109,8 @@ Page({
     dateLabel: '',
     greeting: '',
     /**
-     * 顶部那行鼓励语。在这里求值就等于「启动时抽一次」——
-     * 页面模块在启动时加载，而 utils/quotes 里抽中的那句是缓存的，
-     * 所以本页和「我的」页看到的是同一句（见那个模块的注释）。
-     * 不写进 onLoad：它不是每页一份的数据，换页回来也不该换句子。
+     * 顶部那行鼓励语。这里的初值只负责第一帧，真正的抽取在 onShow ——
+     * 每次切回本页换一句（见 utils/quotes.js）。
      */
     quote: quotes.pick(),
     todayDone: 0,
@@ -169,6 +167,8 @@ Page({
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统），每次回来重新解析
     this.syncTheme()
     this.syncTabBar()
+    // 每次切回本页换一句（在 onShow 而不是 onLoad：切回来才算一次，页内重绘不算）
+    this.setData({ quote: quotes.pick() })
     // 复访的淡入排在 refresh 的渲染回调里，也就是内容全部落定之后
     this.refresh(() => pageFade.show(this))
     // 从「我的 / 统计」页点「新建习惯」跳过来时，把编辑弹层直接打开，

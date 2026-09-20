@@ -29,16 +29,22 @@
   color: var(--text-3);
 }
 
-/* 颜色选择 */
+/* 颜色选择
+ *
+ * 尺寸是按「一行放下九个」倒推的：弹层内容宽 694rpx（750 - .sheet-body 左右各 28），
+ * 9 × 62 + 8 × 14 = 670，留了 24rpx 余量。
+ * 原来 72rpx + 20rpx 的间距在八个预设时就已经放不下（716 > 694），
+ * 第八个会掉到第二行；加上自定义那格更是要走两行 —— 索性一起收进来排成一排。
+ */
 .color-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
+  gap: 14rpx;
 }
 
 .color-cell {
-  width: 72rpx;
-  height: 72rpx;
+  width: 62rpx;
+  height: 62rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -55,6 +61,54 @@
 .color-check {
   width: 34rpx;
   height: 34rpx;
+}
+
+/* 自定义色那一格：没调过时是虚线圈 + 一个「＋」，调过就直接显示那个色 */
+.color-cell--custom {
+  border-color: var(--border);
+  border-style: dashed;
+}
+
+/* 选中时要盖住上面那条虚线：两个类的权重一样，靠这条更具体的选择器压回来，
+   否则调好的颜色选中了却还是灰虚线圈 */
+.color-cell--custom.color-cell--on {
+  border-style: solid;
+  border-color: var(--ring);
+}
+
+.color-plus {
+  font-size: 34rpx;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+/* 三根 RGB 滑块。和 theme-editor 的 .sl-* 同名同观感，
+   但那边定义在页面 wxss 里不跨页，组件里得自成一份 */
+.color-custom {
+  margin-top: 22rpx;
+  padding: 0 4rpx;
+}
+
+.sl-row {
+  margin-top: 14rpx;
+}
+
+.sl-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 24rpx;
+  color: var(--text-2);
+}
+
+.sl-val {
+  font-size: 22rpx;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-row slider {
+  margin: 0 -8rpx;
 }
 
 /* 单位 chips */

@@ -34,7 +34,7 @@ Page({
     recordCount: 0,
     usedDays: 0,
 
-    /** 顶部那行鼓励语。和主页是同一句 —— quotes 里那句是缓存的（见它的注释） */
+    /** 顶部那行鼓励语。初值只负责第一帧，真正的抽取在 onShow（每次切回来换一句） */
     quote: quotes.pick(),
 
     usage: { currentSize: 0, limitSize: 10240, percent: 0, level: 'ok' },
@@ -91,6 +91,8 @@ Page({
     // 系统主题可能在离开期间变过，「跟随系统」要重新解析一次
     this.syncTheme()
     this.syncTabBar()
+    // 每次切回本页换一句（和主页各抽各的，见 utils/quotes.js）
+    this.setData({ quote: quotes.pick() })
     this.refresh(() => pageFade.show(this))
   },
 

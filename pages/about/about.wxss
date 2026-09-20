@@ -313,6 +313,14 @@
   line-height: 1.9;
 }
 
+/* 备案号：看着像链接（主色 + 下划线）才有人去点。
+   实际是「复制工信部网址」，小程序打不开外链（见 about.js 的 onCopyBeian） */
+.beian {
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 4rpx 8rpx;
+}
+
 /* 列表底部留白（各页面各自定义，不是全局类） */
 .list-bottom-gap {
   height: 40rpx;
