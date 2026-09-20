@@ -10,6 +10,10 @@
   <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg -->
   <app-bg theme-name="{{themeName}}" />
 
+  <!-- 名言：本页顶上是 nav-bar，没有可以安放它的头部，所以单独占一行横条
+       （样式见 app.wxss 的 .quote-line）。文本来自 utils/quotes.js -->
+  <view class="quote-line ellipsis">{{quote.text}} · {{quote.author}}</view>
+
   <!-- ============ 应用标识 ============ -->
   <view class="section">
     <view class="app-hero card">

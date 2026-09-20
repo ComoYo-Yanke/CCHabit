@@ -19,6 +19,7 @@ const stats = require('../../utils/stats.js')
 const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
+const quotes = require('../../utils/quotes.js')
 
 /** 记录列表一次渲染的条数，避免超长列表卡顿 */
 const HISTORY_PAGE_SIZE = 20
@@ -36,6 +37,9 @@ Page({
     // 主题：themeStyle 供 page-meta 换肤，themeName 给 canvas 图表（它读不到 CSS 变量）
     themeName: theme.DEFAULT_THEME,
     themeStyle: '',
+
+    /** 顶上那行名言，由 onShow 填（见 utils/quotes.js） */
+    quote: null,
 
     // 顶部概览
     todayText: '0',
@@ -108,6 +112,8 @@ Page({
   onShow() {
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统）
     this.syncTheme()
+    // 每次进来翻一句（和其它页共用同一份顺序，见 utils/quotes.js）
+    this.setData({ quote: quotes.next() })
     // 从编辑弹层或其它页面返回时刷新
     if (this.data.habitId) this.loadHabit(() => pageFade.show(this))
   },

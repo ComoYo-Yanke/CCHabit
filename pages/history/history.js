@@ -15,6 +15,7 @@
  */
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
+const quotes = require('../../utils/quotes.js')
 const { APP_VERSION, CHANGELOG } = require('../../utils/version.js')
 
 /**
@@ -35,7 +36,9 @@ Page({
     count: CHANGELOG.length,
     github: GITHUB,
     themeName: theme.DEFAULT_THEME,
-    themeStyle: ''
+    themeStyle: '',
+    /** 顶上那行名言，由 onShow 填（见 utils/quotes.js） */
+    quote: null
   },
 
   onLoad() {
@@ -45,6 +48,8 @@ Page({
   onShow() {
     pageFade.show(this)
     this.syncTheme()
+    // 每次进来翻一句（和其它页共用同一份顺序，见 utils/quotes.js）
+    this.setData({ quote: quotes.next() })
   },
 
   onReady() {

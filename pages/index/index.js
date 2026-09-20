@@ -109,10 +109,11 @@ Page({
     dateLabel: '',
     greeting: '',
     /**
-     * 顶部那行鼓励语。这里的初值只负责第一帧，真正的抽取在 onShow ——
-     * 每次切回本页换一句（见 utils/quotes.js）。
+     * 顶部那行鼓励语。这里是 null 而不是先取一句：出句是**循环**的
+     * （见 utils/quotes.js），在这儿取一句就白白占掉一轮里的一个位置，
+     * 那句永远轮不到显示。反正 onShow 早于首帧，第一屏不会空着。
      */
-    quote: quotes.pick(),
+    quote: null,
     todayDone: 0,
     todayTotal: 0,
     todayPercent: 0,
@@ -167,8 +168,8 @@ Page({
     // 主题可能刚在「我的」里改过，也可能系统外观变了（跟随系统），每次回来重新解析
     this.syncTheme()
     this.syncTabBar()
-    // 每次切回本页换一句（在 onShow 而不是 onLoad：切回来才算一次，页内重绘不算）
-    this.setData({ quote: quotes.pick() })
+    // 每次切回本页翻一句（在 onShow 而不是 onLoad：切回来才算一次，页内重绘不算）
+    this.setData({ quote: quotes.next() })
     // 复访的淡入排在 refresh 的渲染回调里，也就是内容全部落定之后
     this.refresh(() => pageFade.show(this))
     // 从「我的 / 统计」页点「新建习惯」跳过来时，把编辑弹层直接打开，

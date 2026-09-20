@@ -16,6 +16,15 @@
   margin-top: 10rpx;
 }
 
+/* 名言。和主页 /「我的」那两页的 .hero-quote 一个规格：
+   22rpx、最淡的一级色、只占一行（.ellipsis 截断），不把头部撑高 */
+.hero-quote {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
 /* 区间导航 */
 .range-nav {
   display: flex;
