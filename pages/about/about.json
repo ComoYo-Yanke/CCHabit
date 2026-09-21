@@ -1,6 +1,7 @@
 {
   "usingComponents": {
     "app-bg": "../../components/app-bg/index",
+    "glass-switch": "../../components/glass-switch/index",
     "nav-bar": "../../components/nav-bar/index"
   },
   "navigationStyle": "custom",

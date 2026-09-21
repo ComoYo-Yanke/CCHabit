@@ -66,7 +66,7 @@
           <view class="sw-title">此次更新不再显示公告</view>
           <view class="sw-desc">和开屏弹窗里那个勾选框是同一件事，勾了就打开；只作用于当前版本，下次更新还会提示</view>
         </view>
-        <switch
+        <glass-switch
           checked="{{updateMuted}}"
           color="{{accent}}"
           bindchange="onToggleUpdateNotice"

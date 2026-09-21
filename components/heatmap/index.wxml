@@ -59,7 +59,7 @@
   <!-- 图例 -->
   <view wx:if="{{showLegend && !compact}}" class="heat-legend">
     <text class="heat-legend-text">少</text>
-    <view class="heat-legend-cell" style="background: var(--heat-0)"></view>
+    <view class="heat-legend-cell" style="background: var(--heat-empty)"></view>
     <view class="heat-legend-cell" style="background: var(--heat-1)"></view>
     <view class="heat-legend-cell" style="background: var(--heat-2)"></view>
     <view class="heat-legend-cell" style="background: var(--heat-3)"></view>

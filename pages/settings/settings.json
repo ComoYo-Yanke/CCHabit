@@ -1,6 +1,7 @@
 {
   "usingComponents": {
-    "app-bg": "../../components/app-bg/index"
+    "app-bg": "../../components/app-bg/index",
+    "glass-switch": "../../components/glass-switch/index"
   },
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,

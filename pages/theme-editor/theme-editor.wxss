@@ -258,14 +258,13 @@
   font-size: 21rpx;
   color: var(--text-3);
   line-height: 1.6;
-  /* 抵消 slider 自身带的左右留白，让提示和标题对齐 */
+  /* 抵消滑块上下的一点余量，让提示和标题对齐 */
   margin-top: -6rpx;
 }
 
-/* slider 是原生组件，左右自带的留白在这里统一收掉，不然和卡片边框对不齐 */
-.sl-row slider {
-  margin: 0 -8rpx;
-}
+/* 原来这里有一条 .sl-row slider { margin: 0 -8rpx }，用来抵消**原生** slider
+   自带的左右留白。换成自绘的 glass-slider 之后那层留白没有了，负边距反而会把它
+   顶出卡片，所以整条删掉。这段注释留着，免得以后有人以为是漏写的 */
 
 /* ============ 主题预设 ============ */
 .ps-item {

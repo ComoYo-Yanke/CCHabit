@@ -20,10 +20,15 @@ const COL_W = 32
  * 圆点模式**只分有没有**，有记录一律实心 —— 首页小卡上的格子只有十几 rpx，
  * 四档深浅在那么小的面积上根本分不出来，只会把「哪几天打了卡」说糊。
  * 颜色优先用调用方给的主题色（习惯色），没给就退回当前主题的主色。
+ *
+ * 「没记录」那一格用的是 --heat-empty 而**不是** --heat-0：卡片是半透明的，
+ * 底下的彩光透上来，--heat-0 那种照「卡片当时是什么底色」挑的实色会糊在玻璃里
+ * （浅色下整片网格直接看不见）。半透明的那一档落在什么底色上都还在。
+ * 自定义主题没有这个键，退回 --heat-0 —— 它的卡片不透明，本来就是对的。
  */
 function fillOf(cell, dot, color) {
-  if (dot) return cell.count > 0 ? color || 'var(--accent)' : 'var(--heat-0)'
-  return cell.level === 0 ? 'var(--heat-0)' : 'var(--heat-' + cell.level + ')'
+  if (dot) return cell.count > 0 ? color || 'var(--accent)' : 'var(--heat-empty)'
+  return cell.level === 0 ? 'var(--heat-empty)' : 'var(--heat-' + cell.level + ')'
 }
 
 Component({

@@ -9,7 +9,10 @@
   width: 92rpx;
   height: 92rpx;
   border-radius: var(--r-md);
-  background: var(--surface-2);
+  /* 选项框也是玻璃（自定义主题下等于原来的 --surface-2）。
+     这里**不挂投影** —— 一屏十几个格子，每个一层大半径模糊的投影既吵又费，
+     玻璃感由底色渐变给就够了 */
+  background: var(--glass-soft);
   border: 2rpx solid transparent;
   display: flex;
   align-items: center;
@@ -107,9 +110,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sl-row slider {
-  margin: 0 -8rpx;
-}
+/* 原来这里抵消的是**原生** slider 自带的左右留白；换成自绘的 glass-slider 后没有了 */
 
 /* 单位 chips */
 .chip-row {
@@ -122,7 +123,9 @@
   height: 66rpx;
   padding: 0 26rpx;
   border-radius: 33rpx;
-  background: var(--surface-2);
+  /* 液态玻璃，走 page 上的 --glass-soft（自定义主题下就等于原来的 --surface-2）。
+     描边保持 --border 不动：换成玻璃边的话自定义主题的描边色也会跟着变 */
+  background: var(--glass-soft);
   border: 1rpx solid var(--border);
   color: var(--text-2);
   font-size: 26rpx;

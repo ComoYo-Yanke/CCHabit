@@ -171,15 +171,15 @@
           <!-- 三根滑块：想调准的拖到任意值 -->
           <view class="sl-row">
             <view class="sl-label"><text>R</text><text class="sl-val">{{rgb.r}}</text></view>
-            <slider min="0" max="255" step="1" value="{{rgb.r}}" activeColor="#E04A4A" block-size="18" data-ch="r" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+            <glass-slider min="0" max="255" step="1" value="{{rgb.r}}" activeColor="#E04A4A" block-size="18" data-ch="r" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
           <view class="sl-row">
             <view class="sl-label"><text>G</text><text class="sl-val">{{rgb.g}}</text></view>
-            <slider min="0" max="255" step="1" value="{{rgb.g}}" activeColor="#2FA85F" block-size="18" data-ch="g" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+            <glass-slider min="0" max="255" step="1" value="{{rgb.g}}" activeColor="#2FA85F" block-size="18" data-ch="g" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
           <view class="sl-row">
             <view class="sl-label"><text>B</text><text class="sl-val">{{rgb.b}}</text></view>
-            <slider min="0" max="255" step="1" value="{{rgb.b}}" activeColor="#3B7BE0" block-size="18" data-ch="b" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+            <glass-slider min="0" max="255" step="1" value="{{rgb.b}}" activeColor="#3B7BE0" block-size="18" data-ch="b" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
         </view>
       </view>
@@ -198,13 +198,12 @@
           <text>透明度</text>
           <text class="sl-val">{{cfg.surfaceAlpha}}%</text>
         </view>
-        <slider
+        <glass-slider
           min="0"
           max="100"
           step="1"
           value="{{cfg.surfaceAlpha}}"
           activeColor="{{cfg.accent}}"
-          block-size="20"
           data-ch="alpha"
           bindchanging="onSurfaceAlphaChanging"
           bindchange="onSurfaceAlphaChange"
@@ -217,13 +216,12 @@
           <text>毛玻璃</text>
           <text class="sl-val">{{cfg.cardBlur}}</text>
         </view>
-        <slider
+        <glass-slider
           min="0"
           max="40"
           step="1"
           value="{{cfg.cardBlur}}"
           activeColor="{{cfg.accent}}"
-          block-size="20"
           data-field="cardBlur"
           bindchanging="onNumChanging"
           bindchange="onNumChange"
@@ -313,13 +311,12 @@
             <text>取景缩放</text>
             <text class="sl-val">{{cfg.imageZoom}}%</text>
           </view>
-          <slider
+          <glass-slider
             min="100"
             max="300"
             step="5"
             value="{{cfg.imageZoom}}"
             activeColor="{{cfg.accent}}"
-            block-size="20"
             data-field="imageZoom"
             bindchanging="onNumChanging"
             bindchange="onNumChange"
@@ -331,13 +328,12 @@
             <text>模糊</text>
             <text class="sl-val">{{cfg.imageBlur}}</text>
           </view>
-          <slider
+          <glass-slider
             min="0"
             max="30"
             step="1"
             value="{{cfg.imageBlur}}"
             activeColor="{{cfg.accent}}"
-            block-size="20"
             data-field="imageBlur"
             bindchanging="onNumChanging"
             bindchange="onNumChange"
@@ -348,13 +344,12 @@
             <text>淡化</text>
             <text class="sl-val">{{cfg.imageDim}}%</text>
           </view>
-          <slider
+          <glass-slider
             min="0"
             max="100"
             step="1"
             value="{{cfg.imageDim}}"
             activeColor="{{cfg.accent}}"
-            block-size="20"
             data-field="imageDim"
             bindchanging="onNumChanging"
             bindchange="onNumChange"

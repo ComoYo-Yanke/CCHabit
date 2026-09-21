@@ -1,0 +1,21 @@
+<!--
+  玻璃滑块。三段：凹玻璃轨道、强调色玻璃填充、一块浮在上面的玻璃把手。
+  尺寸照演示按比例缩到小程序的量级（演示轨道 20px / 把手 54×34px）。
+
+  拖动判定在**根节点**上：手指落在轨道的上下 24rpx 内也算，等于把热区加高了
+  （演示也是这么干的，见 .slider-track::after）。catchtouchmove 吞掉拖动，
+  免得手指左右划的时候页面跟着滚。
+-->
+<view
+  class="gslider {{disabled ? 'gslider--off' : ''}}"
+  bindtouchstart="onStart"
+  catchtouchmove="onMove"
+  bindtouchend="onEnd"
+  bindtouchcancel="onEnd"
+  bindtap="onTap"
+>
+  <view class="gslider-track">
+    <view class="gslider-fill" style="{{fillStyle}}"></view>
+  </view>
+  <view class="gslider-thumb" style="{{thumbStyle}}"></view>
+</view>

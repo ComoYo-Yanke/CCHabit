@@ -1,6 +1,7 @@
 {
   "usingComponents": {
-    "nav-bar": "../../components/nav-bar/index"
+    "nav-bar": "../../components/nav-bar/index",
+    "glass-slider": "../../components/glass-slider/index"
   },
   "navigationStyle": "custom",
   "backgroundTextStyle": "light",

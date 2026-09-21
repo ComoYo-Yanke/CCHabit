@@ -1,0 +1,53 @@
+/*
+ * 玻璃滑块（替原生 <slider>，理由见 index.js 顶部）。
+ * 层次：轨道在下面、填充贴在轨道里、把手浮在最上面（z-index）。
+ * 填充与把手的横坐标都靠行内 style 的百分比（见 index.js 的 observers）。
+ */
+.gslider {
+  position: relative;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  /* 手指在滑块上左右拖时页面不跟着滚（catchtouchmove 之外再来一道） */
+  touch-action: none;
+}
+
+.gslider--off {
+  opacity: 0.45;
+}
+
+/* 凹槽：和 .segment 的口径一致（--glass-soft + 内阴影） */
+.gslider-track {
+  position: relative;
+  width: 100%;
+  height: 24rpx;
+  border-radius: 999rpx;
+  overflow: hidden;
+  background: var(--glass-soft);
+  box-shadow: var(--glass-inset, inset 0 2rpx 6rpx rgba(16, 24, 40, 0.12));
+}
+
+/* 填充：颜色由行内 style 给（按 activeColor 现算，见 index.js） */
+.gslider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  /* 拖动时每帧都在改宽度，不加过渡 —— 加了反而拖泥带水、跟不上手指 */
+}
+
+.gslider-thumb {
+  position: absolute;
+  top: 50%;
+  /* 横坐标是行内 style 的百分比，这里只负责定位基准与垂直居中 */
+  transform: translate(-50%, -50%);
+  width: 60rpx;
+  height: 44rpx;
+  border-radius: 999rpx;
+  /* 一块小玻璃：渐变 + 一圈高光 + 投影，和 .card 同一套语言 */
+  background: var(--glass-card);
+  border: 1rpx solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  pointer-events: none;
+}

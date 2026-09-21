@@ -50,7 +50,9 @@
 
 /* 今日概览 */
 .overview {
-  background: linear-gradient(135deg, var(--grad-card-from) 0%, var(--grad-card-to) 60%);
+  /* 底色改走 --glass-overview：浅色 / 深色是玻璃渐变，其余主题取到的
+     就是上面那条原来的渐变（默认值写在 app.wxss 的 page{} 里） */
+  background: var(--glass-overview);
 }
 
 .ov-label {

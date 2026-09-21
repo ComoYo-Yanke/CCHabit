@@ -2,7 +2,7 @@
  * utils/page-fade.js —— 页面切换的淡出 / 淡入
  *
  * 机制只有一个：`fading` 这个布尔量。`true` = 这一页必须是透明的。
- *   - 淡出（1 → 0）：切换时给当前页置 `true`，0.14s ease-in；
+ *   - 淡出（1 → 0）：切换时给当前页置 `true`，0.2s ease-in；
  *   - 淡入（0 → 1）：目标页 onShow 时置 `false`，0.26s 对称曲线。
  * 两个方向和两条曲线都写在 app.wxss 的 `.page--fade` / `.page--out` 里，
  * 这里只负责翻那个布尔量。**不用 @keyframes**，所以没有「动画优先级高于过渡」
@@ -18,7 +18,7 @@
  * 用户看到的是干净的淡入，而不是「先整页闪一下」。
  *
  * 反过来，**绝不能在页面可见的时候置 `true`** —— 唯一的例外是切换那一下，
- * 那是故意的：先淡出，140ms 后才真的 switchTab（见 custom-tab-bar 的 commit）。
+ * 那是故意的：先淡出，140ms（LEAVE_MS）后才真的 switchTab（见 custom-tab-bar 的 commit）。
  *
  * ======================== 触发时机为什么分两个 ========================
  *
@@ -44,7 +44,10 @@
  * 少了 onHide 那一下，这一页第二次被搬上台时就不是透明的了，会闪。
  */
 
-/** 淡出时长，与 app.wxss 里 .page--out 的 transition 保持一致 */
+/**
+ * 淡出时长，与 app.wxss 里 .page--out 的 transition 保持一致。
+ * 底栏切 tab 也是照它等：先淡出，到期才 switchTab（见 custom-tab-bar 的 commit）。
+ */
 const LEAVE_MS = 140
 
 module.exports = {
