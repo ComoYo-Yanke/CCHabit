@@ -41,6 +41,9 @@ page {
   --heat-2: #3A6FB8;
   --heat-3: #4F8CE0;
   --heat-4: #7FB2FF;
+  /* 「没打卡」那一格的底色。浅/深两套在 utils/theme.js 里是真值（半透明的白 / 黑），
+     自定义主题取不到那个键，于是退回 --heat-0 —— 它的卡片不透明，本来就是对的 */
+  --heat-empty: var(--heat-0);
 
   /* 没法只靠上面的色值拼出来的几处，直接存整段值（浅色主题换成对应的一套，见 utils/theme.js） */
   --grad-top: linear-gradient(180deg, #161C2B 0%, rgba(14, 16, 20, 0) 100%);
@@ -60,6 +63,37 @@ page {
   /* 卡片毛玻璃的模糊半径（见 .card）。这里给的是深 / 浅色那两套用的值：
      它们的卡片不透明，糊不出任何效果，只有自定义主题才真的会用到 */
   --card-blur: 16px;
+
+  /*
+   * 液态玻璃（1.3.0）。浅色 / 深色两套在 utils/theme.js 的 THEMES 里另有真值，
+   * 会随 page-style 覆盖到这里。
+   *
+   * ⚠️ 这里的默认值是**故意**写成「改动前的那句」的：自定义主题不走 THEMES，
+   * 也拿不到这几个键，于是取到的就是 --surface / --surface-2 这些原值 ——
+   * 各处从 `background: var(--surface)` 改成 `background: var(--glass-card)` 之后，
+   * 自定义主题算出来的结果和改动前逐像素一致。**别把这几行换成真的玻璃值**，
+   * 换了就等于连自定义主题一起改了。
+   */
+  --glass-card: var(--surface);
+  --glass-soft: var(--surface-2);
+  --glass-accent: var(--accent);
+  --glass-seg-on: var(--surface-3);
+  --glass-sheet: var(--popup-surface);
+  --glass-edge: var(--border-soft);
+  --glass-overview: linear-gradient(135deg, var(--grad-card-from) 0%, var(--grad-card-to) 60%);
+  /* 后四个默认是「什么也不加」：这几处原本没有投影 / 内阴影 / 辉光 / 缩放，
+     值写成 none / 1 就等于没改，自定义主题因此一点都碰不到 */
+  --glass-shadow: none;
+  --glass-inset: none;
+  --glass-ambient: none;
+  --glass-press: 1;
+  --glass-press-card: 1;
+  --glass-accent-shadow: none;
+  --glass-sat: 140%;
+  --glass-track: var(--surface-2);
+  --glass-track-edge: var(--border-soft);
+  /* 会滑动的那块玻璃「扭一下身后的底色」。默认 none = 什么都不做 */
+  --glass-warp: none;
 
   /* 圆角与间距：与主题无关，因此不在 utils/theme.js 里 */
   --r-sm: 12rpx;
@@ -82,7 +116,8 @@ view, text, scroll-view, button, input, textarea {
 /* ============ 布局骨架 ============ */
 .page {
   min-height: 100vh;
-  background: var(--bg);
+  /* 底色。那层彩色辉光挪到下面的 .page::before 去了（见那里的注释） */
+  background-color: var(--bg);
   /*
    * position + z-index 只有一个目的：让 .page 成为一个层叠上下文。
    * 里面的背景图层（components/app-bg）靠 z-index: -1 压在内容之下，
@@ -104,6 +139,39 @@ view, text, scroll-view, button, input, textarea {
      那样底部内容就会被胶囊压住。第二行生效时以后者为准。 */
   padding-bottom: 152rpx;
   padding-bottom: calc(152rpx + env(safe-area-inset-bottom));
+}
+
+/*
+ * 底色之上那层彩色辉光（液态玻璃的「背景参考」）。
+ *
+ * 为什么是 position: fixed 的伪元素而不是 .page 自己的 background-image：
+ *   1. 铺满**视口**且不随内容滚动 —— 卡片滑过去时后面的光是「透出来的」，
+ *      这才像玻璃；贴在 .page 上的话，长页面一屏之后就再没有光了。
+ *   2. fixed 后代只有落在层叠上下文里才画得对，.page 正好是（见上面那段注释）。
+ *      z-index: -1 让它压在内容之下、.page 自己的底色之上。
+ *   3. 用伪元素不占节点 —— 比插一个 <view> 便宜。
+ *
+ * 形状是四个大半径的径向渐变（蓝 / 紫 / 青 / 粉），**没有动画、没有 filter: blur**：
+ * 静态渐变由 WebView 一次绘制缓存，几乎零成本；而动画 + 大半径模糊在真机上
+ * 是每秒重绘一整屏，正是要避开的东西。观感上的「流动」靠卡片毛玻璃去折射它。
+ *
+ * ⚠️ 这是 fixed 的：祖先只要出现 transform / filter / will-change，包含块就会变，
+ * 这层会退回「跟着 .page 一起滚」。.page 上不写这些属性（见上面那段），
+ * 唯一会动的是页面淡出用的 opacity，不影响包含块。
+ *
+ * --glass-ambient 只有浅色 / 深色两套有真值，自定义主题是 none —— 那边保持原样。
+ */
+.page::before {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--glass-ambient);
+  background-repeat: no-repeat;
 }
 
 .page--no-tabbar {
@@ -212,12 +280,17 @@ view, text, scroll-view, button, input, textarea {
  * 别指望加在 .sheet 上 —— 弹层底下垫着遮罩（见 .sheet），糊一块黑色什么也换不来。
  */
 .card {
-  background: var(--surface);
+  /* 液态玻璃：上亮下暗的半透明渐变 + 一圈细描边 + 内高光。
+     自定义主题下 --glass-card 就是 --surface，即改动前的样子 */
+  background: var(--glass-card);
   border-radius: var(--r-lg);
   padding: 28rpx;
-  border: 1rpx solid var(--border-soft);
-  -webkit-backdrop-filter: blur(var(--card-blur, 16px)) saturate(140%);
-  backdrop-filter: blur(var(--card-blur, 16px)) saturate(140%);
+  border: 1rpx solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  /* 饱和度也走 token：自定义主题的卡片同样带毛玻璃（卡片透明度可调），
+     在这里写死 180% 会连那一套一起改掉 */
+  -webkit-backdrop-filter: blur(var(--card-blur, 16px)) saturate(var(--glass-sat, 140%));
+  backdrop-filter: blur(var(--card-blur, 16px)) saturate(var(--glass-sat, 140%));
 }
 
 .card + .card {
@@ -296,20 +369,28 @@ view, text, scroll-view, button, input, textarea {
   align-items: center;
   justify-content: center;
   height: 92rpx;
-  border-radius: var(--r-md);
+  /* 胶囊圆角：演示里的按钮就是胶囊（.btn { border-radius: 999px }） */
+  border-radius: 999rpx;
   font-size: 30rpx;
   font-weight: 600;
-  transition: opacity 0.15s ease;
+  /* 回弹用带过冲的曲线：松手时玻璃「弹」回原状，而不是匀速复位。
+     按下那一刻要跟手，所以在 :active 里换成 0.1s 的直线 —— 按下去快、弹回来慢，
+     那点过冲正是演示里最有手感的一处。 */
+  transition: opacity 0.15s ease, transform 0.4s cubic-bezier(0.2, 1.5, 0.4, 1.2);
 }
 
 .btn--primary {
-  background: var(--accent);
+  /* 有色玻璃：同一色相由浓到淡的渐变 + 自己那圈带色辉光（见 utils/theme.js）。
+     自定义主题下 --glass-accent 就是 --accent，仍是实心主色，观感不变 */
+  background: var(--glass-accent);
   color: #FFFFFF;
+  box-shadow: var(--glass-shadow), var(--glass-accent-shadow);
 }
 
 .btn--ghost {
-  background: var(--surface-2);
+  background: var(--glass-soft);
   color: var(--text);
+  box-shadow: var(--glass-shadow);
 }
 
 .btn--danger {
@@ -317,20 +398,60 @@ view, text, scroll-view, button, input, textarea {
   color: var(--danger);
 }
 
+/*
+ * 按下时玻璃被「挤压」——**放大**而不是缩小，跟演示一致（.liquid.pressing 是 scale(1.06)），
+ * 同时只轻微压一点透明度：透明度压太狠会把「有色玻璃」压暗，那是缩小才该有的观感。
+ */
 .btn:active {
-  opacity: 0.75;
+  opacity: 0.9;
+  /* --glass-press 默认是 1，所以自定义主题不缩放 */
+  transform: scale(var(--glass-press));
+  transition: opacity 0.15s ease, transform 0.1s ease-out;
 }
 
 /* ============ 分段控制器 ============ */
+/*
+ * 选中的那一段不是「自己换个背景色」，而是槽里**独立的一层** .segment::before：
+ * 它的位置只由页面上写在 .segment 里的行内变量 --seg-i（第几段）决定，
+ * 切换时从当前段**滑**到目标段，而不是闪过去；滑的过程中它还会把身后的底色
+ * 扭一下（--glass-warp，演示里那层 blur）。
+ *
+ * 页面那边要做的只有一件事：在 .segment 上写 style="--seg-i: {{...}}"。
+ * 宽度与步长都在这里算 —— 段数默认 4，将来多一段就多写一个 --seg-n。
+ */
 .segment {
+  position: relative;
   display: flex;
-  background: var(--surface-2);
+  /* 槽是凹的：走 --glass-soft + 内阴影，和卡片的方向相反 */
+  background: var(--glass-soft);
+  box-shadow: var(--glass-inset);
   border-radius: var(--r-md);
   padding: 6rpx;
   gap: 6rpx;
 }
 
+.segment::before {
+  content: '';
+  position: absolute;
+  top: 6rpx;
+  bottom: 6rpx;
+  left: 6rpx;
+  /* 宽 = (槽宽 − 两侧内边距 − (n−1) 个间距) / n；位移一格的步长 = 自己的宽 + 一个间距 */
+  width: calc((100% - 12rpx - (var(--seg-n, 4) - 1) * 6rpx) / var(--seg-n, 4));
+  border-radius: 14rpx;
+  background: var(--glass-seg-on);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-warp);
+  backdrop-filter: var(--glass-warp);
+  transform: translateX(calc(var(--seg-i, 0) * (100% + 6rpx)));
+  transition: transform 0.42s cubic-bezier(0.2, 1.5, 0.4, 1.18);
+  pointer-events: none;
+}
+
 .segment-item {
+  /* 必须自己成层：滑块也是绝对定位的，不抬一下文字会被它盖住 */
+  position: relative;
+  z-index: 1;
   flex: 1;
   height: 64rpx;
   display: flex;
@@ -339,11 +460,16 @@ view, text, scroll-view, button, input, textarea {
   font-size: 26rpx;
   color: var(--text-2);
   border-radius: 14rpx;
-  transition: all 0.18s ease;
+  transition: color 0.18s ease, transform 0.4s cubic-bezier(0.2, 1.5, 0.4, 1.2);
+}
+
+/* 按下也「胀一下」，和 .btn / .press 同一套手感（自定义主题下 --glass-press 是 1，等于没动） */
+.segment-item:active {
+  transform: scale(var(--glass-press));
+  transition: color 0.18s ease, transform 0.1s ease-out;
 }
 
 .segment-item--on {
-  background: var(--surface-3);
   color: var(--text);
   font-weight: 600;
 }
@@ -351,7 +477,8 @@ view, text, scroll-view, button, input, textarea {
 /* ============ 统计数字块 ============ */
 .tile {
   flex: 1;
-  background: var(--surface-2);
+  background: var(--glass-soft);
+  box-shadow: var(--glass-shadow);
   border-radius: var(--r-md);
   padding: 24rpx 20rpx;
 }
@@ -389,8 +516,32 @@ view, text, scroll-view, button, input, textarea {
 }
 
 /* ============ 通用动效 ============ */
+/*
+ * .press 是「能按的东西」的通用标记（卡片、格子…都挂它）。手感在这一处定，
+ * 各组件不必各写一遍：
+ *   按下 —— 0.1s 直线，跟手；
+ *   松手 —— 0.4s 过冲曲线，玻璃「弹」回原状。
+ * 只有 transform 走这条慢曲线：它不触发重排（见 utils/theme.js 那句
+ * 「--glass-press 默认是 1」，自定义主题下不缩放，这条过渡也就等于没有）。
+ */
+.press {
+  transition: opacity 0.15s ease, transform 0.4s cubic-bezier(0.2, 1.5, 0.4, 1.2);
+}
+
+/*
+ * 整张卡片也是可点的（history / settings 里 `class="card press"`）。
+ * 它**不能**跟着放大 1.06：全宽卡片放大 6% 会顶出屏幕左右边距，被裁一刀。
+ * 所以大块走另一个收敛的系数（--glass-press-card，默认 1）。
+ */
+.card.press:active {
+  transform: scale(var(--glass-press-card));
+}
+
 .press:active {
   opacity: 0.7;
+  /* 按下时整块「被压一下」。和 .btn 同一个系数，自定义主题下是 1（不缩放） */
+  transform: scale(var(--glass-press));
+  transition: opacity 0.15s ease, transform 0.1s ease-out;
 }
 
 /*
@@ -422,6 +573,7 @@ view, text, scroll-view, button, input, textarea {
 
 .page--out {
   opacity: 0;
+  /* 时长与 utils/page-fade.js 的 LEAVE_MS 一致（底栏也是等这么久才 switchTab） */
   transition: opacity 0.14s ease-in;
 }
 
@@ -497,12 +649,16 @@ view, text, scroll-view, button, input, textarea {
   flex-direction: column;
   /* 内容再长也不许溢出，否则圆角外面会漏出东西 */
   overflow: hidden;
-  background: var(--popup-surface);
+  background: var(--glass-sheet);
   --surface: var(--popup-surface);
   --surface-2: var(--popup-surface-2);
   --surface-3: var(--popup-surface-3);
   --border: var(--popup-border);
   --border-soft: var(--popup-border-soft);
+  --glass-card: var(--popup-surface);
+  --glass-soft: var(--popup-surface-2);
+  --glass-seg-on: var(--popup-surface-3);
+  --glass-edge: var(--popup-border-soft);
   border: 1rpx solid var(--border);
   border-radius: var(--r-xl);
   box-shadow: 0 24rpx 70rpx rgba(0, 0, 0, 0.36);
@@ -574,12 +730,19 @@ view, text, scroll-view, button, input, textarea {
  * utils/theme.js 的 buildCustom 算出实心版本。
  */
 .sheet {
-  background: var(--popup-surface);
+  background: var(--glass-sheet);
   --surface: var(--popup-surface);
   --surface-2: var(--popup-surface-2);
   --surface-3: var(--popup-surface-3);
   --border: var(--popup-border);
   --border-soft: var(--popup-border-soft);
+  /* 玻璃那三个别名跟着一起重绑。自定义属性是**在哪一层声明就在哪一层算死**的别名
+     （--glass-card 在 page 上就解析成了 var(--surface) 的结果），不重绑的话，
+     弹层里的 .card / .chip 会拿 page 那份**半透明**的卡片色，而不是这里实心的 popup 色 */
+  --glass-card: var(--popup-surface);
+  --glass-soft: var(--popup-surface-2);
+  --glass-seg-on: var(--popup-surface-3);
+  --glass-edge: var(--popup-border-soft);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   border-top: 1rpx solid var(--border);
   transform: translateY(100%);
@@ -808,8 +971,11 @@ view, text, scroll-view, button, input, textarea {
 
 .field-input {
   height: 88rpx;
-  background: var(--surface-2);
+  /* 输入框是「嵌进去」的：凹陷感走 --glass-inset，和卡片的方向相反。
+     描边仍是 --border，不换成玻璃边 —— 换了自定义主题的描边色就跟着变了 */
+  background: var(--glass-soft);
   border: 1rpx solid var(--border);
+  box-shadow: var(--glass-inset);
   border-radius: var(--r-md);
   padding: 0 24rpx;
   font-size: 28rpx;

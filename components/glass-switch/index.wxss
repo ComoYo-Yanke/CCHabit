@@ -1,0 +1,53 @@
+/*
+ * 玻璃开关（替原生 <switch>，理由见 index.js 顶部）。
+ * 结构就两层：轨道 + 旋钮。旋钮**只**动 transform，不碰 left —— transform 不重排。
+ */
+.gswitch {
+  position: relative;
+  width: 124rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+  /*
+   * 关着时是凹槽，但**不能用 --glass-soft**：那在半透明卡片上是一层半透明白，
+   * 浅色下整条轨道看不见（用户反馈的「关闭状态对比度低」就是它）。
+   * 关态单独一条 --glass-track：浅色是一整条实灰轨，深色才是半透明白。
+   * 边上一道 --glass-track-edge 是玻璃的顶面高光，也是轨道和白底之间的分界。
+   */
+  background: var(--glass-track);
+  border: 2rpx solid var(--glass-track-edge);
+  box-shadow: var(--glass-inset, inset 0 2rpx 6rpx rgba(16, 24, 40, 0.12));
+  /* 打开时底色要过渡到彩色，所以 background / box-shadow 都得挂上过渡 */
+  transition: background 0.4s ease, box-shadow 0.4s ease, transform 0.15s ease;
+}
+
+/* 按下：放大。跟 .btn 同一个系数（自定义主题下是 1，不缩放） */
+.gswitch--press {
+  transform: scale(var(--glass-press, 1));
+}
+
+.gswitch-knob {
+  position: absolute;
+  top: 6rpx;
+  left: 6rpx;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #FFFFFF 0%, #E6EBF5 100%);
+  box-shadow:
+    0 3rpx 10rpx rgba(0, 0, 0, 0.26),
+    0 1rpx 2rpx rgba(0, 0, 0, 0.16),
+    inset 0 1rpx 0 rgba(255, 255, 255, 1),
+    inset 0 -2rpx 3rpx rgba(180, 190, 210, 0.55);
+  /* ★ 演示里最有手感的一处：位移带过冲，旋钮到位时会「弹」一下 */
+  transition: transform 0.55s cubic-bezier(0.2, 1.6, 0.4, 1.2);
+}
+
+/*
+ * 行程 48rpx = 内宽(124 − 2×2 描边) − 两侧各 6rpx 留白 − 旋钮 60rpx。
+ * 描边是 border-box 里的（全局 view 都设了 border-box），所以它要减掉，
+ * 不然旋钮会顶到右边那条描边上。
+ */
+.gswitch--on .gswitch-knob {
+  transform: translateX(48rpx);
+}

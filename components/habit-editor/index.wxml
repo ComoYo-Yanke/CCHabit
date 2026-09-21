@@ -107,15 +107,15 @@
         <view wx:if="{{customColor}}" class="color-custom">
           <view class="sl-row">
             <view class="sl-label"><text>R</text><text class="sl-val">{{rgb.r}}</text></view>
-            <slider min="0" max="255" step="1" value="{{rgb.r}}" activeColor="#E04A4A" block-size="18" data-ch="r" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+            <glass-slider min="0" max="255" step="1" value="{{rgb.r}}" activeColor="#E04A4A" block-size="18" data-ch="r" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
           <view class="sl-row">
             <view class="sl-label"><text>G</text><text class="sl-val">{{rgb.g}}</text></view>
-            <slider min="0" max="255" step="1" value="{{rgb.g}}" activeColor="#2FA85F" block-size="18" data-ch="g" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+            <glass-slider min="0" max="255" step="1" value="{{rgb.g}}" activeColor="#2FA85F" block-size="18" data-ch="g" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
           <view class="sl-row">
             <view class="sl-label"><text>B</text><text class="sl-val">{{rgb.b}}</text></view>
-            <slider min="0" max="255" step="1" value="{{rgb.b}}" activeColor="#3B7BE0" block-size="18" data-ch="b" bindchanging="onRgbChanging" bindchange="onRgbChange" />
+            <glass-slider min="0" max="255" step="1" value="{{rgb.b}}" activeColor="#3B7BE0" block-size="18" data-ch="b" bindchanging="onRgbChanging" bindchange="onRgbChange" />
           </view>
         </view>
       </view>
@@ -177,7 +177,7 @@
           <view class="switch-title">启用该习惯</view>
           <view class="switch-desc">关闭后不在首页展示，也不计入统计</view>
         </view>
-        <switch checked="{{form.enabled}}" color="{{form.color}}" bindchange="onToggleEnabled" />
+        <glass-switch checked="{{form.enabled}}" color="{{form.color}}" bindchange="onToggleEnabled" />
       </view>
 
       <view class="sheet-gap"></view>

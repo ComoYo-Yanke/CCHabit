@@ -1,0 +1,20 @@
+<!--
+  玻璃开关。尺寸取演示的两倍（62×36px → 124×72rpx），旋钮 30px → 60rpx，
+  位移 26px → 52rpx（= 124 - 60 - 两边各 6 的留白）。
+
+  轨道是**凹**的（--glass-soft + 内阴影），打开时行内样式换成彩色玻璃 ——
+  关着那一档不走行内样式，这样浅色 / 深色 / 自定义主题各自的效果都还在，
+  只有「打开」才需要按 color 现算（见 index.js 的 observers）。
+
+  按下放大写在轨道上（.gswitch--press），和 .btn/.press 是同一套手感。
+-->
+<view
+  class="gswitch {{checked ? 'gswitch--on' : ''}} {{pressing ? 'gswitch--press' : ''}}"
+  style="{{onStyle}}"
+  bindtouchstart="onDown"
+  bindtouchend="onUp"
+  bindtouchcancel="onUp"
+  bindtap="onTap"
+>
+  <view class="gswitch-knob"></view>
+</view>

@@ -12,17 +12,27 @@
  * 所以把「选中项」和「配色」绑在同一个入口里：页面每次 onShow 都会调它，
  * 顺手就把主题同步了，不会出现「页面切浅色了、底栏还是黑的」。
  *
- * ======================== 高亮只在页面 onShow 时变 ========================
+ * ======================== 高亮是一层不动的选中块 ========================
  *
- * 点 tab 时**不**去改高亮。高亮的唯一来源是各页面 onShow 里的 setActive，
- * 也就是「哪一页真的显示出来了，高亮才落到哪一段」。好处有二：
- *   1. 高亮和页面状态天然一致 —— 不会出现「按钮切了、页面没切」这种两边打架的观感；
- *   2. 每个实例只在它自己那页可见时才被看到，而它记的高亮永远是本页那一段，
- *      离开后不会留下任何需要擦除的残留状态。
- * 切换那 140ms 的即时反馈由「页面淡出」本身给，不需要高亮先跳过去。
+ * 1.3.0 起，选中不是一个「各段自己的背景色」，而是胶囊里**独立的一层** .tab-pill，
+ * 位置和宽度由 measure() 量出来写行内样式。
  *
- * 唯一需要操心的残留是「新实例的第一帧」：`selected` 初值是 0，第一次进「统计」
- * 会先画一帧「习惯」被选中。所以 attached 里按**当前路由**定初值。
+ * ⚠️ **它是不会动的**：`.tab-pill` 上没有 transition，paint() 直接把目标格写下去。
+ * 1.3.0 中途试过让它「滑过去」，三版都没做干净 —— 每个 tab 页各有一个 tabBar 实例，
+ * 切页时老实例被整个丢掉，跨实例的动画必然在切页那一帧断掉；改成「滑完再切页」也只是
+ * 把抽动摊长（见 CLAUDELOG）。**结论：不做移动效果**，选中块直接出现在目标段。
+ * 别再加 transition / 别再加「先滑后切」的定时器，那是走过一遍的死路。
+ *
+ * 残留只需要操心「新实例的第一帧」：`selected` 初值是 0，第一次进「统计」会先画一帧
+ * 「习惯」被选中。所以 attached 里按**当前路由**定初值。
+ *
+ * ============ 几何自己算，不假手页面 ============
+ *
+ * 模块作用域只有一份（三个实例共用），所以把 rects 放这儿：三段的几何，量一次长期有效
+ * （位置只跟 padding 和图标宽度有关，跟选中哪一段无关 —— 选中块是绝对定位的，
+ * 不参与 flex 布局，不会挤动别段）。新实例挂载时直接复用，不必重量。
+ *
+ * 页面那边只负责「告诉它该选中哪一段」（setActive），位置一概不问页面要。
  */
 const theme = require('../utils/theme.js')
 const pageFade = require('../utils/page-fade.js')
@@ -44,6 +54,27 @@ const TABS = [
   { pagePath: '/pages/settings/settings', icon: 'user' }
 ]
 
+/*
+ * 模块级：三个实例共用一份（理由见文件头）。
+ */
+/** 三段 tab 的几何（px，相对胶囊左边缘），量一次长期有效 */
+let rects = null
+
+/*
+ * 配色也是模块级的，理由和几何一样：切页时新实例一上来就该有正确的配色。
+ * 不缓存的话，每个新实例的 attached 都会把六枚内联 SVG 重新 setData 一遍 ——
+ * 那一次 setData 正好落在切换的那一帧上，是「每次切都顿一下」的另一半原因。
+ * 按主题名缓存：同一套主题下 tabbarVars 是纯函数，结果可以长期复用。
+ */
+let themeCache = null
+function tabbarVars() {
+  const key = theme.current()
+  if (!themeCache || themeCache.key !== key) {
+    themeCache = { key, c: theme.tabbarVars(theme.vars(key)) }
+  }
+  return themeCache.c
+}
+
 Component({
   options: {
     styleIsolation: 'apply-shared'
@@ -58,7 +89,12 @@ Component({
      * 里面连图标都是现拼的内联 SVG —— 底栏拿不到 CSS 变量，图标颜色也只能走 JS
      * （见 utils/theme.js 的 tabbarVars）。
      */
-    c: theme.tabbarVars(theme.vars('dark'))
+    c: tabbarVars(),
+    /**
+     * 选中块的几何（px，相对胶囊左边缘）。
+     * ready 为 false 时不渲染 —— 位置还没量出来，先画会看到它在最左边闪一下。
+     */
+    pill: { left: 0, width: 0, ready: false }
   },
 
   lifetimes: {
@@ -71,11 +107,30 @@ Component({
         const i = this.routeIndex()
         if (i > 0) this.setData({ selected: i })
       }
+      // 几何已经在手上（模块级缓存）就**立刻**画出来，不等异步测量 ——
+      // 等的话，切页后头几帧胶囊里是空的，选中块要闪一下才出现
+      if (rects) this.paint(this.data.selected)
+      // 仍然量一次：换机型 / 横竖屏时几何会变（见 measure）
+      wx.nextTick(() => this.measure())
     },
 
     detached() {
       // 组件销毁时把待执行的切换取消掉，免得对着已消失的底栏切页
       clearTimeout(this._switchTimer)
+    }
+  },
+
+  /**
+   * 页面重新显示时补量一次几何。
+   *
+   * 从别的页面（详情 / 主题编辑那些非 tab 页）退回来时，底栏可能刚被框架重新挂载，
+   * 那一帧还没布局 —— attached 里的第一次量测会量到一堆 0，被 measure 丢掉，
+   * 选中块就再也不出现了。放在这里量，那时布局一定已经落定。
+   * 量到的跟缓存的几何一样就什么都不做（paint 自己会跳过），所以这不算额外开销。
+   */
+  pageLifetimes: {
+    show() {
+      wx.nextTick(() => this.measure())
     }
   },
 
@@ -98,14 +153,75 @@ Component({
       return pages[pages.length - 1]
     },
 
-    /** 页面 onShow 调用：切换选中态 + 跟随当前主题 */
+    /**
+     * 页面 onShow 调用：切换选中态 + 跟随当前主题。
+     * 页面**只给「该选中哪一段」这一条信息**，滑块怎么挪由下面自己定。
+     */
     setActive(index) {
       this.syncTheme()
       if (this.data.selected !== index) this.setData({ selected: index })
+      this.paint(index)
+    },
+
+    /**
+     * 量出三段 tab 相对胶囊左边缘的位置与宽度，存进**模块级**的 rects。
+     *
+     * 量一次就够，而且量到的结果三个实例共用：位置只跟 padding 和图标宽度有关，
+     * 跟「选中哪一段」无关（滑块是绝对定位的，不参与 flex 布局，选中态不会挤动别段），
+     * 也不跟页面走。所以新实例不必重量，直接把上一次的滑块接过来。
+     *
+     * 真正第一次量（rects 还是 null）时不做动画：那时没有「上一段」可言，
+     * 冷启动直接落位，否则从深链直接进「统计」页会先看到它从「习惯」滑过来。
+     */
+    measure() {
+      this.createSelectorQuery()
+        .select('.tabbar')
+        .boundingClientRect()
+        .selectAll('.tab')
+        .boundingClientRect()
+        .exec((res) => {
+          const bar = res && res[0]
+          const tabs = (res && res[1]) || []
+          if (!bar || !tabs.length) return
+          const next = tabs.map((t) => ({ left: t.left - bar.left, width: t.width }))
+          /*
+           * ⚠️ 量到 0 宽就**整批丢掉**：从别的页面退回来时底栏是重新挂载的，
+           * 这一帧还没布局，量出来全是 0。照着画就是「选中块没了、胶囊最左边多一条线」
+           * —— width: 0 的方块只剩那 1rpx 描边。
+           * 缓存里有上一次的有效几何就继续用（三段的相对位置没变过）；
+           * 一次都没有（冷启动第一帧）就下一帧再来一次，最多三次。
+           */
+          if (!bar.width || next.some((r) => !r.width)) {
+            const tries = this._measureTries || 0
+            if (!rects && tries < 3) {
+              this._measureTries = tries + 1
+              wx.nextTick(() => this.measure())
+            }
+            return
+          }
+          this._measureTries = 0
+          rects = next
+          this.paint(this.data.selected)
+        })
+    },
+
+    /**
+     * 把选中块**直接**放到第 index 段 —— 没有任何动画（见文件头）。
+     * 已经在那一格就什么都不做：页面 onShow 会重复调它。
+     */
+    paint(index) {
+      const to = rects && rects[index]
+      // 0 宽的量测结果等同于没量到（见 measure），绝不能拿去画
+      if (!to || !to.width) return
+      const cur = this.data.pill
+      if (cur.ready && cur.left === to.left && cur.width === to.width) return
+      this.setData({ pill: { left: to.left, width: to.width, ready: true } })
     },
 
     syncTheme() {
-      const c = theme.tabbarVars(theme.vars(theme.current()))
+      // 走模块级缓存：同一套主题下拿到的是**同一个对象**，下面的指纹比对必然相等，
+      // 于是每个新实例都不必再 setData 一次（见文件头）
+      const c = tabbarVars()
       const prev = this.data.c
       // 拿「三个色值 + 一枚图标的两种状态」当指纹就够了，不必逐枚比对六个长 data URI。
       // ⚠️ 但不能只比那三个色值：图标是从 tabbarIcon / tabbarIconActive 单独拼的，
@@ -121,6 +237,10 @@ Component({
         // shadow 按**底色**的亮度算，而 bg 是「卡片色」调出来的，两者不是一回事：
         // 只改底色不改卡片色时，上面的 bg 比不出来，影子会留在旧的那一套
         c.shadow !== prev.shadow ||
+        // 滑块的高光 / 描边是另外算的（也按底色亮度分两套），漏比就会出现
+        // 「底色换了、滑块还是旧的那圈边」
+        c.pillBorder !== prev.pillBorder ||
+        c.pillShadow !== prev.pillShadow ||
         c.icons.home.idle !== prev.icons.home.idle ||
         c.icons.home.on !== prev.icons.home.on
       ) {
@@ -242,7 +362,10 @@ Component({
       // 点击反馈：只在实际要切页时震，点的是本页那一下不震
       this.vibrate()
 
-      // 立刻开始淡出。这时不改高亮 —— 见文件头：高亮等新页面 onShow 时落位
+      // 选中块**在这里**就挪过去（不带动画，直接出现在目标段，理由见文件头）
+      this.setActive(index)
+
+      // 立刻开始淡出；淡完（LEAVE_MS）才真的切页
       pageFade.leave(this.currentPage())
 
       // 后一次点击说了算：重设定时器，上一次待执行的切换作废。

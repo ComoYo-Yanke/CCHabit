@@ -82,6 +82,10 @@ const THEMES = {
     '--danger-soft': 'rgba(255, 92, 92, 0.16)',
 
     '--heat-0': '#21262F',
+    /* 「没打卡」那一格用的底色。**不能**就等于 --heat-0：卡片现在半透明，底下的彩光
+       透上来，实色是拿「卡片当时是什么底色」猜的，玻璃上猜不准（浅色下已经糊成一片）。
+       半透明的白落在任何底色上都还在，网格才看得出形状。自定义主题仍取 --heat-0 */
+    '--heat-empty': 'rgba(255, 255, 255, 0.10)',
     '--heat-1': '#2B4A7A',
     '--heat-2': '#3A6FB8',
     '--heat-3': '#4F8CE0',
@@ -116,15 +120,66 @@ const THEMES = {
     '--popup-surface-3': '#262C38',
     '--popup-border': '#262C38',
     '--popup-border-soft': '#1F242F',
+    /*
+     * 液态玻璃（1.3.0）。
+     *
+     * 这一组**只有浅色 / 深色两套有**，buildCustom 不返回这些键 ——
+     * 而 app.wxss 的 page{} 里把它们的默认值写成了「改动前的原值」
+     * （--glass-card: var(--surface) 等），所以自定义主题取到的就是原来的
+     * --surface / --surface-2，一个像素都不变。加玻璃只加在这里，别加进 buildCustom。
+     *
+     * 全部是「描边 + 内高光 + 半透明渐变」，不用 backdrop-filter 做真模糊：
+     * 卡片本来就带一层 blur，其余面层再叠模糊，滚动时的合成开销不划算。
+     */
+    '--glass-card': 'linear-gradient(150deg, rgba(255, 255, 255, 0.145) 0%, rgba(255, 255, 255, 0.048) 100%)',
+    '--glass-soft': 'linear-gradient(150deg, rgba(255, 255, 255, 0.105) 0%, rgba(255, 255, 255, 0.035) 100%)',
+    '--glass-seg-on': 'linear-gradient(150deg, rgba(255, 255, 255, 0.21) 0%, rgba(255, 255, 255, 0.085) 100%)',
+    '--glass-accent': 'linear-gradient(155deg, rgba(122, 166, 255, 0.94) 0%, rgba(74, 120, 230, 0.78) 100%)',
+    /* 强调色按钮自己那圈辉光（演示里 primary 按钮的投影是带色的）。
+       单独一个 token 而不是并进 --glass-shadow：那是卡片 / 选项块共用的，
+       带色的话每张卡都会泛起蓝光 */
+    '--glass-accent-shadow': '0 12rpx 34rpx rgba(74, 120, 230, 0.42), inset 0 1rpx 0 rgba(255, 255, 255, 0.62), inset 0 1rpx 2rpx rgba(255, 255, 255, 0.28), inset 0 -1rpx 2rpx rgba(0, 0, 0, 0.18)',
+    /* 弹层要压着表单和文字，留得比卡片实一些 —— 玻璃感靠描边和高光给，不靠透 */
+    '--glass-sheet': 'linear-gradient(180deg, rgba(32, 38, 50, 0.94) 0%, rgba(23, 27, 36, 0.97) 100%)',
+    '--glass-edge': 'rgba(255, 255, 255, 0.17)',
+    /* 外投影 + 顶面那道内高光。「玻璃的厚度」全在这条里 —— 按钮、卡片、选项块共用，
+       所以各处只写 box-shadow: var(--glass-shadow)，别在规则里另写死 rgba */
+    '--glass-shadow': '0 16rpx 40rpx rgba(0, 0, 0, 0.46), 0 2rpx 6rpx rgba(0, 0, 0, 0.30), inset 0 1rpx 0 rgba(255, 255, 255, 0.22), inset 0 -1rpx 0 rgba(0, 0, 0, 0.24)',
+    /* 凹进去的那几处（输入框、分段槽）反过来用内阴影 */
+    '--glass-inset': 'inset 0 2rpx 6rpx rgba(0, 0, 0, 0.30)',
+    /* 页面底色之上那层彩色辉光，画在 .page::before 上（见 app.wxss）——
+       玻璃要「有东西可透」才成立，所以是四团大半径的光斑而不是一层薄雾。
+       静态渐变、无动画、无 filter，WebView 一次绘制缓存，滚动不重绘。 */
+    /* ⚠️ 深色这套**没有**开得比浅色更亮，不是手误：深色下卡片只加 14% 的白，
+       光斑一高，卡片上的次要文字（--text-3 那一级）就掉到 3:1 以下。
+       0.34 的蓝斑已经足够看清「卡片后面有颜色」，再高就是拿可读性换观感 */
+    '--glass-ambient': 'radial-gradient(52% 30% at 12% 2%, rgba(91, 140, 255, 0.34) 0%, rgba(91, 140, 255, 0) 70%), radial-gradient(48% 28% at 98% 14%, rgba(168, 108, 255, 0.30) 0%, rgba(168, 108, 255, 0) 68%), radial-gradient(56% 32% at 78% 96%, rgba(43, 205, 178, 0.20) 0%, rgba(43, 205, 178, 0) 72%), radial-gradient(46% 26% at 2% 82%, rgba(255, 122, 182, 0.16) 0%, rgba(255, 122, 182, 0) 70%)',
+    /* 主页那张 hero 卡的底色。比普通卡片亮一点 —— 它是首页最大的一块玻璃 */
+    '--glass-overview': 'linear-gradient(150deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.062) 60%)',
+    /* 按下时「玻璃被压一下」的缩放系数，1 = 不动 */
+    '--glass-press': '1.06',
+    /* 大块（整张卡片）不能用 1.06：全宽卡片放大 6% 会顶出屏幕左右边距 */
+    '--glass-press-card': '0.99',
+    /* 卡片毛玻璃的饱和度（.card 的 backdrop-filter）。彩色底要「透上来」才像玻璃，
+       所以比默认的 140% 高一些 —— 那一档是自定义主题的（它的卡片也能半透明） */
+    '--glass-sat': '180%',
+    /* 开关「关着」那条轨道。原来是走 --glass-soft 的，浅色下那是一层半透明白，
+       落在浅底上等于没画（用户反馈关闭状态看不清），所以关态单独一个 token */
+    '--glass-track': 'linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.07) 100%)',
+    '--glass-track-edge': 'rgba(255, 255, 255, 0.16)',
+    /* 会滑动的那块玻璃把**身后的底色扭一下**（演示里 .liquid.pressing 的
+       blur(44px) saturate(220%)）。这里取小值：它跟着动画每帧重算一层，
+       44px 那个量级在低端机上就是掉帧 —— 观感和帧率之间取这份 */
+    '--glass-warp': 'blur(9px) saturate(190%) brightness(1.06)',
 
     // 非 CSS 变量：只有 custom-tab-bar 用得到（它拿不到 page 的变量）
     // 底栏是悬浮胶囊，压在内容之上，所以底色留一点透明度让底下透出来才像「浮着」。
     // 这里**不做毛玻璃**：backdrop-filter 会让固定的底栏变成独立合成层，
     // 页面滚动后命中区域会脱节、点不动，见 custom-tab-bar/index.wxss
-    tabbarBg: 'rgba(22, 26, 34, 0.88)',
+    tabbarBg: 'rgba(18, 22, 30, 0.80)',
     tabbarBorder: '#1F242F',
     /** 选中项那枚胶囊的填充色 */
-    tabbarActiveBg: 'rgba(91, 140, 255, 0.18)',
+    tabbarActiveBg: 'rgba(91, 140, 255, 0.22)',
     // 底栏图标是**现拼颜色**的（见 tabbarVars / iconUrl），不走 icons.wxss 里
     // 那份烘焙好的 base64。深 / 浅色两套取的就是那份烘焙用的两个值，
     // 所以这两套下的观感和以前逐像素一致，只有自定义主题才真的会变
@@ -157,7 +212,12 @@ const THEMES = {
     '--danger-soft': 'rgba(224, 62, 62, 0.12)',
 
     '--heat-0': '#EBEDF1',
-    '--heat-1': '#C3D8F8',
+    // 见深色那份的注释。浅色比深色更需要它：--heat-0 那个 #EBEDF1 本来就是照
+    // **不透明白卡**挑的，卡一变玻璃就整片糊掉，格子直接看不见
+    '--heat-empty': 'rgba(18, 21, 28, 0.10)',
+    /* 比原来深一档（#C3D8F8）：它是「打过一次」的那一级，落在半透明卡片上
+       原本只剩 1.2:1，等于和没打卡分不出来 */
+    '--heat-1': '#B6CEF0',
     '--heat-2': '#93B7F0',
     '--heat-3': '#5B8CFF',
     '--heat-4': '#2F5FD0',
@@ -177,10 +237,32 @@ const THEMES = {
     '--popup-surface-3': '#E5E7EB',
     '--popup-border': '#E5E7EB',
     '--popup-border-soft': '#ECEEF1',
+    /* 液态玻璃 —— 见深色那一套上面的长注释，两边成对，改一处要改两处 */
+    '--glass-card': 'linear-gradient(150deg, rgba(255, 255, 255, 0.76) 0%, rgba(255, 255, 255, 0.44) 100%)',
+    '--glass-soft': 'linear-gradient(150deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.36) 100%)',
+    '--glass-seg-on': 'linear-gradient(150deg, #FFFFFF 0%, rgba(255, 255, 255, 0.68) 100%)',
+    /* 比深色那套实：浅底上 0.78 的蓝已经淡到白字过不了 4.5:1 了 */
+    '--glass-accent': 'linear-gradient(155deg, rgba(110, 155, 255, 0.98) 0%, rgba(64, 108, 220, 0.94) 100%)',
+    '--glass-accent-shadow': '0 12rpx 30rpx rgba(64, 108, 220, 0.30), inset 0 1rpx 0 rgba(255, 255, 255, 0.72), inset 0 1rpx 2rpx rgba(255, 255, 255, 0.34), inset 0 -1rpx 2rpx rgba(0, 0, 0, 0.10)',
+    '--glass-sheet': 'linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.99) 100%)',
+    '--glass-edge': 'rgba(255, 255, 255, 0.95)',
+    /* 见深色那份的注释：外投影 + 顶面内高光，玻璃的厚度都在这一条里 */
+    '--glass-shadow': '0 16rpx 40rpx rgba(16, 24, 40, 0.13), 0 2rpx 6rpx rgba(16, 24, 40, 0.07), inset 0 1rpx 0 rgba(255, 255, 255, 0.98), inset 0 -1rpx 0 rgba(16, 24, 40, 0.05)',
+    '--glass-inset': 'inset 0 2rpx 6rpx rgba(16, 24, 40, 0.07)',
+    '--glass-ambient': 'radial-gradient(52% 30% at 12% 2%, rgba(91, 140, 255, 0.34) 0%, rgba(91, 140, 255, 0) 70%), radial-gradient(48% 28% at 98% 14%, rgba(168, 108, 255, 0.28) 0%, rgba(168, 108, 255, 0) 68%), radial-gradient(56% 32% at 78% 96%, rgba(43, 205, 178, 0.20) 0%, rgba(43, 205, 178, 0) 72%), radial-gradient(46% 26% at 2% 82%, rgba(255, 122, 182, 0.16) 0%, rgba(255, 122, 182, 0) 70%)',
+    '--glass-overview': 'linear-gradient(150deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.48) 60%)',
+    '--glass-press': '1.06',
+    '--glass-press-card': '0.99',
+    '--glass-sat': '180%',
+    /* 见深色那份的注释。浅色的关态是**一整条实灰轨**（半透明白在这里不成立），
+       边上一道白高光是玻璃的顶面；深色反过来，轨道本来就是浅的 */
+    '--glass-track': 'linear-gradient(150deg, #CBD1DC 0%, #A9B2C2 100%)',
+    '--glass-track-edge': 'rgba(255, 255, 255, 0.85)',
+    '--glass-warp': 'blur(9px) saturate(190%) brightness(1.06)',
 
-    tabbarBg: 'rgba(255, 255, 255, 0.88)',
+    tabbarBg: 'rgba(255, 255, 255, 0.78)',
     tabbarBorder: '#E5E7EB',
-    tabbarActiveBg: 'rgba(91, 140, 255, 0.14)',
+    tabbarActiveBg: 'rgba(91, 140, 255, 0.20)',
     // 见深色那份的注释：这两套都照抄图标原本的烘焙色，
     // 浅色下图标本来就是按「白底上也看得清」挑的中性灰
     tabbarIcon: '#6B7280',
@@ -234,6 +316,8 @@ function iconUrl(name, color) {
  */
 function tabbarVars(v) {
   const icons = {}
+  // 底色亮度统一算一次：胶囊的影子、滑块的高光都按它分两套
+  const light = luminance(toRgb(v['--bg'], DEFAULT_CUSTOM.bg)) >= 0.5
   Object.keys(TABBAR_ICON_PATHS).forEach((name) => {
     icons[name] = {
       idle: iconUrl(name, v.tabbarIcon),
@@ -264,10 +348,18 @@ function tabbarVars(v) {
      * 判据和 themeStyle 那处一样：拿底色算亮度。--bg 在三套主题里都在，
      * 所以浅色 / 深色 / 自定义走的是同一条逻辑，不靠主题名去猜。
      */
-    shadow:
-      luminance(toRgb(v['--bg'], DEFAULT_CUSTOM.bg)) >= 0.5
-        ? '0 10rpx 30rpx rgba(0, 0, 0, 0.16), 0 2rpx 8rpx rgba(0, 0, 0, 0.1)'
-        : '0 0 0 1rpx rgba(255, 255, 255, 0.12), 0 10rpx 30rpx rgba(0, 0, 0, 0.45), 0 2rpx 10rpx rgba(255, 255, 255, 0.06)',
+    shadow: light
+      ? '0 10rpx 30rpx rgba(0, 0, 0, 0.16), 0 2rpx 8rpx rgba(0, 0, 0, 0.1)'
+      : '0 0 0 1rpx rgba(255, 255, 255, 0.12), 0 10rpx 30rpx rgba(0, 0, 0, 0.45), 0 2rpx 10rpx rgba(255, 255, 255, 0.06)',
+    /*
+     * 选中滑块（1.3.0）。滑块是胶囊里独立的一层，颜色同样只能由 JS 喂进来，
+     * 所以这几个值也走这里 —— 和 shadow 一样按**底色亮度**分两套，
+     * 自定义主题于是自动拿到正确的一套，不用去动 buildCustom。
+     */
+    pillBorder: light ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.14)',
+    pillShadow: light
+      ? 'inset 0 1rpx 0 rgba(255, 255, 255, 0.9), 0 4rpx 12rpx rgba(16, 24, 40, 0.10)'
+      : 'inset 0 1rpx 0 rgba(255, 255, 255, 0.18), 0 4rpx 14rpx rgba(0, 0, 0, 0.35)',
     icons
   }
 }

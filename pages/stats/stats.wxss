@@ -37,7 +37,8 @@
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
-  background: var(--surface-2);
+  background: var(--glass-soft);
+  box-shadow: var(--glass-shadow);
   display: flex;
   align-items: center;
   justify-content: center;

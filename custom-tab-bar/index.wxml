@@ -4,9 +4,10 @@
   底色 / 描边 / 选中态填充走行内样式而不是 wxss：tabBar 由框架独立挂载，
   继承不到 page 上的 CSS 变量，颜色只能从 JS 喂进来（见 index.js 的 syncTheme）。
 
-  选中高亮就是当前那一段自己的背景色（`tab--on`），没有独立的滑块图层 ——
-  滑块是为了「拖动时连续跟手」才存在的，拖动已经移除，高亮只在段落之间跳。
-  这样也顺带没有了「滑块停在错位置」这类残留状态。
+  选中高亮是**独立的一层滑块**（.tab-pill），不是各段自己的背景色 ——
+  点 tab 时它从当前段滑到目标段，而不是原地闪一下（用户要的「移动过去」）。
+  位置由 index.js 量出每段的 left/width 写进行内样式；宽度会随段宽过渡，
+  所以 padding 一变它也跟着对，不需要手抄一份尺寸表。
 
   切页逻辑就是「点一下 → 淡出 → switchTab」。判定点没点看的是 touchend 而不是 tap：
   页面刚滑动过时 tap 会被框架的二次判定吃掉，表现为「滑动之后底栏要点好几次」，
@@ -37,11 +38,23 @@
     <view class="ic ic-plus-white tab-add-icon"></view>
   </view>
 
+  <!--
+    选中块。必须排在三个 tab **前面**：它是绝对定位的（不占 flex 位置），
+    先画就被后面的 tab 盖住，图标压在上面才清楚。
+    pill.ready 之前不渲染 —— 位置还没量出来，先画会从 left:0 闪到目标段。
+    **它不动**（.tab-pill 上没有 transition，见 index.js 文件头）：
+    transform 这一层不能用（会把 fixed 胶囊提升成独立合成层，滚动后点不动）。
+  -->
+  <view
+    wx:if="{{pill.ready}}"
+    class="tab-pill"
+    style="left: {{pill.left}}px; width: {{pill.width}}px; background: {{c.active}}; border-color: {{c.pillBorder}}; box-shadow: {{c.pillShadow}};"
+  ></view>
+
   <view
     wx:for="{{list}}"
     wx:key="pagePath"
-    class="tab {{selected === index ? 'tab--on' : ''}}"
-    style="{{selected === index ? 'background: ' + c.active + ';' : ''}}"
+    class="tab"
     data-index="{{index}}"
     bindtouchstart="onTouchStart"
     bindtouchend="onTouchEnd"

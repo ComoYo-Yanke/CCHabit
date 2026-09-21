@@ -116,7 +116,7 @@
             <view class="mg-desc">{{item.count}} 条记录</view>
           </view>
         </view>
-        <switch
+        <glass-switch
           checked="{{item.enabled}}"
           color="{{item.color}}"
           data-id="{{item.id}}"
@@ -135,7 +135,10 @@
       <text class="section-sub">{{themeHint}}</text>
     </view>
     <view class="card">
-      <view class="segment">
+      <!-- --seg-i 是那块会滑的玻璃停在第几段：顺序是 themeOptions 的
+           light / dark / system，加上后面单独写的那段「自定义」＝ 3。
+           套在这个 .segment 上，位置/宽度/动效全在 app.wxss 的 .segment::before 里算 -->
+      <view class="segment" style="--seg-i: {{settings.theme === 'light' ? 0 : settings.theme === 'dark' ? 1 : settings.theme === 'system' ? 2 : 3}}">
         <view
           wx:for="{{themeOptions}}"
           wx:key="key"
@@ -189,7 +192,7 @@
           <view class="sw-title">震动反馈</view>
           <view class="sw-desc">打卡成功、切换页面时轻微震动</view>
         </view>
-        <switch
+        <glass-switch
           checked="{{settings.haptic}}"
           color="#5B8CFF"
           data-field="haptic"

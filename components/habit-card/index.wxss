@@ -122,7 +122,7 @@
   width: 27rpx;
   height: 27rpx;
   border-radius: 50%;
-  background: var(--heat-0);
+  background: var(--heat-empty);
 }
 
 /* 还没到的日子，以及月首 / 月末凑满一周的占位格：不上色，只占位 */

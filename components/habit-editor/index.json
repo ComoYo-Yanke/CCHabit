@@ -1,5 +1,8 @@
 {
   "component": true,
   "styleIsolation": "apply-shared",
-  "usingComponents": {}
+  "usingComponents": {
+    "glass-switch": "../glass-switch/index",
+    "glass-slider": "../glass-slider/index"
+  }
 }

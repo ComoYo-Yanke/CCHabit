@@ -19,7 +19,9 @@
 
   <!-- ============ 维度切换 ============ -->
   <view class="section">
-    <view class="segment">
+    <!-- --seg-i 是那块会滑的玻璃停在第几段（顺序就是下面四段的顺序），
+         位置/宽度/动效全在 app.wxss 的 .segment::before 里算 -->
+    <view class="segment" style="--seg-i: {{range === 'day' ? 0 : range === 'week' ? 1 : range === 'month' ? 2 : 3}}">
       <view class="segment-item {{range === 'day' ? 'segment-item--on' : ''}}" data-range="day" bindtap="onSwitchRange">日</view>
       <view class="segment-item {{range === 'week' ? 'segment-item--on' : ''}}" data-range="week" bindtap="onSwitchRange">周</view>
       <view class="segment-item {{range === 'month' ? 'segment-item--on' : ''}}" data-range="month" bindtap="onSwitchRange">月</view>

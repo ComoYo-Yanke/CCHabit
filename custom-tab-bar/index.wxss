@@ -62,7 +62,8 @@
   /* 缩不缩都行，但和右边三个 tab 贴太紧会看起来像一个整体，留一点缝 */
   margin-right: 20rpx;
   flex-shrink: 0;
-  transition: background-color 0.18s ease;
+  /* 按下快、弹回来带过冲 —— 和 app.wxss 里 .btn / .press 是同一套手感 */
+  transition: background-color 0.18s ease, transform 0.4s cubic-bezier(0.2, 1.5, 0.4, 1.2);
 }
 
 .tab-add-icon {
@@ -71,7 +72,33 @@
 }
 
 .tab-add:active {
-  opacity: 0.85;
+  opacity: 0.9;
+  /* 和 .btn 一样是按下**放大**（演示的 .liquid.pressing 就是 scale(1.06)） */
+  transform: scale(1.06);
+  /* 按下的那一帧跟手，过冲留给松手 */
+  transition: background-color 0.18s ease, transform 0.1s ease-out;
+}
+
+
+/*
+ * 选中块。
+ * 位置和宽度由 JS 量出来写行内样式（见 index.js 的 measure / paint）。
+ * 上下各留 14rpx，正好等于 .tabbar 的 padding —— 于是它的高度就是 .tab 的高度。
+ *
+ * ⚠️ **没有 transition，也不要用 transform 去位移**：
+ *   - 不加过渡是**故意的**：做过三版「滑过去」都没做干净，最终决定不做移动效果
+ *     （每个 tab 页一个 tabBar 实例，切页时老实例整个丢掉，动画必断）；
+ *   - transform 会把这一层提升成独立合成层，而这个胶囊是 position: fixed ——
+ *     正是「变成合成层就点不动」那个坑（同 .tabbar 不能加 backdrop-filter）。
+ */
+.tab-pill {
+  position: absolute;
+  top: 14rpx;
+  bottom: 14rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid transparent;
+  /* 它只是个装饰，点它等于点空气，事件必须落到下面的 .tab 上 */
+  pointer-events: none;
 }
 
 .tab {
@@ -80,10 +107,10 @@
   justify-content: center;
   padding: 20rpx 36rpx;
   border-radius: 999rpx;
-  /* 选中态的背景色由行内样式给（颜色跟主题走，见 index.js 的 syncTheme）。
-     这里只负责让它跳得软一点 —— 切换时页面在淡出，高亮跟着一起换段，
-     eased 一下比硬切自然。 */
-  transition: background-color 0.18s ease;
+  /* 滑块是绝对定位的，按绘制顺序会盖在**静态**的 tab 之上 —— 图标就压在玻璃底下了。
+     提一层把它压回去。只是绘制顺序，不会提升合成层，和上面那个坑无关 */
+  position: relative;
+  z-index: 1;
 }
 
 /* 图标本身不在这里定色：底色 / 描边 / 选中态填充 / 图标颜色全部由行内样式给
