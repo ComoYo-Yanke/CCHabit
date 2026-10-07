@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TapHabit · 网页统计台</title>
+  <meta name="description" content="TapHabit 习惯打卡的网页端：读同一份 JSON，主要用来做统计。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">TH</span>
+      <span>TapHabit <em>网页统计台</em></span>
+    </div>
+    <div class="topbar-right">
+      <span id="topFile" class="filestate">载入中…</span>
+      <button class="btn btn--ghost btn--sm" data-act="theme" title="切换深浅色">◐ 主题</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab tab--on" data-tab="stats">统计</button>
+    <button class="tab" data-tab="habits">习惯</button>
+    <button class="tab" data-tab="data">数据</button>
+  </nav>
+
+  <main>
+    <!-- ==================== 统计 ==================== -->
+    <section class="pane" id="pane-stats">
+      <div class="card card--tight">
+        <div class="row-between">
+          <div class="segment" id="segRange" title="日看每天 / 周看每周 / 月看每月 / 年看每年，一屏分别是 30 / 26 / 12 / 5 格">
+            <button class="seg-item" data-range="day">日</button>
+            <button class="seg-item seg-item--on" data-range="week">周</button>
+            <button class="seg-item" data-range="month">月</button>
+            <button class="seg-item" data-range="year">年</button>
+          </div>
+          <div class="range-nav">
+            <button class="nav-btn" data-shift="-1" title="往前一屏">‹</button>
+            <button class="range-label" id="rangeLabel">—</button>
+            <button class="nav-btn" id="shiftNext" data-shift="1" title="往后一屏">›</button>
+          </div>
+        </div>
+
+        <!-- 四个汇总数跟它们描述的那个区间贴在一起，不另占一张卡 -->
+        <div class="tiles tiles--strip" id="tiles"></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stats-col">
+          <!--
+            仪表盘栅格：宽屏三列，一屏尽量装下。span2 是给趋势图留的双人位，
+            span-full 让热力图通铺一条 —— 它本来就该横着看。
+          -->
+          <div class="stats-cards">
+            <div class="card span2">
+              <div class="card-head">
+                <h2 id="lineTitle">打卡趋势</h2>
+                <span class="sub" id="lineSub"></span>
+              </div>
+              <div class="canvas-wrap canvas-wrap--hero"><canvas id="lineChart"></canvas></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h2>打卡占比</h2>
+                <span class="sub">按次数</span>
+              </div>
+              <div class="pie-wrap">
+                <div class="canvas-wrap canvas-wrap--pie"><canvas id="pieChart"></canvas></div>
+                <div class="legend legend--col" id="pieLegend"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h2>习惯对比</h2>
+                <span class="sub">按次数从多到少</span>
+              </div>
+              <div class="canvas-wrap"><canvas id="barChart"></canvas></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h2>两习惯对比</h2>
+                <span class="sub">各自每格次数</span>
+              </div>
+              <div class="cmp-pick">
+                <select id="cmpA" class="select"></select>
+                <span class="dim">对比</span>
+                <select id="cmpB" class="select"></select>
+              </div>
+              <div class="canvas-wrap"><canvas id="cmpChart"></canvas></div>
+              <div class="legend" id="cmpLegend"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h2>习惯排行</h2>
+                <span class="sub">点一行看明细</span>
+              </div>
+              <div id="ranking"></div>
+            </div>
+
+            <div class="card span-full">
+              <div class="card-head">
+                <h2>全部历史热力图</h2>
+                <!-- 图例塞进表头，省下一行高度；热力图本来就该横着看 -->
+                <span class="heat-legend">
+                  <span class="dim">少</span>
+                  <i class="hm-cell l0"></i><i class="hm-cell l1"></i><i class="hm-cell l2"></i><i class="hm-cell l3"></i><i class="hm-cell l4"></i>
+                  <span class="dim">多 · 从最早一条记录铺到今天，可横向滑动</span>
+                </span>
+                <select id="heatFilter" class="select"></select>
+              </div>
+              <div class="heat-scroll" id="heatmap"></div>
+            </div>
+          </div>
+        </div><!-- /.stats-col -->
+
+      <!-- ==================== 右栏：AI 分析 ==================== -->
+      <aside class="stats-aside">
+        <div class="card ai-card">
+          <div class="card-head">
+            <h2>AI 分析</h2>
+            <span class="sub" id="aiTag">未接入</span>
+          </div>
+          <p class="dim" id="aiHint"></p>
+
+          <details class="ai-cfg" id="aiCfg">
+            <summary>接入设置</summary>
+            <div class="ai-form">
+              <label>服务商<select id="aiPreset" class="select"></select></label>
+              <label>接口地址<input id="aiBase" type="text" placeholder="https://api.deepseek.com/v1"></label>
+              <label>模型名<input id="aiModel" type="text" placeholder="deepseek-chat"></label>
+              <label>API Key<input id="aiKey" type="password" placeholder="本地模型可留空" autocomplete="off"></label>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn--primary btn--sm" data-act="aisave">保存</button>
+              <button class="btn btn--ghost btn--sm" data-act="aiclear">清除</button>
+            </div>
+            <p class="dim ai-note">
+              Key 只存在这个浏览器里（IndexedDB 的一格独立存储），
+              <b>不会写进导出的 JSON</b>，也不会跟着数据同步到小程序。换台机器要重填一次。
+            </p>
+          </details>
+
+          <label class="ai-q-label" for="aiQ">想问什么</label>
+          <textarea id="aiQ" rows="4" maxlength="500" placeholder="留空就用默认那句"></textarea>
+
+          <div class="btn-row">
+            <button class="btn btn--primary" data-act="airun" id="aiRunBtn">开始分析</button>
+            <button class="btn btn--ghost btn--sm" data-act="aistop" id="aiStopBtn" hidden>停止</button>
+          </div>
+
+          <div class="ai-err" id="aiErr" hidden></div>
+          <div class="ai-out" id="aiOut" hidden></div>
+        </div>
+      </aside>
+     </div><!-- /.stats-grid -->
+    </section>
+
+    <!-- ==================== 习惯 ==================== -->
+    <section class="pane" id="pane-habits" hidden>
+      <div class="card card--tight">
+        <div class="row-between">
+          <div>
+            <h2>我的习惯</h2>
+            <p class="dim">快捷打卡记的是这个习惯的「快捷步长」；要填数值或备注，点「详情」。</p>
+          </div>
+          <button class="btn btn--primary" data-act="new">＋ 新建习惯</button>
+        </div>
+      </div>
+      <div id="habitList"></div>
+    </section>
+
+    <!-- ==================== 数据 ==================== -->
+    <section class="pane" id="pane-data" hidden>
+      <div class="tiles" id="dataTiles"></div>
+
+      <div class="card">
+        <div class="card-head"><h2>本地文件</h2><span class="sub">和本页同目录</span></div>
+        <p id="fileState" class="filestate filestate--block"></p>
+        <div class="btn-row">
+          <button class="btn btn--primary" data-act="bindnew">绑定新文件</button>
+          <button class="btn btn--ghost" data-act="bindopen">打开已有文件</button>
+          <button class="btn btn--ghost" data-act="reconnect">重新连接</button>
+          <button class="btn btn--ghost" data-act="reload">重新读取文件</button>
+        </div>
+        <p class="dim">
+          浏览器不许网页「不问自取」地写本地文件，所以第一次要你点一下授权。
+          绑定之后：每次改动都会写进 <code>taphabit-data.json</code>（就在 html/ 里），
+          同时另存一份到 IndexedDB。容量按磁盘走 —— 这就是「存储无限制」的那一半，
+          另一半是小程序那边 95% 会自动清理，这边不会。
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>导入 / 导出</h2><span class="sub">JSON 结构和小程序完全一致</span></div>
+        <div class="btn-row">
+          <button class="btn btn--primary" data-act="download">下载 JSON</button>
+          <button class="btn btn--ghost" data-act="copy">复制 JSON</button>
+          <button class="btn btn--ghost" data-act="import">导入 JSON</button>
+          <button class="btn btn--ghost" data-act="seed">载入示例数据</button>
+          <button class="btn btn--ghost btn--danger" data-act="clear">清空数据</button>
+        </div>
+        <p class="dim">
+          文件格式和小程序的「存储管理 → 导出」一模一样（<code>habits</code> / <code>records</code> / <code>settings</code>）。
+          「复制 JSON」拿到的文本可以直接粘进小程序的导入框；反过来，小程序导出的内容也能在这里导入。
+          导入会**整份覆盖**当前数据，导之前先备份。
+        </p>
+      </div>
+
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </section>
+  </main>
+
+  <!-- ==================== 习惯详情 ==================== -->
+  <div class="modal-mask" id="detailModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="detailTitle">习惯</h3>
+        <button class="modal-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="detailBody"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 新建 / 编辑习惯 ==================== -->
+  <div class="modal-mask" id="habitModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="editorTitle">新建习惯</h3>
+        <button class="modal-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="editorBody"></div>
+      <div class="modal-foot">
+        <button class="btn btn--ghost" data-act="cancel">取消</button>
+        <button class="btn btn--primary" data-act="savehabit">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!--
+    ==================== 小程序那两个模块的加载器 ====================
+
+    utils/date.js 和 utils/stats.js 是 CommonJS（`module.exports` / `require`），
+    浏览器里没有这两样。这几行给它们摆一个最小的运行环境：往 window 上挂一个
+    module，脚本跑完再把结果收进 __mods。于是**日期与统计的实现只有一份** ——
+    网页和小程序算出来的窗口、连续天数、热力等级永远是一个口径，
+    也不会出现「改了小程序忘了改网页」这种两份实现迟早会犯的错。
+
+    代价：本页必须待在项目的 html/ 里（../utils/ 就在隔壁）。单独把这个文件夹
+    拷出去是不行的 —— app.js 开头会检查并给出提示。
+  -->
+  <script>
+    window.__mods = {}
+    window.require = function (p) { return window.__mods[p] }
+  </script>
+  <script>window.module = { exports: {} }; window.exports = window.module.exports</script>
+  <script src="../utils/date.js"></script>
+  <script>window.__mods['./date.js'] = window.module.exports</script>
+  <script>window.module = { exports: {} }; window.exports = window.module.exports</script>
+  <script src="../utils/stats.js"></script>
+  <script>window.__mods['./stats.js'] = window.module.exports</script>
+
+  <!-- ai.js 必须在 store.js 前面：store 读它的 DEFAULT_CONFIG -->
+  <script src="ai.js"></script>
+  <script src="store.js"></script>
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
