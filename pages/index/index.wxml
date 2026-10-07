@@ -8,7 +8,7 @@
   深色默认值，整页随之换肤（见 utils/theme.js）。page-style 是整体覆盖，
   所以弹层的 overflow 必须自己拼在后面。
 -->
-<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin || verMounted) ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin || verMounted || stoMounted) ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <!--
   淡出淡入全靠 fading 这一个布尔量（机制见 utils/page-fade.js）：
@@ -26,38 +26,6 @@
     <!-- 鼓励语：每次切回本页翻一句（见 utils/quotes.js）。
          一行、小字、超长截断，不给它换行撑高头部的机会 -->
     <view class="hero-quote ellipsis">{{quote.text}} · {{quote.author}}</view>
-  </view>
-
-  <!-- ============ 今日概览 ============ -->
-  <view class="section">
-    <view class="overview card">
-      <view class="row-between">
-        <view>
-          <view class="ov-label">今日完成</view>
-          <view class="ov-num">
-            <text class="ov-num-main">{{todayDone}}</text>
-            <text class="ov-num-total">/ {{todayTotal}}</text>
-          </view>
-        </view>
-        <view class="ov-streak">
-          <view class="ic ic-fire-active ov-fire"></view>
-          <view>
-            <view class="ov-streak-num">{{maxStreak}}</view>
-            <view class="ov-streak-label">最长连续</view>
-          </view>
-        </view>
-      </view>
-
-      <view class="ov-bar">
-        <view class="ov-bar-fill" style="width: {{todayPercent}}%;"></view>
-      </view>
-
-      <view class="row-between ov-foot">
-        <text class="f-22 t-3">完成度 {{todayPercent}}%</text>
-        <text wx:if="{{hasHabits && todayDone < todayTotal}}" class="ov-go" bindtap="onOpenOverviewCheckin">去打卡 ›</text>
-        <text wx:elif="{{hasHabits}}" class="ov-go-done">今日全部完成 🎉</text>
-      </view>
-    </view>
   </view>
 
   <!-- ============ 空状态 ============ -->
@@ -159,6 +127,47 @@
         <text class="upd-mute-text">此次更新不再显示</text>
       </view>
       <view class="btn btn--primary" bindtap="onCloseUpdate">知道了</view>
+    </view>
+  </view>
+</view>
+
+<!--
+  ============ 存储告急 ============
+  结构照抄上面那个更新提示：同样挂在 .page 之外（不跟着页面淡出）。
+  触发条件是「用量到了 95%」，**每次启动只判一次**，见 maybeWarnStorage。
+-->
+<view
+  class="mask mask--center {{stoMounted ? 'mask--mounted' : ''}} {{stoOn ? 'mask--on' : ''}}"
+  catchtouchmove="noop"
+  bindtap="onCloseStorage"
+>
+  <view class="modal" catchtap="noop">
+    <view class="modal-head">
+      <view class="modal-title">存储空间将满</view>
+      <view class="modal-close press" bindtap="onCloseStorage">
+        <view class="ic ic-close-idle"></view>
+      </view>
+    </view>
+
+    <scroll-view scroll-y class="modal-body sto-body">
+      <view class="sto-item">
+        <view class="sto-dot"></view>
+        <text class="sto-text">本地存储已用 {{stoBefore}}%，再满就没法记新的打卡了。</text>
+      </view>
+      <!-- 删了才说删了几条：一条没删（记录已经空、体积在别处）时不摆这句空话 -->
+      <view wx:if="{{stoRemoved > 0}}" class="sto-item">
+        <view class="sto-dot"></view>
+        <text class="sto-text">已自动清掉最旧的 {{stoRemoved}} 条打卡记录，现在降到 {{stoAfter}}%（至少留出 60% 空间）。越久远的记录越不会再看，所以从最早的删起。</text>
+      </view>
+      <view class="sto-item">
+        <view class="sto-dot"></view>
+        <text class="sto-text">建议先备份：进「我的 → 存储管理 → 导出」，会复制一份 JSON 到剪贴板，粘贴到备忘录或聊天里存好，以后能整份导回来。</text>
+      </view>
+    </scroll-view>
+
+    <view class="modal-foot">
+      <view class="btn btn--primary" bindtap="onGoExport">去导出</view>
+      <view class="btn btn--ghost sto-later" bindtap="onCloseStorage">知道了</view>
     </view>
   </view>
 </view>

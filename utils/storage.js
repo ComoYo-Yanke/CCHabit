@@ -540,6 +540,88 @@ function getUsage() {
   }
 }
 
+/**
+ * 用量到这个百分比就该动手了：再往上走，下一次写入就可能直接被微信顶回来
+ * （超限时抛的就是 `{ code: 'QUOTA_EXCEEDED' }`）。
+ */
+const USAGE_ALERT = 95
+/**
+ * 清理的目标：用量降回 40% 以下，也就是**至少空出 60%**。
+ * 留这么宽不是好看 —— 「导入备份」是整份数据一次性落盘，卡在 90% 上做这件事，
+ * 十有八九会在写一半的时候撞配额。
+ */
+const USAGE_TARGET = 40
+
+/**
+ * 空间告急时**自动清掉最旧的打卡记录**，直到用量降回 USAGE_TARGET 以下。
+ *
+ * 只删记录，不碰习惯：习惯是用户一个一个建的，一共就几条；会长下去的只有记录。
+ * 删的又是**日期最旧**的那一批 —— 越久远的记录越不会被翻出来看，
+ * 真是要回看五年八年前那几天的人也还有「导出备份」可以救。
+ *
+ * 删多少：先按体积估，再把结果拿去实测，不够就再来一轮，最多三轮。
+ * 只估算不行 —— 记录可能只占总体积的一小半（习惯、背景图路径、设置也在里面），
+ * 按总用量算出来的比例会删不够；只靠试错也不行 —— 一次删一条要写几十次盘。
+ *
+ * @returns {?{before:Number, after:Number, removed:Number}}
+ *          没到阈值就返回 null（调用方据此决定要不要弹提示）；
+ *          before / after 是用量百分比，removed 是这次删掉的记录条数
+ */
+function cleanOldestRecords() {
+  const before = getUsage()
+  if (before.percent < USAGE_ALERT) return null
+
+  const limitKB = before.limitSize || 10240
+  const targetKB = Math.floor((limitKB * USAGE_TARGET) / 100)
+  let removed = 0
+
+  for (let pass = 0; pass < 3; pass++) {
+    const cur = getUsage()
+    if (cur.currentSize <= targetKB) break
+
+    const map = Object.assign({}, getRecordsMap())
+    // 展平成一条条记录，带上所属习惯和它在桶里的下标 —— 删的时候照着下标摘
+    const flat = []
+    Object.keys(map).forEach((hid) => {
+      const list = map[hid]
+      if (!Array.isArray(list)) return
+      list.forEach((r, i) => {
+        if (r && r.d) flat.push({ hid: hid, i: i, d: r.d })
+      })
+    })
+    // 记录已经删光了，剩下的体积不在记录上（习惯 / 设置 / 背景图路径），收工
+    if (!flat.length) break
+
+    // 日期是 YYYY-MM-DD 定长字符串，直接比大小就是比先后，不用转 Date
+    flat.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0))
+
+    // 记录这份占多少体积：拿序列化长度当尺子（落盘的也正是这串字符）
+    const recKB = Math.max(1, Math.round(JSON.stringify(map).length / 1024))
+    const needKB = cur.currentSize - targetKB
+    // 记录还不够填这个缺口就全删；够填就按比例删
+    let n = needKB >= recKB ? flat.length : Math.ceil((flat.length * needKB) / recKB)
+    // 第二轮起至少砍掉剩下的一半：估算偏小（records 比实际占得轻）时不然会原地打转
+    if (pass > 0) n = Math.max(n, Math.ceil(flat.length / 2))
+    n = Math.min(n, flat.length)
+
+    const drop = {}
+    flat.slice(0, n).forEach((e) => {
+      if (!drop[e.hid]) drop[e.hid] = {}
+      drop[e.hid][e.i] = true
+    })
+    Object.keys(drop).forEach((hid) => {
+      map[hid] = (map[hid] || []).filter((r, i) => !drop[hid][i])
+    })
+
+    // 走 saveRecordsMap：它是唯一会顺带更新 _recordsCache 的入口，
+    // 直接 safeSet 会让内存里那份缓存继续拿着已删掉的记录
+    saveRecordsMap(map)
+    removed += n
+  }
+
+  return { before: before.percent, after: getUsage().percent, removed: removed }
+}
+
 /** 导出全部数据为 JSON 字符串（用于备份 / 迁移到新手机） */
 function exportData() {
   return JSON.stringify(
@@ -710,6 +792,7 @@ module.exports = {
   // 「清空数据 / 导入覆盖」都在本模块里，外面没有这个场合
   releaseImageFile,
   getUsage,
+  cleanOldestRecords,
   exportData,
   importData,
   clearAll,

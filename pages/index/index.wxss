@@ -39,104 +39,13 @@
 }
 
 /* 开屏鼓励语。刻意压到 22rpx、用最淡的一级色，且只占一行（.ellipsis 截断）——
-   它是问候语下面的配角，绝不能把头部撑高或把视线从「今日完成」上抢走。
+   它是问候语下面的配角，绝不能把头部撑高或把视线抢走。
    用 --text-3 而不是 --text-2：这里读不清无所谓，那是说明文字才该有的对比度 */
 .hero-quote {
   margin-top: 12rpx;
   font-size: 22rpx;
   line-height: 1.4;
   color: var(--text-3);
-}
-
-/* 今日概览 */
-.overview {
-  /* 底色改走 --glass-overview：浅色 / 深色是玻璃渐变，其余主题取到的
-     就是上面那条原来的渐变（默认值写在 app.wxss 的 page{} 里） */
-  background: var(--glass-overview);
-}
-
-.ov-label {
-  font-size: 24rpx;
-  color: var(--text-3);
-}
-
-.ov-num {
-  display: flex;
-  align-items: baseline;
-  gap: 8rpx;
-  margin-top: 10rpx;
-}
-
-.ov-num-main {
-  font-size: 68rpx;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.ov-num-total {
-  font-size: 30rpx;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.ov-streak {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  background: var(--warn-soft);
-  border-radius: var(--r-md);
-  padding: 16rpx 24rpx;
-}
-
-.ov-fire {
-  width: 44rpx;
-  height: 44rpx;
-}
-
-.ov-streak-num {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: var(--warn);
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.ov-streak-label {
-  font-size: 20rpx;
-  color: var(--warn);
-  opacity: 0.8;
-}
-
-.ov-bar {
-  height: 12rpx;
-  border-radius: 6rpx;
-  background: var(--surface-3);
-  overflow: hidden;
-  margin-top: 28rpx;
-}
-
-.ov-bar-fill {
-  height: 100%;
-  border-radius: 6rpx;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--success) 100%);
-  transition: width 0.35s ease;
-}
-
-.ov-foot {
-  margin-top: 16rpx;
-}
-
-.ov-go {
-  font-size: 24rpx;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.ov-go-done {
-  font-size: 24rpx;
-  color: var(--success);
 }
 
 /* 新建习惯的圆钮不在本页了，挪进了底部胶囊「主页」左边（见 custom-tab-bar）：
@@ -252,6 +161,45 @@
 .upd-mute-text {
   font-size: 24rpx;
   color: var(--text-2);
+}
+
+/* ---------- 存储告急弹窗 ----------
+   正文的色阶与描边照搬上面的更新提示（同一个 .modal，同样是要读的字），
+   只是这里每条前面点一枚小圆点当项目符号，和更新提示的排版一致 */
+.sto-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.sto-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: var(--warn);
+  flex-shrink: 0;
+  /* 和首行文字视觉居中（文字 26rpx、行高 1.7 → 首行约 44rpx） */
+  margin-top: 17rpx;
+}
+
+.sto-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: var(--text);
+  text-shadow: -1rpx -1rpx 0 var(--bg), 1rpx -1rpx 0 var(--bg), -1rpx 1rpx 0 var(--bg),
+    1rpx 1rpx 0 var(--bg);
+}
+
+.sto-body {
+  padding-bottom: 6rpx;
+}
+
+/* 「知道了」和上面的「去导出」分开一点：一个只是关掉，一个要离开这一页 */
+.sto-later {
+  margin-top: 18rpx;
 }
 
 .list-bottom-gap {
