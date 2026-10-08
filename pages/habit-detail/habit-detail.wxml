@@ -38,6 +38,12 @@
           <view class="hd-name ellipsis">{{habit.name}}</view>
           <view class="hd-sub">{{habit.unit ? '单位 ' + habit.unit : '纯计数打卡'}}</view>
         </view>
+        <!-- 定时任务入口：标题右侧、卡片底部那排「编辑」的上方（同一个 .hd-top 行里）。
+             带个数字角标，一眼看得出这个习惯排没排自动打卡 -->
+        <view class="btn btn--ghost hd-task press" bindtap="onOpenTasks">
+          <text>定时任务</text>
+          <text wx:if="{{taskCount}}" class="hd-task-num">{{taskCount}}</text>
+        </view>
       </view>
 
       <view class="hd-stats">

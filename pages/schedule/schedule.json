@@ -1,0 +1,10 @@
+{
+  "usingComponents": {
+    "app-bg": "../../components/app-bg/index",
+    "nav-bar": "../../components/nav-bar/index",
+    "glass-switch": "../../components/glass-switch/index"
+  },
+  "navigationStyle": "custom",
+  "backgroundTextStyle": "light",
+  "backgroundColorTop": "#0E1014"
+}

@@ -1,0 +1,219 @@
+<!--
+  page-meta 必须是页面的第一个节点。
+  弹层打开期间把页面根节点的滚动关掉：遮罩上的 catchtouchmove 只能拦住触摸事件，
+  开发者工具里用滚轮走的是 wheel，照样滚到背后那一屏（理由同 habit-detail）。
+-->
+<page-meta page-style="{{themeStyle}}{{sheetMounted ? 'overflow: hidden;' : ''}}"></page-meta>
+
+<nav-bar title="定时任务" back="{{true}}" fixed="{{true}}" />
+
+<view class="page page--no-tabbar page--fade {{fading ? 'page--out' : ''}}">
+  <!-- 自定义主题的背景图那一层（没有设置背景图时它自己不渲染），见 components/app-bg -->
+  <app-bg theme-name="{{themeName}}" />
+
+  <!-- 名言：本页顶上是 nav-bar，没有可以安放它的头部，所以单独占一行横条
+       （样式见 app.wxss 的 .quote-line）。文本来自 utils/quotes.js -->
+  <view class="quote-line ellipsis">{{quote.text}} · {{quote.author}}</view>
+
+  <!-- ============ 归属的习惯 ============ -->
+  <view class="section">
+    <view class="card">
+      <view class="sk-top">
+        <view class="sk-icon" style="background: {{habit.color}}26; border-color: {{habit.color}}55;">{{habit.icon}}</view>
+        <view class="flex-1">
+          <view class="sk-name ellipsis">{{habit.name}}</view>
+          <view class="sk-sub">{{tasks.length}}/{{max}} 个定时任务</view>
+        </view>
+      </view>
+
+      <!-- 这句必须说清楚：小程序没有后台执行能力，做不到「关着也照打」。
+           不说的话用户会以为到点了就自动记上了，回头发现没记录就是投诉 -->
+      <view class="sk-tip">
+        小程序关掉之后不会自己跑。定时任务是在你下次打开时，把错过的时刻按原定时间补记上，
+        补出来的记录备注就是任务描述。
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 任务列表 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">自动打卡任务</text>
+      <text class="section-sub">每个习惯最多 {{max}} 个</text>
+    </view>
+
+    <view wx:if="{{!tasks.length}}" class="card">
+      <view class="empty" style="padding: 50rpx 0;">
+        <view class="empty-title">还没有定时任务</view>
+        <view class="empty-desc">加一个，之后就不用惦记着了</view>
+      </view>
+    </view>
+
+    <block wx:else>
+      <view wx:for="{{tasks}}" wx:key="id" class="card sk-item {{item.enabled ? '' : 'sk-item--off'}}">
+        <view class="sk-item-head">
+          <view class="flex-1">
+            <view class="sk-item-desc ellipsis">{{item.desc}}</view>
+            <view class="sk-item-when">{{item.summary}}</view>
+          </view>
+          <!-- 开关是唯一跟着主题走的控件：它拿不到 CSS 变量，主色只能从 JS 给 -->
+          <glass-switch
+            checked="{{item.enabled}}"
+            color="{{habit.color}}"
+            data-id="{{item.id}}"
+            bindchange="onToggleEnabled"
+          />
+        </view>
+
+        <view class="sk-item-foot">
+          <text class="f-22 t-3">每次记 {{item.count}} 条 · {{item.runText}}</text>
+          <view class="sk-item-acts">
+            <view class="sk-act press" data-id="{{item.id}}" bindtap="onEdit">编辑</view>
+            <view class="sk-act sk-act--danger press" data-id="{{item.id}}" bindtap="onDelete">删除</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view wx:if="{{remain > 0}}" class="btn btn--ghost sk-add press" bindtap="onAdd">＋ 新增定时任务</view>
+    <view wx:else class="list-end">— 已经加满 {{max}} 个啦 —</view>
+  </view>
+
+  <view class="list-bottom-gap"></view>
+</view>
+
+<!-- ============ 新增 / 编辑弹层 ============ -->
+<view
+  class="mask {{sheetMounted ? 'mask--mounted' : ''}} {{sheetActive ? 'mask--on' : ''}}"
+  catchtouchmove="noop"
+  bindtap="onCloseSheet"
+>
+  <view class="sheet" catchtap="noop">
+    <view class="sheet-head sheet-head--acts">
+      <text class="sheet-title ellipsis">{{isEdit ? '编辑任务' : '新增任务'}}</text>
+      <view class="sheet-acts">
+        <view wx:if="{{isEdit}}" class="sheet-ok sheet-ok--danger" bindtap="onDeleteFromSheet">删除</view>
+        <view class="sheet-ok" style="background: {{habit.color}};" bindtap="onSubmit">{{isEdit ? '保存' : '添加'}}</view>
+      </view>
+      <view class="sheet-close press" bindtap="onCloseSheet">
+        <view class="ic ic-close-idle"></view>
+      </view>
+    </view>
+
+    <!-- 必须是 scroll-view：普通 view 的 overflow 滚动挂在 WebView 的 touchmove 上，
+         会被遮罩的 catchtouchmove 吃掉，真机上滑不动。详见 app.wxss 的 .sheet-body -->
+    <scroll-view scroll-y class="sheet-body" show-scrollbar="{{false}}">
+      <!-- 频率。--seg-i 是那块会滑的玻璃停在第几段，位置/宽度由 app.wxss 算 -->
+      <view class="field">
+        <view class="field-label">什么时候打</view>
+        <view class="segment" style="--seg-i: {{kindIndex}}">
+          <view
+            wx:for="{{kinds}}"
+            wx:key="key"
+            class="segment-item {{form.kind === item.key ? 'segment-item--on' : ''}}"
+            data-kind="{{item.key}}"
+            bindtap="onPickKind"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <!-- 间隔：每 N 个时间单位 -->
+      <view wx:if="{{form.kind === 'interval'}}" class="field">
+        <view class="field-label">每隔多久</view>
+        <view class="sk-row">
+          <input
+            class="field-input sk-num"
+            type="number"
+            value="{{form.every}}"
+            data-field="every"
+            placeholder="1"
+            placeholder-class="ph"
+            bindinput="onInput"
+          />
+          <view class="sk-chips">
+            <view
+              wx:for="{{units}}"
+              wx:key="key"
+              class="sk-chip {{form.unit === item.key ? 'sk-chip--on' : ''}}"
+              style="{{form.unit === item.key ? 'border-color:' + habit.color + ';background:' + habit.color + '22' : ''}}"
+              data-unit="{{item.key}}"
+              bindtap="onPickUnit"
+            >{{item.label}}</view>
+          </view>
+        </view>
+        <view class="field-hint">关掉小程序期间不会跑，下次打开时按原定时刻补记</view>
+      </view>
+
+      <!-- 每周：挑星期几 -->
+      <view wx:if="{{form.kind === 'weekly'}}" class="field">
+        <view class="field-label">星期几 <text class="field-hint">可多选</text></view>
+        <view class="sk-chips sk-chips--week">
+          <!-- 选中态在 JS 里算好（weekPick）：WXML 的表达式不支持 indexOf 这类函数调用 -->
+          <view
+            wx:for="{{weekPick}}"
+            wx:key="d"
+            class="sk-chip {{item.on ? 'sk-chip--on' : ''}}"
+            style="{{item.on ? 'border-color:' + habit.color + ';background:' + habit.color + '22' : ''}}"
+            data-day="{{item.d}}"
+            bindtap="onToggleWeek"
+          >{{item.cn}}</view>
+        </view>
+      </view>
+
+      <!-- 每月：几号 -->
+      <view wx:if="{{form.kind === 'monthly'}}" class="field">
+        <view class="field-label">每月几号 <text class="field-hint">该月没有这一天就落在月末</text></view>
+        <input
+          class="field-input"
+          type="number"
+          value="{{form.day}}"
+          data-field="day"
+          placeholder="1"
+          placeholder-class="ph"
+          bindinput="onInput"
+        />
+      </view>
+
+      <!-- 时刻（间隔模式没有固定时刻，它按毫秒算） -->
+      <view wx:if="{{form.kind !== 'interval'}}" class="field">
+        <view class="field-label">几点</view>
+        <picker mode="time" value="{{form.timeValue}}" bindchange="onTimeChange">
+          <view class="field-input sk-picker">{{form.timeValue}}</view>
+        </picker>
+      </view>
+
+      <!-- 每次触发写几条记录 -->
+      <view class="field">
+        <view class="field-label">每次记几条 <text class="field-hint">补记时每条记一个「{{habit.step}}{{habit.unit}}」</text></view>
+        <input
+          class="field-input"
+          type="number"
+          value="{{form.count}}"
+          data-field="count"
+          placeholder="1"
+          placeholder-class="ph"
+          bindinput="onInput"
+        />
+      </view>
+
+      <!-- 描述：必填，也是补记出来的那笔记录的备注 -->
+      <view class="field">
+        <view class="field-label">任务描述 <text class="field-hint">必填，会写进打卡记录的备注</text></view>
+        <input
+          class="field-input {{error ? 'field-input--error' : ''}}"
+          value="{{form.desc}}"
+          data-field="desc"
+          maxlength="20"
+          placeholder="例如：睡前那一次"
+          placeholder-class="ph"
+          bindinput="onInput"
+        />
+        <view wx:if="{{error}}" class="field-error">{{error}}</view>
+      </view>
+
+      <view class="sheet-gap"></view>
+    </scroll-view>
+
+    <view class="sheet-safe"></view>
+  </view>
+</view>

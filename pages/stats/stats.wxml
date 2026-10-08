@@ -54,7 +54,11 @@
   </block>
 
   <block wx:else>
-    <!-- ============ 汇总指标 ============ -->
+    <!-- ============ 汇总指标 ============
+         只有这两格。「完成率」和「活跃习惯」在 1.4.0 整块移除了：
+         一个是按「有几天打了卡 / 区间一共几天」算的，跨全部习惯平均，
+         对单个习惯没什么指导意义；另一个就是「有几个习惯打过卡」，
+         看一眼下面的排行榜就全知道了 —— 两格都在占地方 -->
     <view class="section">
       <view class="tiles-row">
         <view class="tile">
@@ -64,16 +68,6 @@
         <view class="tile">
           <view class="tile-value">{{summary.activeDays}}</view>
           <view class="tile-label">打卡天数</view>
-        </view>
-      </view>
-      <view class="tiles-row tiles-row--mt">
-        <view class="tile">
-          <view class="tile-value">{{summary.completionRate}}%</view>
-          <view class="tile-label">完成率</view>
-        </view>
-        <view class="tile">
-          <view class="tile-value">{{summary.activeHabitCount}}/{{summary.habitCount}}</view>
-          <view class="tile-label">活跃习惯</view>
         </view>
       </view>
     </view>
@@ -160,8 +154,10 @@
           <view class="rank-bar-fill" style="width: {{item.completionRate}}%; background: {{item.color}};"></view>
         </view>
 
+        <!-- 这里原来还跟着一个「· 45%」，和左边的「x/y 天完成」是同一个数的两种写法，
+             连着上面那条进度条是三遍重复。1.4.0 跟着「完成率」那格一起去掉了 -->
         <view class="rank-foot">
-          <text class="f-22 t-3">{{item.activeDays}}/{{item.totalDays}} 天完成 · {{item.completionRate}}%</text>
+          <text class="f-22 t-3">{{item.activeDays}}/{{item.totalDays}} 天完成</text>
           <text class="f-22 t-3">累计 {{item.valueText}}{{item.unit}}</text>
         </view>
       </view>

@@ -79,10 +79,6 @@
   gap: 16rpx;
 }
 
-.tiles-row--mt {
-  margin-top: 16rpx;
-}
-
 .tiles-row .tile {
   padding: 26rpx 22rpx;
 }

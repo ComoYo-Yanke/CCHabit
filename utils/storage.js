@@ -14,6 +14,10 @@
  *
  *   th:records  { [habitId]: CheckinRecord[] }   打卡记录，按 habitId 分桶
  *
+ *   th:tasks    { [habitId]: AutoTask[] }        定时打卡任务，同样按 habitId 分桶
+ *               和记录放两个 key：任务只有几条（每个习惯最多 5 个），记录能长到几万条。
+ *               混在一个桶里的话，「清理最旧记录」每轮都得把任务也序列化一遍。
+ *
  *   th:settings { haptic:Boolean, theme:String }  用户偏好
  *               theme 取值 'light' | 'dark' | 'system'，见 utils/theme.js
  *
@@ -44,6 +48,28 @@
  *   同一天允许存在多条记录（需求：可重复多次打卡），
  *   按天聚合时 count = 记录条数，value = v 之和。
  *
+ * AutoTask（定时打卡任务）：
+ *   {
+ *     id:        String   唯一 id，形如 `k_lx3k2a`
+ *     kind:      String   'interval' 间隔 | 'daily' 每天 | 'weekly' 每周 | 'monthly' 每月
+ *     every:     Number   间隔模式：每 N 个时间单位
+ *     unit:      String   间隔模式：'second' | 'minute' | 'hour'
+ *     hh / mm:   Number   每天 / 每周 / 每月模式的触发时刻（时 / 分）
+ *     weekdays:  Number[] 每周模式：星期几，0=周日（与 JS getDay 一致）
+ *     day:       Number   每月模式：几号，遇到该月没有这一天就落在月末
+ *     count:     Number   每次触发写几条记录
+ *     desc:      String   任务描述，**必填**（用户要求：必须给自动任务添加描述）
+ *     enabled:   Boolean  是否启用
+ *     createdAt: Number   创建时间戳(ms)
+ *     lastRunAt: Number   上次**检查**到哪一刻(ms)，补跑扫描的起点。注意它每启动一次
+ *                         都会推到当下，不代表「上次打卡在什么时候」
+ *     lastFiredAt: Number 上次**真的触发**在什么时候(ms)，0 表示还没触发过。
+ *                         这个才是界面上「上次自动打卡 x」要显示的那个
+ *   }
+ *
+ *   注意：小程序没有后台执行能力（退出即停），所谓「自动打卡」是**打开小程序时
+ *   把错过的触发时刻补记上**，见 utils/scheduler.js。
+ *
  * ============================ 容量与边界 ============================
  *
  * 微信小程序 storage 单 key 上限 1MB、总量上限 10MB。
@@ -60,8 +86,17 @@ const KEYS = {
   META: 'th:meta',
   HABITS: 'th:habits',
   RECORDS: 'th:records',
+  TASKS: 'th:tasks',
   SETTINGS: 'th:settings'
 }
+
+/**
+ * 每个习惯最多几个定时任务（产品定的 5 个）。
+ * 定时任务是「自动化」不是「记账本」：给同一个习惯排五条以上的自动打卡，
+ * 多半是没想清楚要什么；而且每条任务每次触发都要落盘，数量不封顶的话，
+ * 几条「每 1 分钟」的任务凑一块能把 storage 写满。
+ */
+const MAX_TASKS_PER_HABIT = 5
 
 /** 当前存储结构版本，升级结构时 +1 并在 migrate() 中补充迁移逻辑 */
 const SCHEMA_VERSION = 1
@@ -95,6 +130,7 @@ const ICON_PRESETS = ['📖', '🏃', '💧', '🚴', '💪', '🧘', '🎯', '�
 // ---------------------------------------------------------------------------
 let _habitsCache = null
 let _recordsCache = null
+let _tasksCache = null
 
 /** 生成带前缀的唯一 id（时间戳 36 进制 + 随机串，保证同一毫秒内不重复） */
 function uid(prefix) {
@@ -150,6 +186,7 @@ function ensureInit() {
     })
     safeSet(KEYS.HABITS, [])
     safeSet(KEYS.RECORDS, {})
+    safeSet(KEYS.TASKS, {})
     return
   }
   migrate(meta)
@@ -263,12 +300,19 @@ function saveHabit(payload) {
 }
 
 /**
- * 删除习惯，并级联删除它的全部打卡记录（需求边界：删除习惯同步删除记录）。
+ * 删除习惯，并级联删除它的全部打卡记录与定时任务
+ * （需求边界：删除习惯同步删除记录）。
  * @returns {number} 一并删除的记录条数
  */
 function deleteHabit(id) {
   const list = getHabits().filter((h) => h.id !== id)
   saveHabits(list)
+
+  const tasks = Object.assign({}, getTasksMap())
+  if (tasks[id]) {
+    delete tasks[id]
+    saveTasksMap(tasks)
+  }
 
   const records = Object.assign({}, getRecordsMap())
   const removed = (records[id] || []).length
@@ -337,9 +381,12 @@ function normalizeRecord(r) {
 
 /**
  * 新增一条打卡记录（同一天可多条）。
+ * @param {Number} [ts] 记录时间戳，缺省为此刻。定时任务补记时传的是**触发时刻**
+ *                      而不是补记那一刻 —— 否则「昨天 8 点该打的那一笔」会写上一个
+ *                      今天 9 点的时间，历史记录里的时间对不上
  * @throws QUOTA_EXCEEDED 存储写满时
  */
-function addRecord(habitId, date, value, note) {
+function addRecord(habitId, date, value, note, ts) {
   const map = Object.assign({}, getRecordsMap())
   const list = Array.isArray(map[habitId]) ? map[habitId].slice() : []
   const record = normalizeRecord({
@@ -347,7 +394,7 @@ function addRecord(habitId, date, value, note) {
     d: date,
     v: value,
     n: note || '',
-    t: Date.now()
+    t: Number(ts) || Date.now()
   })
   list.push(record)
   map[habitId] = list
@@ -397,6 +444,129 @@ function getRecordsOfDate(date) {
     if (list.length) out[hid] = list.map(normalizeRecord)
   })
   return out
+}
+
+// ---------------------------------------------------------------------------
+// 定时打卡任务 CRUD
+// ---------------------------------------------------------------------------
+
+const TASK_KINDS = ['interval', 'daily', 'weekly', 'monthly']
+const TASK_UNITS = ['second', 'minute', 'hour']
+
+/** 取整并夹到 [min, max]；不是数、或算出 NaN 时回落到 dft */
+function clampInt(v, min, max, dft) {
+  const n = Math.round(Number(v))
+  if (!isFinite(n)) return dft
+  return Math.min(max, Math.max(min, n))
+}
+
+/** 全部任务桶：{ habitId: AutoTask[] } */
+function getTasksMap() {
+  if (_tasksCache) return _tasksCache
+  const map = safeGet(KEYS.TASKS, {})
+  _tasksCache = map && typeof map === 'object' && !Array.isArray(map) ? map : {}
+  return _tasksCache
+}
+
+function saveTasksMap(map) {
+  _tasksCache = map
+  try {
+    safeSet(KEYS.TASKS, map)
+  } catch (e) {
+    // 同 saveRecordsMap：写失败就丢缓存，免得内存里那份和磁盘不一致
+    _tasksCache = null
+    throw e
+  }
+}
+
+/** 补齐历史 / 脏数据缺失的字段，夹住越界的数值 */
+function normalizeTask(t) {
+  return {
+    id: t.id || uid('k'),
+    kind: TASK_KINDS.indexOf(t.kind) >= 0 ? t.kind : 'daily',
+    every: clampInt(t.every, 1, 999, 1),
+    unit: TASK_UNITS.indexOf(t.unit) >= 0 ? t.unit : 'hour',
+    hh: clampInt(t.hh, 0, 23, 8),
+    mm: clampInt(t.mm, 0, 59, 0),
+    // 星期几用 0=周日，和 JS 的 getDay() 对齐，schedule 页那个 7 格选择器也照这个顺序排
+    weekdays: Array.isArray(t.weekdays)
+      ? t.weekdays.map((n) => Math.round(Number(n))).filter((n) => n >= 0 && n <= 6)
+      : [],
+    day: clampInt(t.day, 1, 31, 1),
+    count: clampInt(t.count, 1, 10, 1),
+    desc: typeof t.desc === 'string' ? t.desc.slice(0, 30) : '',
+    enabled: t.enabled !== false,
+    createdAt: Number(t.createdAt) || Date.now(),
+    lastRunAt: Number(t.lastRunAt) || 0,
+    lastFiredAt: Number(t.lastFiredAt) || 0
+  }
+}
+
+/** 某习惯的定时任务，按创建时间升序（先建的排前面，用户改不了顺序） */
+function getTasks(habitId) {
+  const list = getTasksMap()[habitId]
+  if (!Array.isArray(list)) return []
+  return list
+    .filter((t) => t && t.id)
+    .map(normalizeTask)
+    .sort((a, b) => a.createdAt - b.createdAt)
+}
+
+/**
+ * 新增 / 更新一条定时任务。
+ * @throws {{code:'TASK_LIMIT'}}          已有 5 个还想再加
+ * @throws {{code:'TASK_DESC_REQUIRED'}}  描述为空（用户要求描述必填）
+ */
+function saveTask(habitId, payload) {
+  const map = Object.assign({}, getTasksMap())
+  const list = Array.isArray(map[habitId]) ? map[habitId].slice() : []
+  const idx = payload.id ? list.findIndex((t) => t.id === payload.id) : -1
+  if (idx < 0 && list.length >= MAX_TASKS_PER_HABIT) {
+    const err = new Error('每个习惯最多 ' + MAX_TASKS_PER_HABIT + ' 个定时任务')
+    err.code = 'TASK_LIMIT'
+    throw err
+  }
+  const task = normalizeTask(Object.assign({}, idx >= 0 ? list[idx] : {}, payload))
+  if (!task.desc) {
+    const err = new Error('请填写任务描述')
+    err.code = 'TASK_DESC_REQUIRED'
+    throw err
+  }
+  // 每周模式一个都没选等于永远不触发，挡在这里而不是写进视图层
+  if (task.kind === 'weekly' && !task.weekdays.length) {
+    const err = new Error('请至少选择一天')
+    err.code = 'TASK_WEEKDAY_REQUIRED'
+    throw err
+  }
+  if (idx >= 0) list[idx] = task
+  else list.push(task)
+  map[habitId] = list
+  saveTasksMap(map)
+  return task
+}
+
+/** 删除一条定时任务 */
+function deleteTask(habitId, taskId) {
+  const map = Object.assign({}, getTasksMap())
+  const list = (map[habitId] || []).filter((t) => t.id !== taskId)
+  if (list.length) map[habitId] = list
+  else delete map[habitId]
+  saveTasksMap(map)
+}
+
+/** 启用 / 停用一条定时任务 */
+function setTaskEnabled(habitId, taskId, enabled) {
+  return saveTask(habitId, { id: taskId, enabled: !!enabled })
+}
+
+/**
+ * 落盘一批「这条任务补记到哪一刻」。
+ *
+ * 不走 saveTask：那是给用户表单用的，会连带校验描述必填和数量上限；
+ * 补跑扫描每启动一次都要过一遍，纯属浪费。整批一次写，见 utils/scheduler.js。
+ */
+function touchTaskRuns(map) {
+  saveTasksMap(map)
 }
 
 // ---------------------------------------------------------------------------
@@ -631,6 +801,7 @@ function exportData() {
       exportedAt: Date.now(),
       habits: getHabits(),
       records: getRecordsMap(),
+      tasks: getTasksMap(),
       settings: getSettings()
     },
     null,
@@ -675,8 +846,19 @@ function importData(text) {
     recordCount += records[hid].length
   })
 
+  // 定时任务：孤儿任务（习惯已不存在）同样丢弃。
+  // 老备份里没有 tasks 字段，那就整桶清空 —— 不保留本机原来的，这是全量覆盖
+  const tasks = {}
+  const rawTasks = parsed.tasks && typeof parsed.tasks === 'object' ? parsed.tasks : {}
+  Object.keys(rawTasks).forEach((hid) => {
+    if (!validIds[hid] || !Array.isArray(rawTasks[hid])) return
+    const list = rawTasks[hid].filter((t) => t && t.id).map(normalizeTask).slice(0, MAX_TASKS_PER_HABIT)
+    if (list.length) tasks[hid] = list
+  })
+
   // 先写记录再写习惯：任一步失败都会抛错，由调用方提示用户
   saveRecordsMap(records)
+  saveTasksMap(tasks)
   saveHabits(habits)
   if (parsed.settings) {
     // 备份里那条背景图路径指的是**导出那台手机**上的文件，换台机器打开就是坏的
@@ -704,11 +886,14 @@ function clearAll() {
   releaseBackgroundImage()
   _habitsCache = null
   _recordsCache = null
+  _tasksCache = null
   wx.removeStorageSync(KEYS.HABITS)
   wx.removeStorageSync(KEYS.RECORDS)
+  wx.removeStorageSync(KEYS.TASKS)
   wx.removeStorageSync(KEYS.SETTINGS)
   safeSet(KEYS.HABITS, [])
   safeSet(KEYS.RECORDS, {})
+  safeSet(KEYS.TASKS, {})
 }
 
 /** 是否已写入过示例数据 */
@@ -769,6 +954,7 @@ module.exports = {
   HABIT_COLORS,
   UNIT_PRESETS,
   ICON_PRESETS,
+  MAX_TASKS_PER_HABIT,
   DEFAULT_SETTINGS,
   uid,
   ensureInit,
@@ -786,6 +972,14 @@ module.exports = {
   updateRecord,
   deleteRecord,
   clearRecordsOfDay,
+  // 定时任务：saveTasksMap 不对外 —— 它会脱离校验直接落盘，
+  // 唯一需要绕过校验的场合是补跑扫描改 lastRunAt，走 touchTaskRuns
+  getTasks,
+  getTasksMap,
+  saveTask,
+  deleteTask,
+  setTaskEnabled,
+  touchTaskRuns,
   getSettings,
   saveSettings,
   // 释放一张不再被引用的背景图（引用计数）。整批收掉的那个只在模块内用 ——

@@ -33,6 +33,8 @@ Page({
     ...pageFade.data,
     habitId: '',
     habit: null,
+    /** 这个习惯排了几个定时任务，只为了卡片上那个角标 */
+    taskCount: 0,
 
     // 主题：themeStyle 供 page-meta 换肤，themeName 给 canvas 图表（它读不到 CSS 变量）
     themeName: theme.DEFAULT_THEME,
@@ -155,7 +157,9 @@ Page({
       })
       return
     }
-    this.setData({ habit })
+    // 定时任务数：只为了卡片上那个角标。从 schedule 页返回时 onShow 会重走一遍
+    const taskCount = storage.getTasks(habit.id).length
+    this.setData({ habit, taskCount })
     this.refreshAll(done)
   },
 
@@ -429,6 +433,11 @@ Page({
 
   onOpenEditor() {
     this.setData({ showEditor: true })
+  },
+
+  /** 进定时任务页（独立一页，不是弹层：任务有表单、有列表，弹层装不下） */
+  onOpenTasks() {
+    wx.navigateTo({ url: '/pages/schedule/schedule?id=' + this.data.habitId })
   },
 
   onCloseEditor() {

@@ -5,6 +5,7 @@
  * 所有数据通过 utils/storage.js 持久化到 wx.storage。
  */
 const storage = require('./utils/storage.js')
+const scheduler = require('./utils/scheduler.js')
 
 App({
   globalData: {
@@ -31,6 +32,29 @@ App({
     // 首次启动时做一次存储结构初始化 / 版本迁移
     storage.ensureInit()
     this.watchSystemTheme()
+    this.runDueTasks()
+  },
+
+  /**
+   * 切后台再回来也补一次。
+   *
+   * 定时打卡在小程序里只能是「打开时把错过的触发时刻补记上」，
+   * 所以进前台就得扫一遍 —— 用户挂后台一整天再切回来，那一天的触发点
+   * 全在这一次 onShow 里补。冷启动会连走 onLaunch + onShow，重复一次是安全的
+   * （任务位置已经推到当下，(from, to] 是空区间）。见 utils/scheduler.js。
+   */
+  onShow() {
+    this.runDueTasks()
+  },
+
+  /** 补记定时任务；有写入才 bumpDataVersion，让各页 onShow 去重新读一遍 */
+  runDueTasks() {
+    try {
+      if (scheduler.runDueTasks() > 0) this.bumpDataVersion()
+    } catch (e) {
+      // 补记失败不能挡住启动：数据没坏，只是这一轮没补上
+      console.warn('[app] 定时任务补记失败', e)
+    }
   },
 
   /**

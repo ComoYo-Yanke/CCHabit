@@ -1,0 +1,166 @@
+/*
+ * 定时任务页
+ *
+ * 能复用的都复用了 app.wxss 里的：.card / .section / .btn / .field / .segment / .empty。
+ * 这里只放这一页独有的那几个：归属条、任务项、弹层里那排「秒 / 分 / 时」小格。
+ */
+
+/* ============ 归属的习惯 ============ */
+.sk-top {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.sk-icon {
+  width: 76rpx;
+  height: 76rpx;
+  flex-shrink: 0;
+  border-radius: 22rpx;
+  border: 1rpx solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38rpx;
+}
+
+.sk-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sk-sub {
+  font-size: 24rpx;
+  color: var(--text-3);
+  margin-top: 6rpx;
+}
+
+.sk-tip {
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border-soft);
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* ============ 任务项 ============ */
+.sk-item {
+  margin-bottom: 20rpx;
+}
+
+/* 停用的整条压暗一档：一眼能看出它不再触发，但内容仍读得清 */
+.sk-item--off {
+  opacity: 0.55;
+}
+
+.sk-item-head {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.sk-item-desc {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sk-item-when {
+  font-size: 24rpx;
+  color: var(--text-3);
+  margin-top: 8rpx;
+}
+
+.sk-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 20rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid var(--border-soft);
+}
+
+.sk-item-acts {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 0;
+}
+
+.sk-act {
+  height: 52rpx;
+  padding: 0 24rpx;
+  border-radius: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: var(--text-2);
+  background: var(--surface-3);
+}
+
+.sk-act--danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.sk-add {
+  margin-top: 8rpx;
+}
+
+/* ============ 弹层里的表单 ============ */
+
+/* 数字输入 + 后面那排单位小格。输入框给死宽度，剩下的留给格子 */
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.sk-num {
+  width: 160rpx;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.sk-chips {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex: 1;
+}
+
+.sk-chip {
+  height: 72rpx;
+  padding: 0 28rpx;
+  border-radius: var(--r-md);
+  border: 1rpx solid var(--border);
+  background: var(--glass-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: var(--text-2);
+}
+
+.sk-chip--on {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* 七个星期格平分一行：用 flex: 1 而不是固定宽度，
+   窄屏上不会挤出去，宽屏上也不会缩成一小撮 */
+.sk-chips--week .sk-chip {
+  flex: 1;
+  padding: 0;
+}
+
+/* picker 里那个框：.field-input 原本是给 input 用的，
+   换成 view 之后高度和行高得自己撑住，「08:00」才会垂直居中 */
+.sk-picker {
+  display: flex;
+  align-items: center;
+}

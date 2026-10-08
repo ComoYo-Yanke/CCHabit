@@ -189,10 +189,7 @@ Page({
       lineTitle: '每' + stats.granLabel(range) + '打卡趋势',
       canNext: !!this.shiftedAnchor(1),
       hasHabits: habits.length > 0,
-      summary: Object.assign({}, summary, {
-        habitCount: habits.length,
-        activeHabitCount: ranking.filter((r) => r.count > 0).length
-      }),
+      summary,
       lineData,
       barData,
       ranking,
