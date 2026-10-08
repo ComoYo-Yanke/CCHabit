@@ -155,7 +155,6 @@ const THEMES = {
        0.34 的蓝斑已经足够看清「卡片后面有颜色」，再高就是拿可读性换观感 */
     '--glass-ambient': 'radial-gradient(52% 30% at 12% 2%, rgba(91, 140, 255, 0.34) 0%, rgba(91, 140, 255, 0) 70%), radial-gradient(48% 28% at 98% 14%, rgba(168, 108, 255, 0.30) 0%, rgba(168, 108, 255, 0) 68%), radial-gradient(56% 32% at 78% 96%, rgba(43, 205, 178, 0.20) 0%, rgba(43, 205, 178, 0) 72%), radial-gradient(46% 26% at 2% 82%, rgba(255, 122, 182, 0.16) 0%, rgba(255, 122, 182, 0) 70%)',
     /* 主页那张 hero 卡的底色。比普通卡片亮一点 —— 它是首页最大的一块玻璃 */
-    '--glass-overview': 'linear-gradient(150deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.062) 60%)',
     /* 按下时「玻璃被压一下」的缩放系数，1 = 不动 */
     '--glass-press': '1.06',
     /* 大块（整张卡片）不能用 1.06：全宽卡片放大 6% 会顶出屏幕左右边距 */
@@ -250,7 +249,6 @@ const THEMES = {
     '--glass-shadow': '0 16rpx 40rpx rgba(16, 24, 40, 0.13), 0 2rpx 6rpx rgba(16, 24, 40, 0.07), inset 0 1rpx 0 rgba(255, 255, 255, 0.98), inset 0 -1rpx 0 rgba(16, 24, 40, 0.05)',
     '--glass-inset': 'inset 0 2rpx 6rpx rgba(16, 24, 40, 0.07)',
     '--glass-ambient': 'radial-gradient(52% 30% at 12% 2%, rgba(91, 140, 255, 0.34) 0%, rgba(91, 140, 255, 0) 70%), radial-gradient(48% 28% at 98% 14%, rgba(168, 108, 255, 0.28) 0%, rgba(168, 108, 255, 0) 68%), radial-gradient(56% 32% at 78% 96%, rgba(43, 205, 178, 0.20) 0%, rgba(43, 205, 178, 0) 72%), radial-gradient(46% 26% at 2% 82%, rgba(255, 122, 182, 0.16) 0%, rgba(255, 122, 182, 0) 70%)',
-    '--glass-overview': 'linear-gradient(150deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.48) 60%)',
     '--glass-press': '1.06',
     '--glass-press-card': '0.99',
     '--glass-sat': '180%',

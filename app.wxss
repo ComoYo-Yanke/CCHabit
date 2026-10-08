@@ -80,7 +80,6 @@ page {
   --glass-seg-on: var(--surface-3);
   --glass-sheet: var(--popup-surface);
   --glass-edge: var(--border-soft);
-  --glass-overview: linear-gradient(135deg, var(--grad-card-from) 0%, var(--grad-card-to) 60%);
   /* 后四个默认是「什么也不加」：这几处原本没有投影 / 内阴影 / 辉光 / 缩放，
      值写成 none / 1 就等于没改，自定义主题因此一点都碰不到 */
   --glass-shadow: none;

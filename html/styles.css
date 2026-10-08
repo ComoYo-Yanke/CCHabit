@@ -1,0 +1,1155 @@
+/*
+ * html/styles.css —— 网页统计台的样式
+ *
+ * 配色只做深浅两套（小程序那边多一个「自定义主题」，网页不做 —— 那是给手机屏幕
+ * 调着玩的东西，桌面端没人会去调五个颜色）。变量名沿用小程序那一套
+ * （--surface / --text-2 / --accent …），图表的颜色也是从这些变量里读的
+ * （见 charts.js 的 css()），所以换主题时图和页面是一起变的。
+ */
+:root {
+  --bg: #0E1016;
+  --surface: #171A22;
+  --surface-2: #1E222C;
+  --surface-3: #262B37;
+  --border: #2E3442;
+  --line: #262B37;
+  --text: #EDF1F8;
+  --text-2: #B9C1D0;
+  --text-3: #7E8798;
+  --accent: #5B8CFF;
+  --success: #37D0A0;
+  --warn: #FFB020;
+  --danger: #FF6B8A;
+  --radius: 16px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  /* 滚动条把手。不设的话浏览器给的那条又宽又亮，落在深色卡上很扎眼 */
+  --scroll-thumb: rgba(255, 255, 255, 0.17);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+html[data-theme='light'] {
+  --bg: #F2F4F9;
+  --surface: #FFFFFF;
+  --surface-2: #F4F6FA;
+  --surface-3: #E9EDF4;
+  --border: #DCE1EA;
+  --line: #E6EAF1;
+  --text: #141821;
+  --text-2: #4A5262;
+  --text-3: #7A8496;
+  --shadow: 0 8px 24px rgba(20, 24, 33, 0.09);
+  --scroll-thumb: rgba(20, 24, 33, 0.19);
+  --scroll-thumb-hover: rgba(20, 24, 33, 0.36);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h2 {
+  margin: 0;
+  font-size: 16px;
+}
+h3 {
+  font-size: 15px;
+}
+
+em {
+  font-style: normal;
+  color: var(--text-3);
+}
+
+code {
+  background: var(--surface-3);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+/* ==================== 滚动条 ==================== */
+
+/*
+ * 全局收细。页面本身的滚动条、以及下面几个卡片里的，都走这一份 ——
+ * 浏览器默认那条在深色底上是一条亮灰的实心杠，比卡片本身还显眼。
+ *
+ * 两套写法要都留着：Firefox 只认 scrollbar-width / scrollbar-color，
+ * 其余（Chrome / Edge / Safari）走 ::-webkit-scrollbar。
+ */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* 2px 透明边 + background-clip：把手比轨道窄一圈，四周留出空隙 */
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+.dim {
+  color: var(--text-3);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+.ok {
+  color: var(--success);
+}
+.warn {
+  color: var(--warn);
+}
+
+/* ==================== 顶栏 / 标签 ==================== */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: linear-gradient(140deg, var(--accent), #A78BFA);
+  color: #fff;
+  font-size: 13px;
+}
+.brand em {
+  font-size: 13px;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filestate {
+  font-size: 13px;
+  color: var(--text-3);
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filestate--bad {
+  color: var(--danger);
+}
+.filestate--block {
+  display: block;
+  max-width: none;
+  white-space: normal;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  max-width: 1560px;
+  margin: 12px auto 0;
+  padding: 0 20px;
+}
+.tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.tab--on {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+main {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 14px 20px 40px;
+}
+/* 只有统计页用得上那么宽；习惯 / 数据两页伸这么长反而难读 */
+#pane-habits,
+#pane-data {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.pane[hidden] {
+  display: none;
+}
+
+/* ==================== 卡片 / 栅格 ==================== */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.card--tight {
+  padding: 11px 16px;
+  margin-bottom: 12px;
+}
+.card--tight .dim {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+.card-head h2 {
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+.card-head .sub {
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: right;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/*
+ * 统计页分两栏：左边一堆图，右边 AI。窄屏塌成一栏，AI 落到最下面。
+ *
+ * 右栏**不粘**（没有 position: sticky）。右栏从「接入设置」展开到结果框，
+ * 一路可以长到七八百像素，粘住的话底下的部分就永远滚不到底 ——
+ * 结果框自己那条滚动条也跟着够不着了。让它跟着页面走更稳。
+ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 14px;
+  align-items: start;
+}
+
+/*
+ * 左边那堆图再铺成三列。宽屏一屏就装得下，不用滚 ——
+ * 一排竖着摞下来能有两千多像素，那才是真没法看。
+ */
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.stats-cards > .span2 {
+  grid-column: span 2;
+}
+.stats-cards > .span-full {
+  grid-column: 1 / -1;
+}
+/* 卡片自带 margin-bottom，进了栅格就由栅格的 gap 管间距 */
+.stats-cards > .card {
+  margin-bottom: 0;
+}
+
+/*
+ * 注意：`#ranking` 这里是**故意没有规则**的。
+ * 加 max-height 会让短列表下沿空一截，加 overflow 又是多一条内嵌滚动条 ——
+ * 习惯再多就一行行铺开、跟着页面滚。
+ */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/*
+ * 区间卡里那一行汇总：不画格子、不占独立卡片，只靠一条细线和上面的区间分开。
+ * 这四个数本来就只在「当前这片区间」里成立，贴着它才说得通。
+ */
+.tiles--strip {
+  gap: 12px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.tiles--strip .tile {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  min-width: 0;
+}
+/* 一条细线隔开四个数：不然「412 打卡总次数 88/177 打卡天数」会连成一串 */
+.tiles--strip .tile + .tile {
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.tiles--strip .tile-value {
+  font-size: 20px;
+}
+.tiles--strip .tile-label {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tiles--4 {
+  margin-bottom: 8px;
+}
+.tiles--4 .tile-value {
+  font-size: 18px;
+}
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 15px;
+  box-shadow: var(--shadow);
+}
+.tile-value {
+  font-size: 23px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.tile-label {
+  color: var(--text-3);
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+/* ==================== 区间切换 ==================== */
+
+.segment {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.seg-item {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  padding: 6px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.seg-item--on {
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.range-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 17px;
+  cursor: pointer;
+}
+.nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.range-label {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  min-width: 190px;
+}
+
+/* ==================== 图表 ==================== */
+
+/*
+ * 画布高度是**算着给的**：一屏要装下六块内容，一张图占两百多像素就装不下了。
+ * 高度写在这儿而不是 canvas 自身 —— charts.js 的 prepare() 是量**外层盒子的
+ * clientHeight** 来定画布的，改这里就够。
+ *
+ * 不设 overflow：画布的宽高取的就是这个盒子，格子再密也是往里压，
+ * 伸不出来 —— 所以没有滚动条，也不用预留滚动条的位置。
+ */
+.canvas-wrap {
+  height: 194px;
+}
+.canvas-wrap--hero {
+  height: 148px;
+}
+.canvas-wrap--sm {
+  height: 116px;
+}
+.canvas-wrap--pie {
+  width: 124px;
+  height: 124px;
+  flex: none;
+}
+.canvas-wrap canvas {
+  display: block;
+}
+
+/* 两张新图的说明：数字和百分比一律在图例里，画布上不标字 */
+.cmp-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.pie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+/*
+ * 环图旁边那一列。
+ *
+ * 这里本来有一条 max-height + overflow，条数一多就在一个巴掌大的框里
+ * 再滚一道 —— 那正是「内嵌窗口的滑块」。改成不滚：条数由 PIE_TOP 封顶
+ * （见 app.js），名字太长就省略号，因此这一列的天然高度和环差不多高。
+ */
+.legend--col {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 0;
+  gap: 3px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+}
+.legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+/* 名字是唯一可以被挤的那一段，截断它，把「120 次 · 29%」保住 */
+.legend-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.legend-item em {
+  color: var(--text-3);
+  font-size: 12.5px;
+  flex: none;
+}
+
+/* ==================== 排行 ==================== */
+
+.rank {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.rank:hover {
+  background: var(--surface-2);
+}
+.rank + .rank {
+  border-top: 1px solid var(--line);
+}
+.rank-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 17px;
+  flex: none;
+}
+.rank-main {
+  flex: 1;
+  min-width: 0;
+}
+.rank-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rank-no {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 11.5px;
+  vertical-align: 1px;
+}
+.rank-sub {
+  color: var(--text-3);
+  font-size: 12px;
+  margin: 1px 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rank-num {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rank-num small {
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 2px;
+  color: var(--text-3);
+}
+.bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* ==================== 热力图 ==================== */
+
+/*
+ * 这一块保持原样：周数多了就横向滑动，不压缩。
+ * 试过让它「永远铺满卡片宽度」（各列平分），五年历史会把每周压到几个像素，
+ * 整条历史虽然一屏看全了，但已经看不出是在看日历 —— 滑动反而更好用。
+ */
+.heat-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.hm-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: 16px repeat(7, 13px);
+  gap: 3px;
+  width: max-content;
+}
+.hm-month {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+/* 格子是方的：宽高同值，改一个就得改另一个 */
+.hm-cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+.hm-cell.l0 {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.hm-cell.l1 {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.hm-cell.l2 {
+  background: color-mix(in srgb, var(--accent) 52%, transparent);
+}
+.hm-cell.l3 {
+  background: color-mix(in srgb, var(--accent) 76%, transparent);
+}
+.hm-cell.l4 {
+  background: var(--accent);
+}
+.hm-cell.lf {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 图例住在卡片表头里（见 index.html），所以不再自带外边距 */
+.heat-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 12px;
+}
+.heat-legend .dim {
+  margin: 0;
+}
+
+/* ==================== 习惯卡片 ==================== */
+
+.hcard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--hc);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.hcard--off {
+  opacity: 0.6;
+}
+.hcard-icon {
+  font-size: 24px;
+  flex: none;
+}
+.hcard-main {
+  flex: 1;
+  min-width: 0;
+}
+.hcard-name {
+  font-weight: 600;
+}
+.hcard-sub {
+  color: var(--text-3);
+  font-size: 13px;
+}
+.tag {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-weight: 400;
+}
+.hcard-acts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ==================== 按钮 / 表单 ==================== */
+
+.btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn--sm {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn--ghost {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+.btn--danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+.btn:hover {
+  filter: brightness(1.08);
+}
+.btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.select,
+input[type='text'],
+input[type='number'],
+input[type='date'] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  padding: 7px 10px;
+  min-width: 120px;
+}
+input[type='color'] {
+  width: 40px;
+  height: 34px;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.form-row .grow {
+  flex: 1;
+  min-width: 160px;
+}
+.form-row .grow input {
+  width: 100%;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.pick {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.pick--icon {
+  font-size: 17px;
+  padding: 4px 8px;
+}
+.pick--color {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+}
+.pick--on {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ==================== AI 分析（统计页右栏） ==================== */
+
+.ai-card #aiHint {
+  margin-top: 0;
+  line-height: 1.7;
+}
+.ai-cfg {
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.ai-cfg > summary {
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-2);
+  user-select: none;
+}
+.ai-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 12px 4px;
+}
+.ai-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.ai-form input,
+.ai-form select {
+  width: 100%;
+  min-width: 0;
+}
+.ai-cfg .btn-row {
+  padding: 0 12px 12px;
+  margin-top: 8px;
+}
+.ai-q-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.ai-card textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 11px;
+  /*
+   * 问题写长了在这个框里滚，不要把右栏顶长。
+   * 上下都留了余地：默认四行，想多写几行可以自己往下拽（上限 160px），
+   * 减到 88px 以下就不必了。
+   */
+  min-height: 88px;
+  max-height: 160px;
+  overflow-y: auto;
+  resize: vertical;
+}
+.ai-out {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 14px;
+  line-height: 1.8;
+  /* 模型输出按纯文本存着，换行和多余空格全靠这一行保住 */
+  white-space: pre-wrap;
+  word-break: break-word;
+  /*
+   * 这一处滚起来是有道理的：模型一写就是一两千字，而且它是**输出**，
+   * 不是页面内容 —— 让它把整页顶长，读的时候得一直往下翻。
+   * 封在 38vh 是为了让「设置 + 问题 + 结果」加起来不超过一屏。
+   */
+  max-height: min(38vh, 380px);
+  overflow: auto;
+}
+.ai-err {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.ai-note {
+  line-height: 1.7;
+}
+
+/* ==================== 弹窗 ==================== */
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 8, 12, 0.58);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.modal-mask[hidden] {
+  display: none;
+}
+.modal-mask.modal--on {
+  opacity: 1;
+}
+.modal {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  transform: translateY(8px) scale(0.99);
+  transition: transform 0.18s ease;
+}
+.modal-mask.modal--on .modal {
+  transform: none;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.modal-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.modal-body {
+  padding: 16px 18px;
+  overflow: auto;
+}
+.modal-body .h3 {
+  margin: 18px 0 8px;
+  color: var(--text-2);
+}
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+
+/* ==================== 记录列表 ==================== */
+
+.recs {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.rec {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+.rec + .rec {
+  border-top: 1px solid var(--line);
+}
+.rec-d {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  width: 96px;
+}
+.rec-v {
+  font-weight: 600;
+  width: 92px;
+  font-variant-numeric: tabular-nums;
+}
+.rec-n {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-del {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--danger);
+  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+}
+.rec-ro {
+  font-size: 12px;
+}
+
+.empty {
+  color: var(--text-3);
+  padding: 14px 4px;
+}
+
+/* ==================== 提示 ==================== */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 20px);
+  z-index: 80;
+  background: var(--surface-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast--on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.fatal {
+  max-width: 640px;
+  margin: 80px auto;
+  padding: 24px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--text);
+  line-height: 1.8;
+}
+
+/* ==================== 窄屏 ==================== */
+
+/* 二级：到 1280 就只剩两列了，AI 那一栏也放不下，落到最下面 */
+@media (max-width: 1280px) {
+  .stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stats-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* 两列时再来一个双人位就只够放两张卡，不如各自占满一行 */
+  .stats-cards > .span2 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 800px) {
+  .stats-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hcard {
+    flex-wrap: wrap;
+  }
+  .hcard-acts {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .range-label {
+    min-width: 0;
+  }
+  .filestate {
+    display: none;
+  }
+}
+
+/*
+ * 屏幕矮的时候（笔记本 / 分屏）图表再收一档。
+ * 用 vh 而不是固定值：800px 高的屏和 1440px 高的屏，同一张图该占的比例不一样。
+ */
+@media (max-height: 800px) {
+  .canvas-wrap {
+    height: 108px;
+  }
+  .canvas-wrap--hero {
+    height: 130px;
+  }
+  /* 这几个都得单独写：大家都是单类名，块里最后一条说了算，
+     `--pie` 那种还带着宽度的更得盯着改，不然环就压成椭圆了 */
+  .canvas-wrap--sm {
+    height: 100px;
+  }
+  .canvas-wrap--pie {
+    width: 108px;
+    height: 108px;
+  }
+  .hm-grid {
+    grid-template-rows: 16px repeat(7, 12px);
+  }
+  .hm-cell {
+    width: 12px;
+    height: 12px;
+  }
+}

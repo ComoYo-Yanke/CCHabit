@@ -2,14 +2,15 @@
  * 首页仪表盘
  *
  * 结构：
- *   1. 顶部问候 + 今日概览（完成数 / 连续天数）
+ *   1. 顶部问候
  *   2. 全部习惯的合并热力点阵（铺满全部历史，可横向滑动回看）
  *   3. 习惯卡片栅格（两列方形小卡：当月热力图 + 连续天数 + 快捷打卡）
  *   4. 新建习惯：不在本页了，挪进了底部胶囊里「主页」左边（见 custom-tab-bar）
  *
  * 数据全部来自本地 storage，页面 onShow 时重新汇总。
  * 每次打开都会弹一次「已更新至 vX.Y.Z」，用户勾了「此次更新不再显示」才不弹
- * （见 maybeShowUpdate）。
+ * （见 maybeShowUpdate）。存储用量到 95% 时另有一个「存储空间将满」的弹窗，
+ * 见 maybeWarnStorage。
  */
 const app = getApp()
 const storage = require('../../utils/storage.js')
@@ -114,10 +115,6 @@ Page({
      * 那句永远轮不到显示。反正 onShow 早于首帧，第一屏不会空着。
      */
     quote: null,
-    todayDone: 0,
-    todayTotal: 0,
-    todayPercent: 0,
-    maxStreak: 0,
 
     // 合并热力图（周数在 refresh 里按最早记录算，这里先给个下限占位）
     overviewMap: {},
@@ -141,7 +138,16 @@ Page({
     verOn: false,
     verVersion: '',
     verItems: [],
-    verMute: false
+    verMute: false,
+
+    // 存储告急（用量到 95% 时弹一次，见 maybeWarnStorage）
+    stoMounted: false,
+    stoOn: false,
+    /** 清理前 / 清理后的用量百分比，都是整数 */
+    stoBefore: 0,
+    stoAfter: 0,
+    /** 这次自动删掉的记录条数 */
+    stoRemoved: 0
   },
 
   onLoad() {
@@ -170,12 +176,17 @@ Page({
     this.syncTabBar()
     // 每次切回本页翻一句（在 onShow 而不是 onLoad：切回来才算一次，页内重绘不算）
     this.setData({ quote: quotes.next() })
+    // 存储告急的话**先清理再渲染**：清掉的那批记录不该出现在这一屏上
+    // （没到阈值时它什么都不做，只清理，弹窗在下面摆，见 maybeShowStorageAlert）
+    this.maybeWarnStorage()
     // 复访的淡入排在 refresh 的渲染回调里，也就是内容全部落定之后
     this.refresh(() => pageFade.show(this))
     // 从「我的 / 统计」页点「新建习惯」跳过来时，把编辑弹层直接打开，
     // 否则用户切到首页后只看到一个 + 按钮，会以为功能坏了
     if (app.consumePendingAction() === 'newHabit') this.onAddHabit()
     this.maybeShowUpdate()
+    // 排在更新提示**之后**：两个都要弹的话，让更新提示在上面，存储告警等它关掉
+    this.maybeShowStorageAlert()
   },
 
   /**
@@ -270,8 +281,6 @@ Page({
     const overviewWeeks = Math.min(OVERVIEW_MAX_WEEKS, Math.max(OVERVIEW_MIN_WEEKS, spanWeeks))
 
     // ---- 每个习惯的卡片数据 ----
-    let todayDone = 0
-    let maxStreak = 0
     const items = habits.map((habit) => {
       const records = storage.getRecords(habit.id)
       const dayMap = stats.buildDayMap(records)
@@ -279,8 +288,6 @@ Page({
       const todayCell = dayMap[today]
 
       const done = !!(todayCell && todayCell.count > 0)
-      if (done) todayDone += 1
-      if (streak.current > maxStreak) maxStreak = streak.current
 
       // 只喂卡片真正要画的东西：卡片上已经不看今日状态和累计值了，
       // 那几项当年是给旧卡片准备的 —— 多算一遍 summarize 就是白读一遍记录。
@@ -288,7 +295,7 @@ Page({
       return {
         habit,
         cal: cardCalendar(dayMap, today),
-        // done 卡片不用，但概览区的「去打卡」要靠它挑第一个没打卡的习惯
+        // 卡片上那个对勾亮不亮
         done,
         streak: streak.current
       }
@@ -299,10 +306,6 @@ Page({
       hasHabits: items.length > 0,
       overviewMap,
       overviewWeeks,
-      todayDone,
-      todayTotal: items.length,
-      todayPercent: items.length ? Math.round((todayDone / items.length) * 100) : 0,
-      maxStreak,
       dateLabel: this.buildDateLabel()
     }, done)
   },
@@ -362,11 +365,97 @@ Page({
     storage.saveSettings({ updateMuted: this.data.verMute ? version.APP_VERSION : '' })
     this.setData({ verOn: false })
     // 先摘 --on 播完退场，再摘 --mounted 落到 display:none
-    this._verTimer = setTimeout(() => this.setData({ verMounted: false }), MODAL_LEAVE_MS)
+    this._verTimer = setTimeout(() => {
+      this.setData({ verMounted: false })
+      // 刚才给更新提示让位的存储告警，等这个弹窗彻底退场再弹（见 maybeShowStorageAlert）
+      if (this._storagePending) {
+        this._storagePending = false
+        this.showStorageAlert()
+      }
+    }, MODAL_LEAVE_MS)
+  },
+
+  // ---------------- 存储告急 ----------------
+
+  /**
+   * 用量到 95% 时**自动清掉最旧的记录**（降到至少还剩 60%）—— 只做清理，
+   * 弹窗交给 maybeShowStorageAlert。
+   *
+   * 判阈值的事全在 `storage.cleanOldestRecords()` 里 —— 它没到阈值就返回 null，
+   * 这里据此直接收工，页面上不必再抄一份 95%（那个数是存储模块的事）。
+   *
+   * 和更新提示一样，**一次启动只判一次**（`_storageChecked`）：首页是 tab 页，
+   * 每次切回来都重判的话，用户刚在「我的」里清完空间，切回首页又收到一次投诉。
+   * 代价是本次启动内后面才涨过 95% 就不吭声了 —— 那时也该轮到用户自己去
+   * 「存储管理」看一眼，而不是再弹一次。
+   */
+  maybeWarnStorage() {
+    if (this._storageChecked) return
+    this._storageChecked = true
+
+    const freed = storage.cleanOldestRecords()
+    if (!freed) return
+
+    // 记录少了一批，别的页面（统计 / 详情）下次进来得重新汇总
+    app.bumpDataVersion()
+    // 结果先揣着，弹窗要等 onShow 后半段才摆（见 maybeShowStorageAlert）
+    this._stoInfo = freed
+  },
+
+  /**
+   * 摆不摆那个弹窗 —— 和清理**分开**是因为时机不同：
+   * 清理要排在 `refresh()` 之前（删掉的记录不该出现在这一屏上），
+   * 而这里要排在更新提示之后，否则更新提示一弹就盖在它上面（两个遮罩叠一起没法看）。
+   */
+  maybeShowStorageAlert() {
+    if (!this._stoInfo) return
+    // 更新提示正开着：让位，等它退场再弹（见 onCloseUpdate）
+    if (this.data.verMounted) {
+      this._storagePending = true
+      return
+    }
+    this.showStorageAlert()
+  },
+
+  /** 摆出存储告急弹窗（让位那条路走完也调它） */
+  showStorageAlert() {
+    const info = this._stoInfo || storage.getUsage()
+    // 摆过一次就把票据撕了：首页是 tab 页，每次切回来都会走 onShow，
+    // 留着它就会「关掉 → 去统计页 → 切回来又弹一次」
+    this._stoInfo = null
+    this.setData({
+      stoMounted: true,
+      stoBefore: info.before,
+      stoAfter: info.after,
+      stoRemoved: info.removed || 0
+    })
+    // 下一拍再加 --on：遮罩得先落到 display:flex，过渡才有起点（同更新提示）
+    this._stoTimer = setTimeout(() => {
+      if (this.data.stoMounted) this.setData({ stoOn: true })
+    }, 20)
+  },
+
+  onCloseStorage() {
+    if (!this.data.stoMounted || !this.data.stoOn) return
+    this.setData({ stoOn: false })
+    // 先摘 --on 播完退场，再摘 --mounted 落到 display:none
+    this._stoTimer = setTimeout(() => this.setData({ stoMounted: false }), MODAL_LEAVE_MS)
+  },
+
+  /**
+   * 「去导出」：导出按钮在「我的 → 存储管理」里，所以切到设置页并把位置说出来。
+   * 不直接把 `storage.exportData()` 抄进剪贴板 —— 导出是用户要看一眼、
+   * 要自己挑地方存的动作，替他做完了反而不知道东西去哪儿了。
+   */
+  onGoExport() {
+    this.onCloseStorage()
+    wx.switchTab({ url: '/pages/settings/settings' })
+    wx.showToast({ title: '在「存储管理」里点导出', icon: 'none' })
   },
 
   onUnload() {
     if (this._verTimer) clearTimeout(this._verTimer)
+    if (this._stoTimer) clearTimeout(this._stoTimer)
   },
 
   /**
@@ -420,16 +509,6 @@ Page({
     const habit = storage.getHabit(e.detail.id)
     if (!habit) return
     this.setData({ showEditor: true, editingHabit: habit })
-  },
-
-  onOpenOverviewCheckin() {
-    // 概览区的「去打卡」：优先打开第一个尚未打卡的习惯
-    const pending = this.data.items.find((it) => !it.done) || this.data.items[0]
-    if (!pending) {
-      this.onAddHabit()
-      return
-    }
-    this.setData({ showCheckin: true, checkinHabit: pending.habit, checkinDate: dayjs.today() })
   },
 
   onAddHabit() {
