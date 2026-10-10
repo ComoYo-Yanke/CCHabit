@@ -82,14 +82,30 @@ Component({
       })
     },
 
-    /** 量轨道矩形。整段拖动只量这一次（见文件头） */
-    measure() {
+    /**
+     * 量轨道矩形。整段拖动只量这一次（见文件头）。
+     *
+     * **宽度为 0 的矩形一律当成「没量到」**：滑块挂在弹层里时，attached() 那一刻
+     * 弹层还是 display:none，布局根本没发生，量出来是个 width: 0 的对象。
+     * 它是个真值，留着它 onStart 就会以为「量过了」不再补量，而 valueAt 又因为
+     * `!r.width` 永远返回 null —— 整根滑块从挂载起就再也拖不动，且不会自己好
+     * （「自定义主题」里调背景图那三根就是这么废掉的）。
+     */
+    measure(cb) {
       this.createSelectorQuery()
         .select('.gslider')
         .boundingClientRect()
         .exec((res) => {
-          if (res && res[0]) this._rect = res[0]
+          const r = res && res[0]
+          this._rect = r && r.width ? r : null
+          if (cb) cb()
         })
+    },
+
+    /** 抛事件前统一挡一道 null：算不出值就不抛，免得页面把 null 当 0 存下去 */
+    emit(name, v) {
+      if (v === null) return
+      this.triggerEvent(name, { value: v })
     },
 
     /** 触点 → 数值。矩形没量到就直接放弃这一帧（下次 touchstart 会重量） */
@@ -107,9 +123,16 @@ Component({
       if (!t) return
       this._dragging = true
       this._moved = false
-      if (!this._rect) this.measure()
-      const v = this.valueAt(t.clientX)
-      if (v !== null) this.triggerEvent('changing', { value: v })
+      this._startX = t.clientX
+      if (this._rect) {
+        this.emit('changing', this.valueAt(t.clientX))
+        return
+      }
+      // 还没量到轨道（多半是刚跟着弹层露出来）。量完再算 ——
+      // 不补这一下，这一按就是白按：valueAt 拿不到矩形，一路静默到松手
+      this.measure(() => {
+        if (this._dragging) this.emit('changing', this.valueAt(this._startX))
+      })
     },
 
     onMove(e) {
@@ -117,8 +140,10 @@ Component({
       const t = e.touches && e.touches[0]
       if (!t) return
       this._moved = true
-      const v = this.valueAt(t.clientX)
-      if (v !== null) this.triggerEvent('changing', { value: v })
+      this._startX = t.clientX
+      // 上面那次 measure 还在路上时补一次：不为每一帧都量，只是别让第一段滑动丢帧
+      if (!this._rect) this.measure()
+      this.emit('changing', this.valueAt(t.clientX))
     },
 
     onEnd(e) {
@@ -129,7 +154,7 @@ Component({
       // 用的是**页面已经写回**的 value：拖动中页面在 changing 里存了值，这里只是收尾。
       // 拿不到 changedTouches 时按当前位置再算一次，兜个底
       const v = t ? this.valueAt(t.clientX) : null
-      this.triggerEvent('change', { value: v === null ? this.data.value : v })
+      this.emit('change', v === null ? this.data.value : v)
     },
 
     /** 点轨道直接跳过去（原生 slider 也是这个行为） */
@@ -145,8 +170,8 @@ Component({
       if (!t || typeof t.clientX !== 'number') return
       const v = this.valueAt(t.clientX)
       if (v === null) return
-      this.triggerEvent('changing', { value: v })
-      this.triggerEvent('change', { value: v })
+      this.emit('changing', v)
+      this.emit('change', v)
     },
 
     /** 吞掉拖动：手指在滑块上左右滑时页面不该跟着滚（原生 slider 也是这个行为） */

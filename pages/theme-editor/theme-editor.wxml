@@ -269,13 +269,17 @@
     <scroll-view scroll-y class="modal-body">
       <block wx:if="{{frame}}">
         <view class="fx">
-          <!-- 取景台外面套一层收窄的框（见 .fx-frame）：原先它铺满整个面板宽度，
+          <!-- 取景台外面套一层定宽的框（见 .fx-frame）：原先它铺满整个面板宽度，
                在手机上就是满屏宽一张图摊开，比「一张缩略图」大得多。
                收窄必须套在外层：舞台的高度是 padding-bottom 的百分比撑出来的，
                而百分比内边距按**包含块的宽度**解析 —— 所以框一窄，
                宽度和高度会一起等比缩下来，而里面那些百分比定位的窗子
-               包含块也跟着换成这一层，位置一点不受影响。 -->
-          <view class="fx-frame">
+               包含块也跟着换成这一层，位置一点不受影响。
+
+               宽度由 JS 给（frameW）：竖图维持 68% 的收窄体量，横图按原图宽高比
+               放宽到用满面板 —— 不然横图会被压成一条扁带，小窗小到捏不住。
+               见 theme-editor.js 的 FX_TARGET_H。 -->
+          <view class="fx-frame" style="width: {{frameW}}%;">
             <view class="fx-stage" style="padding-bottom: {{frame.pad}}%;">
               <!-- 窗外那层：和窗里是同一张图，只是多糊一档（几何一样，所以不用另起类名） -->
               <image

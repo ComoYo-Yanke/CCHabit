@@ -37,6 +37,26 @@ const MODAL_LEAVE_MS = 260
 const PRESET_MAX = 3
 
 /**
+ * 取景台的目标高度（px）。
+ *
+ * 舞台的高度是「框宽 × 原图宽高比」撑出来的，而框原来固定收窄成面板宽的 68% ——
+ * 竖图因此很高（有意为之，取景就得看得见整张图），横图却会被压成一条扁带：
+ * 2:1 的横图只有 90px 高，全景图更扁，那个屏幕比例的小窗跟着小到几乎捏不住。
+ *
+ * 所以反过来定：**先给舞台一个目标高度，再由原图宽高比反推框该多宽**。
+ * 竖图算出来的宽度落在 68% 那道下限上（比今天一点不变），横图算出来更宽，
+ * 就让它用满面板宽度 —— 高度因此被尽量顶到目标值上。
+ * 再宽的图也顶不出去（上限 100%），再瘦的图也不会比原来更窄。
+ *
+ * 这不是让横图「看起来和竖图一样高」—— 宽高比是硬的，横图在没有更宽的容器的
+ * 前提下就是高不起来。这是能拿到的最大的一块。
+ */
+const FX_TARGET_H = 320
+/** 框宽的下限 / 上限，都是面板内容宽的比例：下限 = 原来那个 68% 的收窄体量 */
+const FX_MIN_W = 0.68
+const FX_MAX_W = 1
+
+/**
  * 一个预设存哪些项 —— 用户可以调的**全部**项目：五个颜色、卡片透明度与毛玻璃、
  * 背景图本体与它的几何（尺寸 / 取景位置 / 缩放 / 模糊 / 淡化）。
  * 一句话，`theme.DEFAULT_CUSTOM` 有哪些键就存哪些。
@@ -104,6 +124,11 @@ Page({
     /** 「调整背景图」弹窗的两级挂载状态（见 app.wxss 的 .mask） */
     frameMounted: false,
     frameOn: false,
+    /**
+     * 取景框的宽度，占弹层主体内容宽的百分比。默认 68 = wxss 里那个值，
+     * 打开弹层量到实际宽度后由 fitFrameWidth 按原图宽高比改写（见 FX_TARGET_H）
+     */
+    frameW: FX_MIN_W * 100,
 
     /** 存下来的主题预设（最多 presetMax 个，存整页能调的全部，见 PRESET_KEYS） */
     presets: [],
@@ -327,10 +352,44 @@ Page({
   measureStage() {
     wx.createSelectorQuery()
       .select('.fx-stage')
-      .boundingClientRect((r) => {
-        if (r && r.width) this._stageW = r.width
+      .boundingClientRect()
+      // 顺带量一次 .fx：它是取景框的包含块，宽度**不受框宽影响**（框就在它里面），
+      // 拿它推算框宽才不会转成「量宽度 → 改宽度 → 再量」的死循环。
+      // 不量 .modal-body 是因为 boundingClientRect 给的是 border box，还带着内边距
+      .select('.fx')
+      .boundingClientRect()
+      .exec((res) => {
+        const stage = res && res[0]
+        const box = res && res[1]
+        if (stage && stage.width) this._stageW = stage.width
+        if (box && box.width) this.fitFrameWidth(box.width)
       })
-      .exec()
+  },
+
+  /**
+   * 按原图宽高比定取景框的宽度（理由见 FX_TARGET_H）。
+   * 宽度没变就不 setData，免得量一次推一次渲染。
+   */
+  fitFrameWidth(boxW) {
+    const iw = Number(this.data.cfg.imageW) || 0
+    const ih = Number(this.data.cfg.imageH) || 0
+    if (!iw || !ih || !boxW) return
+    // 想让舞台正好 FX_TARGET_H 高，框得有这么宽；再夹到上下限里
+    const want = FX_TARGET_H * (iw / ih)
+    const w = Math.min(boxW * FX_MAX_W, Math.max(boxW * FX_MIN_W, want))
+    const pct = Math.round((w / boxW) * 10000) / 100
+    if (pct === this.data.frameW) return
+    this.setData({ frameW: pct })
+    // 框宽一改舞台宽度就变了，下一拍重量一次 —— 拖动是拿 _stageW 把手指的 px
+    // 换算成百分比的，留着旧宽度会拖不准
+    wx.nextTick(() => {
+      wx.createSelectorQuery()
+        .select('.fx-stage')
+        .boundingClientRect((r) => {
+          if (r && r.width) this._stageW = r.width
+        })
+        .exec()
+    })
   },
 
   onFrameStart(e) {
