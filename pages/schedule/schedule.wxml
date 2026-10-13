@@ -16,9 +16,10 @@
   <view class="quote-line ellipsis">{{quote.text}} · {{quote.author}}</view>
 
   <!-- ============ 归属的习惯 ============ -->
+  <!-- 从首页进来时（global）这一页管的是所有习惯，没有单一的「主人」，这条就不画 -->
   <view class="section">
     <view class="card">
-      <view class="sk-top">
+      <view wx:if="{{!global}}" class="sk-top">
         <view class="sk-icon" style="background: {{habit.color}}26; border-color: {{habit.color}}55;">{{habit.icon}}</view>
         <view class="flex-1">
           <view class="sk-name ellipsis">{{habit.name}}</view>
@@ -28,7 +29,7 @@
 
       <!-- 这句必须说清楚：小程序没有后台执行能力，做不到「关着也照打」。
            不说的话用户会以为到点了就自动记上了，回头发现没记录就是投诉 -->
-      <view class="sk-tip">
+      <view class="sk-tip {{global ? 'sk-tip--first' : ''}}">
         小程序关掉之后不会自己跑。定时任务是在你下次打开时，把错过的时刻按原定时间补记上，
         补出来的记录备注就是任务描述。
       </view>
@@ -39,13 +40,13 @@
   <view class="section">
     <view class="section-head">
       <text class="section-title">自动打卡任务</text>
-      <text class="section-sub">每个习惯最多 {{max}} 个</text>
+      <text class="section-sub">{{global ? '共 ' + tasks.length + ' 个' : '每个习惯最多 ' + max + ' 个'}}</text>
     </view>
 
     <view wx:if="{{!tasks.length}}" class="card">
       <view class="empty" style="padding: 50rpx 0;">
         <view class="empty-title">还没有定时任务</view>
-        <view class="empty-desc">加一个，之后就不用惦记着了</view>
+        <view class="empty-desc">{{global ? '挑一个习惯，给它排一条自动打卡' : '加一个，之后就不用惦记着了'}}</view>
       </view>
     </view>
 
@@ -53,14 +54,21 @@
       <view wx:for="{{tasks}}" wx:key="id" class="card sk-item {{item.enabled ? '' : 'sk-item--off'}}">
         <view class="sk-item-head">
           <view class="flex-1">
+            <!-- 全局模式下一条任务挂在哪个习惯上必须写出来，否则就是一串没主语的描述。
+                 三个操作（开关 / 编辑 / 删除）也都要带上 data-habit -->
+            <view wx:if="{{global}}" class="sk-item-habit">
+              <view class="sk-dot" style="background: {{item.habitColor}};"></view>
+              <text class="ellipsis">{{item.habitName}}</text>
+            </view>
             <view class="sk-item-desc ellipsis">{{item.desc}}</view>
             <view class="sk-item-when">{{item.summary}}</view>
           </view>
           <!-- 开关是唯一跟着主题走的控件：它拿不到 CSS 变量，主色只能从 JS 给 -->
           <glass-switch
             checked="{{item.enabled}}"
-            color="{{habit.color}}"
+            color="{{global ? item.habitColor : habit.color}}"
             data-id="{{item.id}}"
+            data-habit="{{item.habitId}}"
             bindchange="onToggleEnabled"
           />
         </view>
@@ -68,15 +76,15 @@
         <view class="sk-item-foot">
           <text class="f-22 t-3">每次记 {{item.count}} 条 · {{item.runText}}</text>
           <view class="sk-item-acts">
-            <view class="sk-act press" data-id="{{item.id}}" bindtap="onEdit">编辑</view>
-            <view class="sk-act sk-act--danger press" data-id="{{item.id}}" bindtap="onDelete">删除</view>
+            <view class="sk-act press" data-id="{{item.id}}" data-habit="{{item.habitId}}" bindtap="onEdit">编辑</view>
+            <view class="sk-act sk-act--danger press" data-id="{{item.id}}" data-habit="{{item.habitId}}" bindtap="onDelete">删除</view>
           </view>
         </view>
       </view>
     </block>
 
     <view wx:if="{{remain > 0}}" class="btn btn--ghost sk-add press" bindtap="onAdd">＋ 新增定时任务</view>
-    <view wx:else class="list-end">— 已经加满 {{max}} 个啦 —</view>
+    <view wx:elif="{{!global}}" class="list-end">— 已经加满 {{max}} 个啦 —</view>
   </view>
 
   <view class="list-bottom-gap"></view>
@@ -93,7 +101,7 @@
       <text class="sheet-title ellipsis">{{isEdit ? '编辑任务' : '新增任务'}}</text>
       <view class="sheet-acts">
         <view wx:if="{{isEdit}}" class="sheet-ok sheet-ok--danger" bindtap="onDeleteFromSheet">删除</view>
-        <view class="sheet-ok" style="background: {{habit.color}};" bindtap="onSubmit">{{isEdit ? '保存' : '添加'}}</view>
+        <view class="sheet-ok" style="background: {{formHabit.color}};" bindtap="onSubmit">{{isEdit ? '保存' : '添加'}}</view>
       </view>
       <view class="sheet-close press" bindtap="onCloseSheet">
         <view class="ic ic-close-idle"></view>
@@ -103,6 +111,18 @@
     <!-- 必须是 scroll-view：普通 view 的 overflow 滚动挂在 WebView 的 touchmove 上，
          会被遮罩的 catchtouchmove 吃掉，真机上滑不动。详见 app.wxss 的 .sheet-body -->
     <scroll-view scroll-y class="sheet-body" show-scrollbar="{{false}}">
+      <!-- 指派给哪个习惯：只有从首页进来（global）时才需要挑。
+           从习惯详情进来时这一页本来就是这个习惯的，再问一遍是废话 -->
+      <view wx:if="{{global}}" class="field">
+        <view class="field-label">给哪个习惯打卡</view>
+        <picker mode="selector" range="{{habitNames}}" value="{{habitIndex}}" bindchange="onPickHabit">
+          <view class="field-input sk-picker">
+            <view class="sk-dot" style="background: {{formHabit.color}};"></view>
+            <text class="ellipsis">{{formHabit.name}}</text>
+          </view>
+        </picker>
+      </view>
+
       <!-- 频率。--seg-i 是那块会滑的玻璃停在第几段，位置/宽度由 app.wxss 算 -->
       <view class="field">
         <view class="field-label">什么时候打</view>
@@ -135,7 +155,7 @@
               wx:for="{{units}}"
               wx:key="key"
               class="sk-chip {{form.unit === item.key ? 'sk-chip--on' : ''}}"
-              style="{{form.unit === item.key ? 'border-color:' + habit.color + ';background:' + habit.color + '22' : ''}}"
+              style="{{form.unit === item.key ? 'border-color:' + formHabit.color + ';background:' + formHabit.color + '22' : ''}}"
               data-unit="{{item.key}}"
               bindtap="onPickUnit"
             >{{item.label}}</view>
@@ -153,7 +173,7 @@
             wx:for="{{weekPick}}"
             wx:key="d"
             class="sk-chip {{item.on ? 'sk-chip--on' : ''}}"
-            style="{{item.on ? 'border-color:' + habit.color + ';background:' + habit.color + '22' : ''}}"
+            style="{{item.on ? 'border-color:' + formHabit.color + ';background:' + formHabit.color + '22' : ''}}"
             data-day="{{item.d}}"
             bindtap="onToggleWeek"
           >{{item.cn}}</view>
@@ -184,7 +204,7 @@
 
       <!-- 每次触发写几条记录 -->
       <view class="field">
-        <view class="field-label">每次记几条 <text class="field-hint">补记时每条记一个「{{habit.step}}{{habit.unit}}」</text></view>
+        <view class="field-label">每次记几条 <text class="field-hint">补记时每条记一个「{{formHabit.step}}{{formHabit.unit}}」</text></view>
         <input
           class="field-input"
           type="number"

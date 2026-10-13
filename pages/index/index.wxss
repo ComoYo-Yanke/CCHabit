@@ -68,6 +68,16 @@
   width: calc((100% - 20rpx) / 2);
 }
 
+/* 「打卡总览」右边那颗「定时任务」（和详情页的 .hd-task 是同一副样子：
+   小一号的胶囊，占满那行剩余宽度的小格子，所以 flex-shrink: 0 别让它被标题挤扁） */
+.ov-task {
+  height: 60rpx;
+  padding: 0 20rpx;
+  border-radius: 30rpx;
+  flex-shrink: 0;
+  font-size: 23rpx;
+}
+
 /* ---------- 更新提示弹窗（面板本体在 app.wxss 的 .modal） ----------
    这一屏的**正文字号 = 最高对比**：颜色仍然跟着主题走（自定义主题下就是用户调的
    那两级文字色），但用色往上提一档 —— 原来正文用 --text-2、说明用 --text-3，

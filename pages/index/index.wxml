@@ -46,7 +46,9 @@
     <view class="section">
       <view class="section-head">
         <text class="section-title">打卡总览</text>
-        <text class="section-sub">共 {{overviewWeeks}} 周 · 左右滑动</text>
+        <!-- 原先这里是「共 N 周 · 左右滑动」，那两件事图上一眼看得出来，
+             换成进「定时任务」的入口更值当（和详情页那颗按钮同一副样子） -->
+        <view class="btn btn--ghost ov-task press" bindtap="onOpenTasks">定时任务</view>
       </view>
       <view class="card">
         <!-- scroll：全部历史横向铺开，初始停在今天，向左拖看更早的记录 -->

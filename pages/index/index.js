@@ -515,6 +515,11 @@ Page({
     this.setData({ showEditor: true, editingHabit: null })
   },
 
+  /** 「打卡总览」右边的「定时任务」：不带 id 进那一页，它就是「所有习惯的任务」视图 */
+  onOpenTasks() {
+    wx.navigateTo({ url: '/pages/schedule/schedule' })
+  },
+
   onCloseEditor() {
     this.setData({ showEditor: false, editingHabit: null })
   },

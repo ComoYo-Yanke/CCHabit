@@ -1,8 +1,13 @@
 /**
  * 定时打卡任务页
  *
- * 从习惯详情页第一张卡片右上角的「定时任务」进来，管这一个习惯的自动打卡任务，
- * 每个习惯最多 storage.MAX_TASKS_PER_HABIT（5）个。
+ * 两个入口，同一页：
+ *   - 习惯详情页第一张卡片上的「定时任务」→ 带 id 进来，只管**这一个**习惯，
+ *     每个习惯最多 storage.MAX_TASKS_PER_HABIT（5）个；
+ *   - 首页「打卡总览」右边那颗「定时任务」→ 不带 id 进来（`global`），
+ *     铺开**所有**习惯的任务，新建时要先指派一个习惯。
+ * 两处差别只有三样：任务列表要不要带来源习惯、顶部那张「归属的习惯」卡要不要画、
+ * 表单里要不要多一个挑习惯的横条。所以不做两个页面 —— 一处逻辑走两个分支就够。
  *
  * 四种频率（用户的四条要求）：
  *   interval 间隔多久（时 / 分 / 秒）
@@ -105,6 +110,8 @@ function decorate(t) {
 Page({
   data: {
     ...pageFade.data,
+    /** 从首页进来时为 true：铺开所有习惯的任务，新建时要挑习惯 */
+    global: false,
     habitId: '',
     habit: null,
 
@@ -117,8 +124,13 @@ Page({
     weekPick: weekPick([]),
     max: storage.MAX_TASKS_PER_HABIT,
 
+    /** 全局模式才用：可选的习惯，以及挑习惯那个 picker 的显示名 */
+    habits: [],
+    habitNames: [],
+    habitIndex: 0,
+
     tasks: [],
-    /** 还能再加几个 —— 到 0 就把「新增任务」收起来 */
+    /** 还能再加几个 —— 到 0 就把「新增任务」收起来（全局模式下恒为 1/0） */
     remain: storage.MAX_TASKS_PER_HABIT,
 
     // ---------------- 编辑弹层 ----------------
@@ -127,12 +139,16 @@ Page({
     isEdit: false,
     kindIndex: 0,
     form: emptyForm(),
+    /** 表单正指着的那个习惯（高亮色、步长、单位都从它取）。
+        单个习惯的页面里就是这一页的主人，全局模式下跟着挑中的那一条走 */
+    formHabit: null,
     error: ''
   },
 
   onLoad(options) {
+    const id = (options && options.id) || ''
     this.syncTheme()
-    this.setData({ habitId: (options && options.id) || '' })
+    this.setData({ habitId: id, global: !id })
   },
 
   onShow() {
@@ -156,6 +172,33 @@ Page({
   },
 
   refresh() {
+    if (this.data.global) {
+      // 所有习惯的任务摊在一张单子上。每条都带上来源习惯的名字与主色 ——
+      // 不带的话这里就是一堆没主语的描述，用户不知道在给什么打卡
+      const habits = storage.getHabits()
+      const list = []
+      habits.forEach((h) => {
+        storage.getTasks(h.id).forEach((t) => {
+          list.push(
+            Object.assign(decorate(t), {
+              habitId: h.id,
+              habitName: h.name,
+              habitColor: h.color
+            })
+          )
+        })
+      })
+      this.setData({
+        habits: habits,
+        habitNames: habits.map((h) => h.name),
+        tasks: list,
+        // 全局模式没有「这个习惯还差几个」一说，只拿它来开关那颗「新增」按钮：
+        // 一个习惯都没有时无处可指派，按钮就不该在
+        remain: habits.length ? 1 : 0
+      })
+      return
+    }
+
     const habit = storage.getHabit(this.data.habitId)
     if (!habit) {
       // 习惯在读出来之前被删了（比如从别的页面删完退回来），给一句提示再退出去，
@@ -181,15 +224,24 @@ Page({
   // ------------------------------------------------------------------
 
   onAdd() {
-    if (this.data.remain <= 0) {
+    if (this.data.global && !this.data.habits.length) {
+      wx.showToast({ title: '先去首页建一个习惯吧', icon: 'none' })
+      return
+    }
+    if (!this.data.global && this.data.remain <= 0) {
       wx.showToast({ title: '最多 ' + this.data.max + ' 个定时任务', icon: 'none' })
       return
     }
+    const first = this.data.global ? this.data.habits[0] : this.data.habit
+    const form = emptyForm()
+    if (this.data.global) form.habitId = first.id
     this.setData({
       isEdit: false,
       kindIndex: 1,
-      form: emptyForm(),
+      form: form,
       weekPick: weekPick([]),
+      formHabit: first,
+      habitIndex: 0,
       error: '',
       sheetMounted: true
     })
@@ -200,30 +252,49 @@ Page({
 
   onEdit(e) {
     const id = e.currentTarget.dataset.id
+    const habitId = e.currentTarget.dataset.habit || this.data.habitId
     const task = this.data.tasks.filter((t) => t.id === id)[0]
     if (!task) return
     const kindIndex = Math.max(0, KINDS.map((k) => k.key).indexOf(task.kind))
+    const form = {
+      id: task.id,
+      habitId: habitId,
+      kind: task.kind,
+      every: String(task.every),
+      unit: task.unit,
+      timeValue: pad2(task.hh) + ':' + pad2(task.mm),
+      weekdays: task.weekdays.slice(),
+      day: String(task.day),
+      count: String(task.count),
+      desc: task.desc
+    }
     this.setData({
       isEdit: true,
       kindIndex: kindIndex,
       error: '',
-      form: {
-        id: task.id,
-        kind: task.kind,
-        every: String(task.every),
-        unit: task.unit,
-        timeValue: pad2(task.hh) + ':' + pad2(task.mm),
-        weekdays: task.weekdays.slice(),
-        day: String(task.day),
-        count: String(task.count),
-        desc: task.desc
-      },
+      form: form,
+      formHabit: this.habitOf(habitId),
+      habitIndex: Math.max(0, this.data.habits.map((h) => h.id).indexOf(habitId)),
       weekPick: weekPick(task.weekdays),
       sheetMounted: true
     })
     wx.nextTick(() => {
       if (this.data.sheetMounted) this.setData({ sheetActive: true })
     })
+  },
+
+  /** 表单正指着的那个习惯：单个习惯就是这一页的主人，全局模式下按 id 现查 */
+  habitOf(habitId) {
+    if (!this.data.global) return this.data.habit
+    return this.data.habits.filter((h) => h.id === habitId)[0] || null
+  },
+
+  /** 全局模式下换一个指派的习惯 */
+  onPickHabit(e) {
+    const i = Number(e.detail.value) || 0
+    const h = this.data.habits[i]
+    if (!h) return
+    this.setData({ habitIndex: i, 'form.habitId': h.id, formHabit: h })
   },
 
   onCloseSheet() {
@@ -286,6 +357,8 @@ Page({
 
   onSubmit() {
     const f = this.data.form
+    // 全局模式下任务挂在表单里选的那个习惯上；单个习惯的页面就是这一页的主人
+    const habitId = f.habitId || this.data.habitId
     const time = (f.timeValue || '08:00').split(':')
     const payload = {
       id: f.id,
@@ -307,7 +380,7 @@ Page({
     }
 
     try {
-      storage.saveTask(this.data.habitId, payload)
+      storage.saveTask(habitId, payload)
     } catch (err) {
       this.handleError(err)
       return
@@ -324,8 +397,9 @@ Page({
 
   onToggleEnabled(e) {
     const id = e.currentTarget.dataset.id
+    const habitId = e.currentTarget.dataset.habit || this.data.habitId
     try {
-      storage.setTaskEnabled(this.data.habitId, id, e.detail.value)
+      storage.setTaskEnabled(habitId, id, e.detail.value)
     } catch (err) {
       this.handleError(err)
       return
@@ -335,16 +409,19 @@ Page({
   },
 
   onDelete(e) {
-    this.doDelete(e.currentTarget.dataset.id)
+    const d = e.currentTarget.dataset
+    this.doDelete(d.id, null, d.habit)
   },
 
   /**
    * 删一条任务。列表和弹层里的删除都走这里，只是收尾不同（弹层那个还要关弹层）。
    * 恒定二次确认：删掉之后那段没打上的卡不会补回来，属于不可撤销。
    */
-  doDelete(id, done) {
+  doDelete(id, done, habitId) {
     const task = this.data.tasks.filter((t) => t.id === id)[0]
     if (!task) return
+    // 全局模式下一条任务属于哪个习惯只能从 data-* 上取；单个习惯的页面就是这一页的主人
+    const hid = habitId || this.data.habitId
     wx.showModal({
       title: '删除这个定时任务？',
       content: '「' + task.desc + '」会停止自动打卡，已经记下的记录不受影响。',
@@ -352,7 +429,7 @@ Page({
       confirmColor: '#FF5C5C',
       success: (res) => {
         if (!res.confirm) return
-        storage.deleteTask(this.data.habitId, id)
+        storage.deleteTask(hid, id)
         app.bumpDataVersion()
         this.refresh()
         if (done) done()
@@ -363,9 +440,9 @@ Page({
 
   /** 弹层头部的「删除」—— 删的正是当前在编的那一条 */
   onDeleteFromSheet() {
-    const id = this.data.form.id
-    if (!id) return
-    this.doDelete(id, () => this.onCloseSheet())
+    const f = this.data.form
+    if (!f.id) return
+    this.doDelete(f.id, () => this.onCloseSheet(), f.habitId || this.data.habitId)
   },
 
   /** 弹层里出错：能改的就写在表单里让用户改，其余的弹一句 */
@@ -392,6 +469,8 @@ Page({
 function emptyForm() {
   return {
     id: '',
+    /** 全局模式下这条任务要挂到哪个习惯上，由表单里的 picker 填 */
+    habitId: '',
     kind: 'daily',
     every: '1',
     unit: 'hour',

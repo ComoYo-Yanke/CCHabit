@@ -45,6 +45,22 @@
   color: var(--text-3);
 }
 
+/* 从首页进来时上面那条「归属的习惯」不画，这一句就是卡片的第一行 ——
+   别再顶着一条分隔线和一截空margin，那样卡片顶上会莫名其妙空一块 */
+.sk-tip--first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* 习惯色的小圆点：任务项上标来源，弹层里标这次指派给谁 */
+.sk-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* ============ 任务项 ============ */
 .sk-item {
   margin-bottom: 20rpx;
@@ -59,6 +75,16 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
+}
+
+/* 「这条是在给哪个习惯打卡」——只有全局模式画，字号压一档，别和任务描述抢注意力 */
+.sk-item-habit {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 22rpx;
+  color: var(--text-3);
+  margin-bottom: 8rpx;
 }
 
 .sk-item-desc {
@@ -163,4 +189,5 @@
 .sk-picker {
   display: flex;
   align-items: center;
+  gap: 12rpx;
 }
