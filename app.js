@@ -6,6 +6,7 @@
  */
 const storage = require('./utils/storage.js')
 const scheduler = require('./utils/scheduler.js')
+const achievements = require('./utils/achievements.js')
 
 App({
   globalData: {
@@ -54,6 +55,14 @@ App({
     } catch (e) {
       // 补记失败不能挡住启动：数据没坏，只是这一轮没补上
       console.warn('[app] 定时任务补记失败', e)
+    }
+    // 成就跟着补记一起重算：老用户第一次进新版本、以及定时任务刚补出来的
+    // 那几天打卡，都可能让某条成就当场达成。解锁结果进 pending 队列，
+    // 由页面上的 components/achievement-toast 在 onShow 时取走弹出来。
+    try {
+      achievements.evaluate()
+    } catch (e) {
+      console.warn('[app] 成就计算失败', e)
     }
   },
 

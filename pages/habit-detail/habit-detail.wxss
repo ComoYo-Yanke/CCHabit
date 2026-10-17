@@ -87,6 +87,16 @@
   flex-shrink: 0;
 }
 
+/* 「补签」：原生 picker 包着按钮，点按钮直接弹日期选择器。
+   picker 作为 flex 子项也要 flex-shrink: 0，否则窄屏上会被压扁 */
+.hd-comp-picker {
+  flex-shrink: 0;
+}
+
+.hd-comp {
+  width: 130rpx;
+}
+
 /*
  * 「定时任务」按钮：在 .hd-top 那一行的末尾 —— 也就是标题右侧、
  * 卡片底部「编辑」的上方。

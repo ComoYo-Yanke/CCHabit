@@ -8,7 +8,7 @@
   深色默认值，整页随之换肤（见 utils/theme.js）。page-style 是整体覆盖，
   所以弹层的 overflow 必须自己拼在后面。
 -->
-<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin || verMounted || stoMounted) ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{(showEditor || showCheckin || verMounted || stoMounted || coinShow) ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <!--
   淡出淡入全靠 fading 这一个布尔量（机制见 utils/page-fade.js）：
@@ -21,7 +21,14 @@
 
   <!-- ============ 顶部问候 ============ -->
   <view class="hero" style="padding-top: {{statusBarHeight + 20}}px;">
-    <view class="hero-date">{{dateLabel}}</view>
+    <view class="hero-top">
+      <view class="hero-date">{{dateLabel}}</view>
+      <!-- 金币：点一下看规则（补签在习惯详情页的「补签」按钮上） -->
+      <view class="coin-chip press" bindtap="onCoinTap">
+        <text class="coin-chip-ico">🪙</text>
+        <text class="coin-chip-num">{{coinBalance}}</text>
+      </view>
+    </view>
     <view class="hero-title">{{greeting}}</view>
     <!-- 鼓励语：每次切回本页翻一句（见 utils/quotes.js）。
          一行、小字、超长截断，不给它换行撑高头部的机会 -->
@@ -190,3 +197,14 @@
   bind:close="onCloseCheckin"
   bind:change="onCheckinChange"
 />
+
+<!-- 完美一周的金币奖励（带一点小特效，见 components/coin-reward） -->
+<coin-reward
+  show="{{coinShow}}"
+  amount="{{coinAmount}}"
+  habit-name="{{coinHabitName}}"
+  bind:close="onCoinClose"
+/>
+
+<!-- 成就解锁提示：固定在最上方，页面显示时自己取一次待弹队列（见 components/achievement-toast） -->
+<achievement-toast id="ach-toast" />

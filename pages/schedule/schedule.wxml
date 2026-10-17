@@ -237,3 +237,6 @@
     <view class="sheet-safe"></view>
   </view>
 </view>
+
+<!-- 成就解锁提示：固定在最上方（见 components/achievement-toast） -->
+<achievement-toast id="ach-toast" />

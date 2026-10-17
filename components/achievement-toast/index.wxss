@@ -1,0 +1,114 @@
+/*
+ * 成就解锁提示 —— 固定在最上方，从屏幕外滑下来。
+ *
+ * 它可能压在任何页面 / 任何滚动位置之上，所以底色用**实心的** --popup-surface，
+ * 不跟着卡片透明度走（--popup-* 本来就是给弹窗那类「要读的字」准备的，见主题那节）。
+ */
+.ach-toast {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  /* 正好落在状态栏下面；没有安全区的机型 env() 解析成 0 */
+  top: calc(env(safe-area-inset-top) + 14rpx);
+  z-index: 1300;
+  /* 收起姿态：往上挪出去，并且淡掉。进出场都只动这两个属性 */
+  transform: translateY(-160%);
+  opacity: 0;
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.26s ease;
+  pointer-events: none;
+}
+
+.ach-toast--on {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ach-toast-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  overflow: hidden;
+  padding: 20rpx 24rpx;
+  border-radius: 28rpx;
+  background: var(--popup-surface);
+  border: 1rpx solid var(--glass-edge);
+  box-shadow: 0 18rpx 54rpx rgba(0, 0, 0, 0.34);
+}
+
+/* 身后那一圈慢慢转的柔光：解锁那一下的「小特效」，纯 CSS，不占布局 */
+.ach-toast-glow {
+  position: absolute;
+  top: 50%;
+  left: -120rpx;
+  width: 360rpx;
+  height: 360rpx;
+  margin-top: -180rpx;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--accent-soft) 60deg,
+    transparent 120deg,
+    var(--accent-soft) 200deg,
+    transparent 280deg
+  );
+  opacity: 0.55;
+  animation: ach-spin 6s linear infinite;
+  pointer-events: none;
+}
+
+/* 图标底盘 */
+.ach-toast-ico {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 82rpx;
+  height: 82rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 42rpx;
+  line-height: 1;
+  background: var(--popup-surface-3);
+  box-shadow: inset 0 0 0 1rpx var(--glass-edge);
+}
+
+.ach-toast-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.ach-toast-label {
+  font-size: 20rpx;
+  letter-spacing: 2rpx;
+  color: var(--accent);
+}
+
+/* 次数：同一个成就再来一次时显示 ×N */
+.ach-toast-x {
+  color: var(--text-2);
+  letter-spacing: 0;
+}
+
+.ach-toast-name {
+  margin-top: 4rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ach-toast-desc {
+  margin-top: 4rpx;
+  font-size: 21rpx;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+
+@keyframes ach-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

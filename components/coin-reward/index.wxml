@@ -1,0 +1,27 @@
+<!--
+  完美一周奖励。遮罩 / 居中用的是 app.wxss 的 .mask .mask--center 那一套，
+  面板自己做（比 .modal 窄、完全居中、没有标题栏），因为这一屏就一件事要看。
+-->
+<view
+  class="mask mask--center {{show ? 'mask--mounted mask--on' : ''}}"
+  catchtouchmove="noop"
+  bindtap="onClose"
+>
+  <view class="coin-box {{show ? 'coin-box--on' : ''}}" catchtap="noop">
+    <!-- 金币：背后的转光 + 本体的扫光都是纯 CSS，没有图片 -->
+    <view class="coin-wrap">
+      <view class="coin-rays"></view>
+      <view class="coin-disc">
+        <view class="coin-shine"></view>
+        <text class="coin-face">🪙</text>
+      </view>
+    </view>
+
+    <view class="coin-title">完美的一周！</view>
+    <view class="coin-desc">「{{habitName}}」这一周七天全勤</view>
+    <view class="coin-gain">+{{amount}} 金币</view>
+    <view class="coin-sub">5 枚金币可以换 1 次补签机会</view>
+
+    <view class="coin-ok press" bindtap="onClose">收下</view>
+  </view>
+</view>

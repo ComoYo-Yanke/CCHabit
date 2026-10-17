@@ -1,0 +1,18 @@
+<!-- 成就解锁提示：屏幕最上方滑下来的一条玻璃小卡。
+     组件自己管队列与进出场，页面只要在 wxml 里放一个 <achievement-toast id="ach-toast" /> -->
+<view class="ach-toast {{show ? 'ach-toast--on' : ''}}" wx:if="{{current}}">
+  <view class="ach-toast-inner press" bindtap="onTap">
+    <!-- 身后转一圈柔光：解锁那一下的「一点小特效」 -->
+    <view class="ach-toast-glow"></view>
+
+    <view class="ach-toast-ico">{{current.icon}}</view>
+
+    <view class="ach-toast-body">
+      <view class="ach-toast-label">
+        成就达成<text class="ach-toast-x" wx:if="{{current.count > 1}}"> ×{{current.count}}</text>
+      </view>
+      <view class="ach-toast-name">{{current.name}}</view>
+      <view class="ach-toast-desc">{{current.desc}}</view>
+    </view>
+  </view>
+</view>

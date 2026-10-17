@@ -1,0 +1,181 @@
+/*
+ * 金币奖励弹窗的装饰。
+ *
+ * 动画只在 .coin-box--on 上起：组件常驻页面，show 一翻真就播一遍进场，
+ * 关掉回 display: none，下次显示时自然从头播。
+ */
+
+.coin-box {
+  position: relative;
+  width: 560rpx;
+  max-width: 84vw;
+  padding: 56rpx 40rpx 44rpx;
+  border-radius: 40rpx;
+  text-align: center;
+  /* 和 .modal 同一套底色变量：卡片可以透，这个弹窗不透 */
+  background: var(--popup-surface);
+  /* 和 .modal 一样把表面色重绑到弹层那套：卡片可以按用户调透明，弹窗不能 */
+  --surface: var(--popup-surface);
+  --surface-2: var(--popup-surface-2);
+  --surface-3: var(--popup-surface-3);
+  --border: var(--popup-border);
+  --border-soft: var(--popup-border-soft);
+  border: 1rpx solid var(--popup-border);
+  box-shadow: 0 24rpx 70rpx rgba(0, 0, 0, 0.36);
+  opacity: 0;
+  transform: scale(0.82);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.coin-box--on {
+  opacity: 1;
+  transform: scale(1);
+  animation: coin-pop 0.5s cubic-bezier(0.22, 1.5, 0.36, 1) 1;
+}
+
+@keyframes coin-pop {
+  0% { transform: scale(0.82); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* ---------------- 金币 ---------------- */
+.coin-wrap {
+  position: relative;
+  width: 180rpx;
+  height: 180rpx;
+  margin: 0 auto 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 背后那圈转光：锥形渐变慢慢转，给一点「发光」的感觉 */
+.coin-rays {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 300rpx;
+  height: 300rpx;
+  margin: -150rpx 0 0 -150rpx;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 199, 61, 0) 0deg,
+    rgba(255, 199, 61, 0.55) 28deg,
+    rgba(255, 199, 61, 0) 56deg,
+    rgba(255, 199, 61, 0) 180deg,
+    rgba(255, 199, 61, 0.55) 208deg,
+    rgba(255, 199, 61, 0) 236deg,
+    rgba(255, 199, 61, 0) 360deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 60%, transparent 76%);
+  mask: radial-gradient(circle, transparent 52%, #000 60%, transparent 76%);
+  opacity: 0;
+}
+
+.coin-box--on .coin-rays {
+  opacity: 1;
+  animation: coin-spin 2.6s linear infinite;
+}
+
+@keyframes coin-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 金币本体：金色渐变 + 一圈内高光，浮一下 */
+.coin-disc {
+  position: relative;
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 34% 28%, #FFF0B8 0%, #FFD45E 34%, #F5B623 72%, #D9911A 100%);
+  box-shadow:
+    0 0 0 6rpx rgba(255, 205, 74, 0.22),
+    0 14rpx 34rpx rgba(222, 150, 20, 0.34),
+    inset 0 3rpx 6rpx rgba(255, 255, 255, 0.75),
+    inset 0 -4rpx 10rpx rgba(160, 95, 5, 0.28);
+}
+
+.coin-box--on .coin-disc {
+  animation: coin-float 1.8s ease-in-out 0.5s infinite;
+}
+
+@keyframes coin-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8rpx) rotate(-3deg); }
+}
+
+/* 扫光：一条斜着的白带子每两秒横穿一次 */
+.coin-shine {
+  position: absolute;
+  left: -60%;
+  top: -40%;
+  width: 42%;
+  height: 180%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
+  transform: rotate(24deg);
+  opacity: 0;
+}
+
+.coin-box--on .coin-shine {
+  animation: coin-sweep 2s ease-in-out 0.7s infinite;
+}
+
+@keyframes coin-sweep {
+  0% { left: -60%; opacity: 0; }
+  18% { opacity: 1; }
+  46% { left: 130%; opacity: 1; }
+  100% { left: 130%; opacity: 0; }
+}
+
+.coin-face {
+  font-size: 84rpx;
+  line-height: 1;
+}
+
+/* ---------------- 文案 ---------------- */
+.coin-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.coin-desc {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.coin-gain {
+  margin-top: 22rpx;
+  font-size: 46rpx;
+  font-weight: 700;
+  color: #E8A116;
+  font-variant-numeric: tabular-nums;
+}
+
+.coin-sub {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--text-3);
+}
+
+.coin-ok {
+  margin-top: 34rpx;
+  height: 84rpx;
+  border-radius: 42rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--surface);
+  background: var(--accent);
+}

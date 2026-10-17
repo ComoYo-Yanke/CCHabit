@@ -18,6 +18,15 @@
  * 胶囊形状（inline-block + 圆角 + 自身内边距）是为了不把它拉成一条横贯头部的色带 ——
  * 「不影响整体」的关键就在这，垫底只跟着文字走。
  */
+/* 日期和金币同一行，靠左挨着排。
+   右侧不能放东西：微信的胶囊（关闭按钮）就在右上角，挤过去会被盖住、点不到 */
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16rpx;
+}
+
 .hero-date {
   display: inline-block;
   padding: 6rpx 18rpx;
@@ -28,6 +37,31 @@
   background: var(--bg);
   box-shadow: 0 0 0 1rpx var(--border-soft);
   text-shadow: 0 0 12rpx var(--accent-soft), 0 0 26rpx var(--accent-soft);
+}
+
+/* 金币胶囊：和日期那块同一套「反色底 + 细描边」。点开是规则与兑换 */
+.coin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 54rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  background: var(--bg);
+  box-shadow: 0 0 0 1rpx var(--border-soft);
+  flex-shrink: 0;
+}
+
+.coin-chip-ico {
+  font-size: 26rpx;
+  line-height: 1;
+}
+
+.coin-chip-num {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .hero-title {

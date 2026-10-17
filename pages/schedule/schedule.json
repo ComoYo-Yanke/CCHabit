@@ -2,7 +2,8 @@
   "usingComponents": {
     "app-bg": "../../components/app-bg/index",
     "nav-bar": "../../components/nav-bar/index",
-    "glass-switch": "../../components/glass-switch/index"
+    "glass-switch": "../../components/glass-switch/index",
+    "achievement-toast": "../../components/achievement-toast/index"
   },
   "navigationStyle": "custom",
   "backgroundTextStyle": "light",

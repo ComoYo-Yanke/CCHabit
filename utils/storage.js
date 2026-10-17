@@ -87,6 +87,8 @@ const KEYS = {
   HABITS: 'th:habits',
   RECORDS: 'th:records',
   TASKS: 'th:tasks',
+  COINS: 'th:coins',
+  ACHIEVEMENTS: 'th:achievements',
   SETTINGS: 'th:settings'
 }
 
@@ -570,6 +572,36 @@ function touchTaskRuns(map) {
 }
 
 // ---------------------------------------------------------------------------
+// 金币
+// ---------------------------------------------------------------------------
+// 只存、不判。年度重置、什么算「完美一周」这些规则都在 utils/coins.js 里 ——
+// 这一层保持「唯一数据出入口」的职责，不掺业务规则。
+
+/** 读金币状态。没有这个 key（老版本升上来）时返回 null，由 coins 给默认值 */
+function getCoinState() {
+  return safeGet(KEYS.COINS, null)
+}
+
+function saveCoinState(state) {
+  safeSet(KEYS.COINS, state)
+  return state
+}
+
+// ---------------------------------------------------------------------------
+// 成就
+// ---------------------------------------------------------------------------
+// 同样只存、不判：什么条件算完成、次数怎么算都在 utils/achievements.js。
+
+function getAchievements() {
+  return safeGet(KEYS.ACHIEVEMENTS, null)
+}
+
+function saveAchievements(state) {
+  safeSet(KEYS.ACHIEVEMENTS, state)
+  return state
+}
+
+// ---------------------------------------------------------------------------
 // 用户偏好
 // ---------------------------------------------------------------------------
 
@@ -890,6 +922,8 @@ function clearAll() {
   wx.removeStorageSync(KEYS.HABITS)
   wx.removeStorageSync(KEYS.RECORDS)
   wx.removeStorageSync(KEYS.TASKS)
+  wx.removeStorageSync(KEYS.COINS)
+  wx.removeStorageSync(KEYS.ACHIEVEMENTS)
   wx.removeStorageSync(KEYS.SETTINGS)
   safeSet(KEYS.HABITS, [])
   safeSet(KEYS.RECORDS, {})
@@ -980,6 +1014,10 @@ module.exports = {
   deleteTask,
   setTaskEnabled,
   touchTaskRuns,
+  getCoinState,
+  saveCoinState,
+  getAchievements,
+  saveAchievements,
   getSettings,
   saveSettings,
   // 释放一张不再被引用的背景图（引用计数）。整批收掉的那个只在模块内用 ——

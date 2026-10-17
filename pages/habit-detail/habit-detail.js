@@ -20,6 +20,8 @@ const dayjs = require('../../utils/date.js')
 const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 const quotes = require('../../utils/quotes.js')
+const coins = require('../../utils/coins.js')
+const achievements = require('../../utils/achievements.js')
 
 /** 记录列表一次渲染的条数，避免超长列表卡顿 */
 const HISTORY_PAGE_SIZE = 20
@@ -35,6 +37,12 @@ Page({
     habit: null,
     /** 这个习惯排了几个定时任务，只为了卡片上那个角标 */
     taskCount: 0,
+    /** 补签的日期选择器最晚只能选到昨天 */
+    yesterday: '',
+
+    /** 金币奖励弹窗（见 components/coin-reward） */
+    coinShow: false,
+    coinAmount: 1,
 
     // 主题：themeStyle 供 page-meta 换肤，themeName 给 canvas 图表（它读不到 CSS 变量）
     themeName: theme.DEFAULT_THEME,
@@ -159,7 +167,7 @@ Page({
     }
     // 定时任务数：只为了卡片上那个角标。从 schedule 页返回时 onShow 会重走一遍
     const taskCount = storage.getTasks(habit.id).length
-    this.setData({ habit, taskCount })
+    this.setData({ habit, taskCount, yesterday: dayjs.addDays(dayjs.today(), -1) })
     this.refreshAll(done)
   },
 
@@ -361,6 +369,53 @@ Page({
     this.setData({ showCheckin: true, checkinDate: date })
   },
 
+  /**
+   * 补签：日期选择器选中后直接扣金币补上（一次完成，不再弹确认）。
+   * 金币不够只提示，不动任何数据；记录写失败要把扣掉的金币退回去。
+   */
+  onCompensateDate(e) {
+    const date = e.detail.value
+    const habit = this.data.habit
+    if (!date || !habit) return
+    if (date >= dayjs.today()) {
+      wx.showToast({ title: '只能补签过去的日子', icon: 'none' })
+      return
+    }
+    const records = this.records || storage.getRecords(habit.id)
+    if (records.some((r) => r.d === date)) {
+      wx.showToast({ title: '这天已经打过卡了', icon: 'none' })
+      return
+    }
+    if (!coins.spendForCompensation()) {
+      wx.showToast({
+        title: '金币不够（补签需 ' + coins.COMPENSATE_COST + ' 枚）',
+        icon: 'none'
+      })
+      return
+    }
+    try {
+      storage.addRecord(habit.id, date, Number(habit.step) || 1, '补签')
+    } catch (err) {
+      coins.refundCompensation()
+      this.handleStorageError(err)
+      return
+    }
+    app.bumpDataVersion()
+    this.refreshAll()
+    wx.showToast({ title: '已补签', icon: 'success' })
+    // 补上的正好是本周缺的那天、今天又是周六 —— 这一周就此凑齐，照发金币
+    const got = coins.rewardForCheckin(habit.id, dayjs.today())
+    if (got) this.setData({ coinShow: true, coinAmount: got })
+    // 「勤能补拙」就是这一笔；顺手把可能同时达成的连续 / 累计成就一起弹了
+    this.pullAchievements()
+  },
+
+  /** 让顶部那条成就提示把这一轮新解锁的弹出来 */
+  pullAchievements() {
+    const toast = this.selectComponent('#ach-toast')
+    if (toast && typeof toast.pull === 'function') toast.pull()
+  },
+
   // ---------------- 历史记录 ----------------
   /**
    * @param {Array}    [records] 已读到的记录，缺省自行读取
@@ -425,10 +480,21 @@ Page({
     this.setData({ showCheckin: false })
   },
 
-  onCheckinChange() {
+  onCheckinChange(e) {
     app.bumpDataVersion()
     this.setData({ historyShown: HISTORY_PAGE_SIZE })
     this.refreshAll()
+    // 本周最后一天的那一笔打卡会把一周凑齐，弹金币奖励（见 utils/coins.js）
+    const d = (e && e.detail) || {}
+    if (d.added) {
+      const got = coins.rewardForCheckin(this.data.habitId, d.date)
+      if (got) this.setData({ coinShow: true, coinAmount: got })
+      this.pullAchievements()
+    }
+  },
+
+  onCoinClose() {
+    this.setData({ coinShow: false })
   },
 
   onOpenEditor() {
@@ -462,6 +528,8 @@ Page({
     if (!habit) return
 
     const doDelete = () => {
+      // 必须赶在 deleteHabit 之前：记录被级联删掉之后就判断不出「坚持了多久」
+      achievements.noteHabitDeleted(habit.id)
       storage.deleteHabit(habit.id)
       app.bumpDataVersion()
       this.setData({ showEditor: false })

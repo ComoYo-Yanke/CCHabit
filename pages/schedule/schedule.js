@@ -389,6 +389,14 @@ Page({
     this.onCloseSheet()
     this.refresh()
     wx.showToast({ title: this.data.isEdit ? '已保存' : '已添加', icon: 'success' })
+    // 第一条 / 第十一条任务会解锁「全自动」「自动化时代」
+    if (!this.data.isEdit) this.pullAchievements()
+  },
+
+  /** 让顶部那条成就提示把这一轮新解锁的弹出来 */
+  pullAchievements() {
+    const toast = this.selectComponent('#ach-toast')
+    if (toast && typeof toast.pull === 'function') toast.pull()
   },
 
   // ------------------------------------------------------------------

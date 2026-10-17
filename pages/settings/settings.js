@@ -2,7 +2,7 @@
  * 个人设置 / 数据管理页
  *
  * 包含：
- *   1. 数据概览（习惯数、记录数、使用天数）
+ *   1. 数据概览（习惯数、记录数、使用天数、金币）与成就入口
  *   2. 存储管理（用量进度条 + 导出 / 导入 / 清空）
  *   3. 习惯管理（启停开关、进入详情编辑）
  *   4. 外观（浅色 / 深色 / 跟随系统）
@@ -16,6 +16,8 @@ const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 const { APP_VERSION } = require('../../utils/version.js')
 const quotes = require('../../utils/quotes.js')
+const coins = require('../../utils/coins.js')
+const achievements = require('../../utils/achievements.js')
 
 /** 导入弹层的退场过渡时长，与 app.wxss 里 .sheet 的 transform transition 保持一致 */
 const SHEET_LEAVE_MS = 260
@@ -33,6 +35,10 @@ Page({
     habitCount: 0,
     recordCount: 0,
     usedDays: 0,
+    /** 金币余额（年度重置见 utils/coins.js） */
+    coinBalance: 0,
+    /** 已解锁的成就条数（没完成的不计，也不展示） */
+    achievementCount: 0,
 
     /** 顶部那行鼓励语。初值留给 onShow 填（循环出句，先取一句会白白占掉一个位置） */
     quote: null,
@@ -93,7 +99,21 @@ Page({
     this.syncTabBar()
     // 每次切回本页翻一句（顺序是全局共用的，所以这里一定和主页那句不一样，见 utils/quotes.js）
     this.setData({ quote: quotes.next() })
-    this.refresh(() => pageFade.show(this))
+    this.refresh(() => {
+      pageFade.show(this)
+      // refresh() 里刚 evaluate 出来的新成就，赶在这一次显示里弹掉
+      this.pullAchievements()
+    })
+  },
+
+  /** 把组件里排队的成就提示叫出来（组件自己也会在页面显示时取一次，这里补的是 refresh 里新算出的那批） */
+  pullAchievements() {
+    const toast = this.selectComponent('#ach-toast')
+    if (toast && typeof toast.pull === 'function') toast.pull()
+  },
+
+  onAchievements() {
+    wx.navigateTo({ url: '/pages/achievements/achievements' })
   },
 
   /**
@@ -189,6 +209,9 @@ Page({
     const created = meta.createdAt ? dayjs.formatDate(new Date(meta.createdAt)) : dayjs.today()
     const usedDays = Math.max(1, dayjs.diffDays(created, dayjs.today()) + 1)
 
+    // 先算一遍再数：老用户第一次进这一页时，历史数据对应的成就还没落过盘
+    achievements.evaluate()
+
     this.setData({
       habits: habits.map((h) => ({
         id: h.id,
@@ -202,6 +225,8 @@ Page({
       habitCount: habits.length,
       recordCount,
       usedDays,
+      coinBalance: coins.snapshot().balance,
+      achievementCount: achievements.countCompleted(),
       usage,
       usageText: usage.currentSize + ' KB / ' + (usage.limitSize / 1024).toFixed(0) + ' MB',
       settings,
@@ -306,6 +331,7 @@ Page({
           success: (res2) => {
             if (!res2.confirm) return
             storage.clearAll()
+            achievements.reset()
             app.bumpDataVersion()
             this.refresh()
             wx.showToast({ title: '已清空', icon: 'none' })

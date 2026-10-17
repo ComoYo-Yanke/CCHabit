@@ -20,6 +20,8 @@ const pageFade = require('../../utils/page-fade.js')
 const theme = require('../../utils/theme.js')
 const version = require('../../utils/version.js')
 const quotes = require('../../utils/quotes.js')
+const coins = require('../../utils/coins.js')
+const achievements = require('../../utils/achievements.js')
 
 /** 首页合并热力图的**最少**周数；有更早的记录就一路往前铺，可以横向滑到底 */
 const OVERVIEW_MIN_WEEKS = 26
@@ -119,6 +121,12 @@ Page({
     // 合并热力图（周数在 refresh 里按最早记录算，这里先给个下限占位）
     overviewMap: {},
     overviewWeeks: OVERVIEW_MIN_WEEKS,
+
+    // 金币（年度重置见 utils/coins.js）
+    coinBalance: 0,
+    coinShow: false,
+    coinAmount: 1,
+    coinHabitName: '',
 
     // 习惯列表
     items: [],
@@ -301,13 +309,35 @@ Page({
       }
     })
 
+    const coin = coins.snapshot()
     this.setData({
       items,
       hasHabits: items.length > 0,
       overviewMap,
       overviewWeeks,
-      dateLabel: this.buildDateLabel()
+      dateLabel: this.buildDateLabel(),
+      coinBalance: coin.balance
     }, done)
+  },
+
+  // ---------------- 金币 ----------------
+
+  /** 点顶部那枚金币：说明规则。补签在习惯详情页的「补签」按钮上 */
+  onCoinTap() {
+    const s = coins.snapshot()
+    wx.showModal({
+      title: '金币',
+      content:
+        '每个习惯每凑出一个完美周（周日到周六七天全打卡），周六结算时各得 1 枚金币 —— 几个习惯同时全勤就发几枚。金币每年重置。\n\n' +
+        '当前有 ' + s.balance + ' 枚金币。\n' +
+        coins.COMPENSATE_COST + ' 枚金币可以在习惯详情页补签一次。',
+      showCancel: false
+    })
+  },
+
+  /** 领金币弹窗收下 */
+  onCoinClose() {
+    this.setData({ coinShow: false })
   },
 
   // ---------------- 更新提示 ----------------
@@ -502,6 +532,28 @@ Page({
     app.bumpDataVersion()
     this.refresh()
     wx.showToast({ title: '已打卡', icon: 'none' })
+    // 这一笔要是把本周凑成了七天全勤，弹金币奖励（见 utils/coins.js）
+    this.maybeReward(habit.id, dayjs.today())
+    this.pullAchievements()
+  },
+
+  /** 让顶部那条成就提示把这一轮新解锁的弹出来（排队在 components/achievement-toast 里） */
+  pullAchievements() {
+    const toast = this.selectComponent('#ach-toast')
+    if (toast && typeof toast.pull === 'function') toast.pull()
+  },
+
+  /** 打完卡后看看要不要发金币；发了就弹那个带特效的小窗 */
+  maybeReward(habitId, date) {
+    const got = coins.rewardForCheckin(habitId, date)
+    if (!got) return
+    const habit = storage.getHabit(habitId)
+    this.setData({
+      coinShow: true,
+      coinAmount: got,
+      coinHabitName: (habit && habit.name) || '',
+      coinBalance: coins.snapshot().balance
+    })
   },
 
   /** 长按卡片 -> 编辑 */
@@ -541,6 +593,8 @@ Page({
     this.setData({ showEditor: false, editingHabit: null })
     this.refresh()
     wx.showToast({ title: payload.id ? '已保存' : '创建成功', icon: 'success' })
+    // 习惯数可能刚跨过「档期排满」的门槛
+    if (!payload.id) this.pullAchievements()
   },
 
   /** 编辑器删除 */
@@ -548,11 +602,14 @@ Page({
     const { id, name } = e.detail
 
     const doDelete = () => {
+      // 必须赶在 deleteHabit 之前：记录被级联删掉之后就判断不出「坚持了多久」
+      achievements.noteHabitDeleted(id)
       const removed = storage.deleteHabit(id)
       app.bumpDataVersion()
       this.setData({ showEditor: false, editingHabit: null })
       this.refresh()
       wx.showToast({ title: '已删除 ' + removed + ' 条记录', icon: 'none' })
+      this.pullAchievements()
     }
 
     // 恒定二次确认，不提供开关：删习惯会级联删掉它全部打卡记录且不可恢复，
@@ -569,9 +626,12 @@ Page({
   },
 
   /** 打卡弹层数据变更后刷新首页 */
-  onCheckinChange() {
+  onCheckinChange(e) {
     app.bumpDataVersion()
     this.refresh()
+    const d = (e && e.detail) || {}
+    if (d.added && d.habitId) this.maybeReward(d.habitId, d.date)
+    if (d.added) this.pullAchievements()
   },
 
   /** 一键载入示例数据，帮助新用户快速理解应用 */
@@ -587,6 +647,7 @@ Page({
           app.bumpDataVersion()
           this.refresh()
           wx.showToast({ title: '已生成 ' + r.records + ' 条记录', icon: 'none' })
+          this.pullAchievements()
         } catch (err) {
           this.handleStorageError(err)
         }

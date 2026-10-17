@@ -37,6 +37,27 @@
         <view class="tile-value">{{usedDays}}</view>
         <view class="tile-label">使用天数</view>
       </view>
+      <!-- 金币：和首页顶部那个数是同一份（年度重置见 utils/coins.js） -->
+      <view class="tile">
+        <view class="tile-value">{{coinBalance}}</view>
+        <view class="tile-label">🪙 金币</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 成就 ============ -->
+  <!-- 入口放在数据概览下面：成就是「攒出来的东西」，和上面那四个数是一路的。
+       页面上只列已完成的，没解锁的不显示（见 pages/achievements） -->
+  <view class="section">
+    <view class="card press ach-entry" bindtap="onAchievements">
+      <view class="ach-entry-ico">🏆</view>
+      <view class="flex-1">
+        <view class="op-title">成就</view>
+        <view class="op-desc">
+          {{achievementCount ? '已解锁 ' + achievementCount + ' 项' : '打卡、加习惯，解锁你的第一枚成就'}}
+        </view>
+      </view>
+      <view class="ic ic-right-idle op-arrow"></view>
     </view>
   </view>
 
@@ -220,6 +241,9 @@
 
   <view class="list-bottom-gap"></view>
 </view>
+
+<!-- 成就解锁提示：本页也可能带着刚解锁的成就进来（见 components/achievement-toast） -->
+<achievement-toast id="ach-toast" />
 
 <!-- ============ 导入弹层 ============ -->
 <!-- mounted / active 两级状态：收起时必须 display:none，否则这里的 textarea

@@ -5,7 +5,9 @@
     "heatmap": "../../components/heatmap/index",
     "habit-editor": "../../components/habit-editor/index",
     "checkin-sheet": "../../components/checkin-sheet/index",
-    "qiun-charts": "../../components/qiun-charts/index"
+    "qiun-charts": "../../components/qiun-charts/index",
+    "coin-reward": "../../components/coin-reward/index",
+    "achievement-toast": "../../components/achievement-toast/index"
   },
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,

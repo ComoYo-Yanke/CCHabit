@@ -26,6 +26,7 @@
 
 const dayjs = require('./date.js')
 const storage = require('./storage.js')
+const coins = require('./coins.js')
 
 /** 一次最多补记几个触发点（不是记录条数 —— 一条任务一次触发还要乘 count） */
 const MAX_CATCHUP = 30
@@ -133,6 +134,9 @@ function runDueTasks(now) {
         // 那一周会被当成「错过的触发点」一次性补回来
         return Object.assign({}, task, { lastRunAt: at, lastFiredAt: firedAt })
       })
+      // 自动打卡也可能把当周凑成七天全勤（周六那一笔）。照样发金币，
+      // 只是这里没有页面可以弹窗，用户下次进首页就能看到余额变了
+      coins.rewardForCheckin(habitId, dayjs.today())
       dirty = true
     } catch (e) {
       // 多半是配额满了。已经补进去的留着，剩下的这一轮作罢 ——

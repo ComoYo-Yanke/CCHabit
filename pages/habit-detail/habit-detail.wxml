@@ -9,7 +9,7 @@
   深色默认值，整页随之换肤（见 utils/theme.js）。page-style 是整体覆盖，
   所以弹层的 overflow 必须自己拼在后面。
 -->
-<page-meta page-style="{{themeStyle}}{{(showCheckin || showEditor) ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{themeStyle}}{{(showCheckin || showEditor || coinShow) ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <nav-bar title="{{habit.name}}" back="{{true}}" fixed="{{true}}" scrolled="{{scrolled}}">
   <view slot="right" class="nav-action press" bindtap="onOpenEditor">
@@ -68,6 +68,11 @@
           立即打卡
         </view>
         <view class="btn btn--ghost hd-edit" bindtap="onOpenEditor">编辑</view>
+        <!-- 补签：点一下直接弹日期选择器（最晚到昨天）。选中即扣 5 枚金币补上，
+             金币不够只提示、不动数据。用的是原生 picker，没有中间确认框 -->
+        <picker class="hd-comp-picker" mode="date" end="{{yesterday}}" bindchange="onCompensateDate">
+          <view class="btn btn--ghost hd-comp">补签</view>
+        </picker>
       </view>
     </view>
   </view>
@@ -291,3 +296,14 @@
   bind:submit="onSubmitHabit"
   bind:delete="onDeleteHabit"
 />
+
+<!-- 完美一周的金币奖励（带一点小特效，见 components/coin-reward） -->
+<coin-reward
+  show="{{coinShow}}"
+  amount="{{coinAmount}}"
+  habit-name="{{habit.name}}"
+  bind:close="onCoinClose"
+/>
+
+<!-- 成就解锁提示：固定在最上方，页面显示时自己取一次待弹队列（见 components/achievement-toast） -->
+<achievement-toast id="ach-toast" />

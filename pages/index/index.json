@@ -5,7 +5,9 @@
     "habit-card": "../../components/habit-card/index",
     "habit-editor": "../../components/habit-editor/index",
     "checkin-sheet": "../../components/checkin-sheet/index",
-    "empty-state": "../../components/empty-state/index"
+    "empty-state": "../../components/empty-state/index",
+    "coin-reward": "../../components/coin-reward/index",
+    "achievement-toast": "../../components/achievement-toast/index"
   },
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,

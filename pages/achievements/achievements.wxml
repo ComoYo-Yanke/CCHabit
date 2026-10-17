@@ -1,0 +1,54 @@
+<page-meta page-style="{{themeStyle}}"></page-meta>
+
+<nav-bar title="成就" back="{{true}}" fixed="{{true}}" />
+
+<view class="page page--no-tabbar page--fade {{fading ? 'page--out' : ''}}">
+  <app-bg theme-name="{{themeName}}" />
+
+  <view class="quote-line ellipsis">{{quote.text}} · {{quote.author}}</view>
+
+  <!-- 顶部小计：没完成的成就不列出来，这里只报「已经拿到几条」 -->
+  <view class="section">
+    <view class="card ach-hero">
+      <view class="ach-hero-ico">🏆</view>
+      <view class="ach-hero-body">
+        <view class="ach-hero-num">{{doneCount}}</view>
+        <view class="ach-hero-label">已解锁成就</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 已完成的成就 ============ -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">我的成就</text>
+      <text class="section-sub">{{doneCount ? '共 ' + doneCount + ' 条' : ''}}</text>
+    </view>
+
+    <view wx:if="{{!doneCount}}" class="card">
+      <view class="empty" style="padding: 50rpx 0;">
+        <view class="empty-title">还没有解锁成就</view>
+        <view class="empty-desc">去打个卡、加个习惯，这里就会亮起来</view>
+      </view>
+    </view>
+
+    <block wx:else>
+      <view wx:for="{{list}}" wx:key="key" class="card ach-item">
+        <view class="ach-item-ico">{{item.icon}}</view>
+        <view class="ach-item-body">
+          <view class="ach-item-top">
+            <text class="ach-item-name ellipsis">{{item.name}}</text>
+            <text class="ach-item-count" wx:if="{{item.count > 1}}">×{{item.count}}</text>
+          </view>
+          <view class="ach-item-desc">{{item.desc}}</view>
+          <view class="ach-item-date">首次完成 · {{item.dateText}}</view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="ach-bottom"></view>
+</view>
+
+<!-- 本页也可能带着刚解锁的成就进来（比如刚补完签直接过来），统一在顶部弹 -->
+<achievement-toast id="ach-toast" />

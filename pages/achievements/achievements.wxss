@@ -1,0 +1,104 @@
+/* 顶部小计 */
+.ach-hero {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.ach-hero-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104rpx;
+  height: 104rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 52rpx;
+  line-height: 1;
+  background: var(--glass-soft);
+  box-shadow: inset 0 0 0 1rpx var(--glass-edge);
+}
+
+.ach-hero-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ach-hero-num {
+  font-size: 52rpx;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ach-hero-label {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--text-2);
+}
+
+/* 一条成就 */
+.ach-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 22rpx;
+}
+
+.ach-item-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88rpx;
+  height: 88rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 44rpx;
+  line-height: 1;
+  background: var(--glass-soft);
+  box-shadow: inset 0 0 0 1rpx var(--glass-edge);
+}
+
+.ach-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ach-item-top {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.ach-item-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* 次数：同一条成就反复达成时才有 */
+.ach-item-count {
+  flex-shrink: 0;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 21rpx;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ach-item-desc {
+  margin-top: 6rpx;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.ach-item-date {
+  margin-top: 10rpx;
+  font-size: 21rpx;
+  color: var(--text-3);
+}
+
+.ach-bottom {
+  height: 40rpx;
+}
